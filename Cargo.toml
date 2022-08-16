@@ -1,0 +1,19 @@
+[package]
+name = "riichi"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitfield-struct = "0.1.7"
+derive_more = "0.99"
+guard = "0.5"
+num_enum = "0.5.7"
+num-traits = "0.2"
+itertools = "0.10.3"
+thiserror = "1.0"
+ux = "0.1.5"
+
+[dev-dependencies]
+assert2 = "0.3"
