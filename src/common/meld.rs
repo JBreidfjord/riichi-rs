@@ -4,16 +4,12 @@
 //!
 //! ## Ref
 //!
-//! - https://riichi.wiki/Naki
-//! - https://ja.wikipedia.org/wiki/%E5%89%AF%E9%9C%B2
+//! - <https://riichi.wiki/Naki>
+//! - <https://ja.wikipedia.org/wiki/%E5%89%AF%E9%9C%B2>
 
-use std::fmt::{Debug, Display, Formatter};
+use derive_more::{Display};
 
-use derive_more::{Constructor, Display, From, Into};
-
-use crate::common::tile::Tile;
 use crate::common::typedefs::*;
-use crate::common::utils::*;
 
 mod chii;
 mod pon;
@@ -42,6 +38,18 @@ pub enum Meld {
 mod test {
     use super::*;
     // use assert2::check;
+
+    #[test]
+    fn chii_example() {
+        let chii = Chii::from_tiles(
+            "4s".parse().unwrap(),
+            "6s".parse().unwrap(),
+            "0s".parse().unwrap()).unwrap();
+        let meld = Meld::Chii(chii);
+        assert_eq!(Meld::from_packed(0x0155), Some(meld));
+        assert_eq!(meld.packed(), 0x0155);
+        assert_eq!(chii.to_string(), "C046s");
+    }
 
     #[test]
     fn pon_example() {

@@ -49,6 +49,21 @@ pub enum ReactionError {
 
     #[error("Tile {0} does not exist in the closed hand.")]
     TileNotExist(Tile),
+
+    #[error("You can only call a discarded tile (is actually {0:?})")]
+    NotDiscard(Action),
+
+    #[error("Can only Chii on the previous player's discard.")]
+    CanOnlyChiiPrevPlayer,
+
+    #[error("Cannot Chii {2} with own {0}{1}.")]
+    InvalidChii(Tile, Tile, Tile),
+
+    #[error("Cannot Pon {2} with own {0}{1}.")]
+    InvalidPon(Tile, Tile, Tile),
+
+    #[error("Cannot Daiminkan.")]
+    InvalidDaiminkan,
 }
 
 pub struct Engine {
@@ -167,7 +182,6 @@ impl Engine {
     fn check_reaction(&mut self,
                       reactor: Player,
                       reaction: Reaction) -> Result<(), ReactionError> {
-        use Reaction::*;
         use ReactionError::*;
 
         let s = &self.s;
@@ -175,19 +189,59 @@ impl Engine {
         let p = s.action_player;
         let p_hand = &self.hand_after_action;
         let q = reactor;
-        let q_hand = &s.closed_hands[q.to_usize()];
+        // reactor's hand (copy to make presence test easier)
+        let mut q_hand = s.closed_hands[q.to_usize()];
 
         match reaction {
-            Chii(tile1, tile2) => {
-                if q_hand[tile1] == 0 { return Err(TileNotExist(tile1)); }
-                if q_hand[tile2] == 0 { return Err(TileNotExist(tile2)); }
+            Reaction::Chii(own0, own1) => {
+                if q_hand[own0] == 0 { return Err(TileNotExist(own0)); }
+                q_hand[own0] -= 1;
+                if q_hand[own1] == 0 { return Err(TileNotExist(own1)); }
+                q_hand[own1] -= 1;
+                if p.wrapping_add(Player::new(1)) != q {
+                    return Err(CanOnlyChiiPrevPlayer);
+                }
+                if let Action::Discard{ tile: called, .. } = action {
+                    if let Some(chii) = Chii::from_tiles(own0, own1, called) {
+                        // TODO(summivox): maybe cache
+                    } else { return Err(InvalidChii(own0, own1, called)); }
+                } else { return Err(NotDiscard(action)); }
             }
-            Pon(tile1, tile2) => {
+            Reaction::Pon(own0, own1) => {
+                if q_hand[own0] == 0 { return Err(TileNotExist(own0)); }
+                q_hand[own0] -= 1;
+                if q_hand[own1] == 0 { return Err(TileNotExist(own1)); }
+                q_hand[own1] -= 1;
+                if let Action::Discard{ tile: called, .. } = action {
+                    if let Some(pon) = Pon::from_tiles_dir(
+                        own0, own1, called,
+                        p.wrapping_sub(q)) {
+                        // TODO(summivox): maybe cache
+                    } else { return Err(InvalidPon(own0, own1, called)); }
+                } else { return Err(NotDiscard(action)); }
             }
-            Daiminkan => {
-            }
-            RonAgari => {
+            Reaction::Daiminkan => {
+                if let Action::Discard{ tile: called, .. } = action {
+                    let t = called.to_normal();
+                    // recover count of both normal and red from reactor's hand
+                    let n_normal = q_hand[t] as usize;
+                    let n_red = if t.num() == 5 { q_hand[t.to_red()] as usize } else {0};
+                    let n = n_normal + n_red;
+                    if n != 3 { return Err(TileNotExist(called.to_normal())); }
+                    // color the correct # of reds
+                    let mut own = [t, t, t];
+                    for i in 0..n_red { own[i] = t.to_red(); }
 
+                    if let Some(pon) = Daiminkan::from_tiles_dir(
+                        own[0], own[1], own[2], called,
+                        p.wrapping_sub(q)) {
+                        // TODO(summivox): maybe cache
+                    } else { return Err(InvalidDaiminkan); }
+                } else { return Err(NotDiscard(action)); }
+            }
+            Reaction::RonAgari => {
+                // TODO(summivox): all kinds of fun stuff here:
+                // furiten, agari, chankan, kokushi-ankan, ...
             }
         }
         Ok(())

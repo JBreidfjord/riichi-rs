@@ -48,7 +48,7 @@ impl TryFrom<PackedMeld> for Pon {
         if raw.kind() != PackedMeldKind::Pon.into() { return Err(()); }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut called) = (t, t, t);
-        let (r0, r1, r2, r3) = unpack4(normalize_pon(raw.red()));
+        let (r0, r1, r2, _) = unpack4(normalize_pon(raw.red()));
         if r0 { own0 = own0.to_red(); }
         if r1 { own1 = own1.to_red(); }
         if r2 { called = called.to_red(); }

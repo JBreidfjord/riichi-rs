@@ -1,5 +1,3 @@
-use std::fmt::{Display, Formatter};
-
 use bitfield_struct::bitfield;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -145,7 +143,6 @@ const MASK_PON_KAKAN: u64 = normalize_mask(2);
 const MASK_DAIMINKAN: u64 = normalize_mask(3);
 const MASK_ANKAN: u64 = normalize_mask(4);
 
-pub const fn normalize_chii(x: u8) -> u8 { (x > 0) as u8 }
 pub const fn normalize_pon(x: u8) -> u8 { ((MASK_PON_KAKAN >> (x * 4)) & 0b0111) as u8 }
 pub const fn normalize_kakan(x: u8) -> u8 { ((MASK_PON_KAKAN >> (x * 4)) & 0b1111) as u8 }
 pub const fn normalize_daiminkan(x: u8) -> u8 { ((MASK_DAIMINKAN >> (x * 4)) & 0b1111) as u8 }

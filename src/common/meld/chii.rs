@@ -1,9 +1,8 @@
 use std::fmt::{Display, Formatter};
 
 use crate::common::tile::Tile;
-use crate::common::typedefs::*;
 use crate::common::utils::*;
-use super::packed::{PackedMeld, PackedMeldKind, normalize_chii};
+use super::packed::{PackedMeld, PackedMeldKind};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
