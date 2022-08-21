@@ -43,7 +43,7 @@ impl PackedMeld {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
-pub enum PackedMeldKind {
+pub(crate) enum PackedMeldKind {
     Chii = 0,
     Pon = 1,
     Kakan = 2,

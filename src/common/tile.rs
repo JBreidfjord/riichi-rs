@@ -4,8 +4,8 @@
 //!
 //! ## References
 //!
-//! - https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C
-//! - https://en.wikipedia.org/wiki/Mahjong_tiles
+//! - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C>
+//! - <https://en.wikipedia.org/wiki/Mahjong_tiles>
 //!
 
 use std::cmp::Ordering;
@@ -166,7 +166,7 @@ impl Tile {
     /// Given this tile as the dora-indicator (ドラ表示牌), returns the indicated dora tile (ドラ).
     ///
     /// Ref:
-    /// - https://ja.wikipedia.org/wiki/%E3%83%89%E3%83%A9_(%E9%BA%BB%E9%9B%80)
+    /// - <https://ja.wikipedia.org/wiki/%E3%83%89%E3%83%A9_(%E9%BA%BB%E9%9B%80)>
     pub const fn indicated_dora(self) -> Self {
         debug_assert!(self.is_valid());
         Self([

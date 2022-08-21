@@ -1,4 +1,4 @@
-//! The wall of tiles
+//! The wall of tiles.
 //!
 //! ```ascii_art
 //!                          _______________      ______________
@@ -35,20 +35,27 @@
 //!     (figure: 0, 1, 2, ..., 133, 134, 135 on top/bottom)
 //! 2.  haipai: first 13*4 tiles from wall
 //! 3.  doraHyouji/uraDoraHyouji:
-//!     [0] => original (ura-)dora hyoujihai {motodora}
-//!     [1] => 1st (ura-)kan-dora hyoujihai
-//!     [2] => 2nd ...
+//!     `[0]` => original (ura-)dora hyoujihai {motodora}
+//!     `[1]` => 1st (ura-)kan-dora hyoujihai
+//!     `[2]` => 2nd ...
 //!
 //! Ref:
-//! - https://ja.wikipedia.org/wiki/%E9%85%8D%E7%89%8C
-//! - https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C
-//! - https://riichi.wiki/Yama
+//! - <https://ja.wikipedia.org/wiki/%E9%85%8D%E7%89%8C>
+//! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
+//! - <https://riichi.wiki/Yama>
 
 use crate::{Player, Tile};
 use crate::common::tile_set::TileSet37;
 
+/// The wall of tiles.
+/// See [module-level docs](self).
 pub type Wall = [Tile; 136];
+
+/// Constructor for an obviously invalid wall. Useful for mutating it later.
 pub const fn make_dummy_wall() -> Wall { [Tile::MIN; 136] }
+
+/// Make a sorted wall of the standard 136-tile set, including specified number of red-5's for each
+/// (numeral) suit.
 pub fn make_sorted_wall(num_reds: [u8; 3]) -> Wall {
     let mut wall = [Tile::MIN; 136];
     for encoding in 0u8..34u8 {
@@ -81,6 +88,8 @@ pub const DORA_INDICATOR_INDEX: [usize; 5] = [130, 128, 126, 124, 122];
 pub const URA_DORA_INDICATOR_INDEX: [usize; 5] = [131, 129, 127, 125, 123];
 pub const KAN_DRAW_INDEX: [usize; 4] = [134, 135, 132, 133];
 
+/// Draw the initial 13 tiles for each of the 4 players, according to standard rules.
+/// See [module-level docs](self).
 pub fn deal(wall: &[Tile; 136], button: Player) -> [TileSet37; 4] {
     let mut hists = [TileSet37::default(); 4];
     for i in 0..4 {

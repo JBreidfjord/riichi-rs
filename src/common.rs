@@ -1,3 +1,5 @@
+//! Common types and utils; mostly basic building blocks of the game.
+
 pub mod hand_group;
 pub mod meld;
 pub mod tile;

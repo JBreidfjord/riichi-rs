@@ -1,5 +1,3 @@
-#[macro_use] extern crate guard;
-
 pub mod analysis;
 pub mod common;
 pub mod engine;

@@ -1,7 +1,7 @@
-//! Data structure for representing the game, partitioned into:
-//! - Environment State
-//! - State Observation
-//! - Action
+//! State-Action representation of the game.
+//!
+//! This module mainly provides data model definitions and some straightforward helpers.
+//! Game logic belongs to [`crate::engine`].
 
 use crate::common::tile_set::TileSet37;
 use crate::common::typedefs::*;
@@ -16,9 +16,9 @@ trait PartiallyObservable {
 /// Kyoku-Honba (局-本場) pair that identifies a round in a game.
 ///
 /// Ref:
-/// - https://riichi.wiki/Kyoku
-/// - https://riichi.wiki/Honba
-/// - https://ja.wikipedia.org/wiki/%E9%80%A3%E8%8D%98
+/// - <https://riichi.wiki/Kyoku>
+/// - <https://riichi.wiki/Honba>
+/// - <https://ja.wikipedia.org/wiki/%E9%80%A3%E8%8D%98>
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 pub struct RoundId {
     /// Index of the wind-round (局), enumerated in combination with the prevailing wind:
@@ -84,7 +84,7 @@ pub struct RoundBeginState {
     /// Commonly 1000-pt sticks from riichi.
     ///
     /// Ref:
-    /// - https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E3%81%AE%E7%82%B9#%E4%BE%9B%E8%A8%97
+    /// - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E3%81%AE%E7%82%B9#%E4%BE%9B%E8%A8%97>
     pub pot: GamePoints,
 
     /// Points for each player.
