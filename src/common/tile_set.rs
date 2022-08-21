@@ -6,7 +6,7 @@ use derive_more::{Constructor, From, Into, Index, IndexMut};
 
 use crate::Tile;
 
-/// Histogram for all tiles (including red)
+/// Histogram for all 37 kinds of tiles (including red)
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, Index, IndexMut)]
 pub struct TileSet37([u8; 37]);
 
@@ -50,7 +50,7 @@ impl TileSet37 {
     }
 }
 
-/// Histogram for normal tiles (reds are folded into normal)
+/// Histogram for all 34 kinds of normal tiles (red 5's are treated as normal 5's)
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, Index, IndexMut)]
 pub struct TileSet34([u8; 34]);
 
@@ -93,7 +93,7 @@ impl From<&[Tile]> for TileSet34 {
 }
 
 impl TileSet34 {
-    fn to_sorted_vec(&self) -> Vec<Tile> {
+    pub fn to_sorted_vec(&self) -> Vec<Tile> {
         let mut tiles: Vec<Tile> = vec![];
         tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
         for (encoding, count) in self.0.into_iter().enumerate() {
@@ -102,6 +102,20 @@ impl TileSet34 {
             }
         }
         tiles
+    }
+
+    /// Compress the histogram so that each element takes 3 bits (valid range `0..=4`).
+    /// This results in 4 x 27-bit integers, one for each suit.
+    ///
+    /// Conveniently this is 1 digit per element in octal.
+    pub fn packed(&self) -> [u32; 4] {
+        let mut packed = [0u32; 4];
+        let h = &self.0;
+        for i in (0..34).rev() {
+            let s = i / 9;
+            packed[s] = (packed[s] << 3) | (h[i] as u32);
+        }
+        packed
     }
 }
 
@@ -137,5 +151,16 @@ mod tests {
             0, 0, 0, 0, 0, 3, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0,
         ].into());
+    }
+
+    #[test]
+    fn ts34_packs_correctly() {
+        let mut h = TileSet34::from(&tiles_from_str("147m258p369s77z")[..]);
+        assert_eq!(h.packed(), [
+            0o001001001,
+            0o010010010,
+            0o100100100,
+            0o2000000,
+        ]);
     }
 }
