@@ -60,7 +60,7 @@ mod test {
             Player::new(2)).unwrap();
         let meld = Meld::Pon(pon);
         assert_eq!(Meld::from_packed(0x158D), Some(meld));
-        assert_eq!(meld.packed(), 0x158Du16);
+        assert_eq!(meld.packed(), 0x158D);
         assert_eq!(pon.to_string(), "0P05p");
     }
 }

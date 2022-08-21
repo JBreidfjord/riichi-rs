@@ -6,10 +6,15 @@ use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_kakan};
 use super::Pon;
 
+/// A Kan formed by existing [Pon](super::Pon) + the 1 last identical tile from closed hand
+/// (加槓 / 小明槓). This can be formed when the owner of the [Pon](super::Pon) is in action.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Kakan {
+    /// The original Pon.
     pub pon: Pon,
+
+    /// The extra tile from the player's closed hand.
     pub added: Tile,
 }
 

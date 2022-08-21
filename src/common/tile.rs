@@ -12,7 +12,9 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-/// Represents one tile. Internally encoded as a small integer.
+/// Represents one tile.
+///
+/// This is encoded as a 6-bit integer:
 ///
 /// | Encoding   |  Shorthand  | Category (EN) | Category (JP) |
 /// |------------|-------------|---------------|---------------|
@@ -23,6 +25,7 @@ use std::str::FromStr;
 /// | 31, 32, 33 |  5z, 6z, 7z | dragons       | 三元牌        |
 /// | 34, 35, 36 |  0m, 0p, 0s | reds          | 赤牌          |
 ///
+/// Note that only red 5's can be represented.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Tile(u8);
 

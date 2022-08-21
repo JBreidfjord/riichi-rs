@@ -4,6 +4,10 @@ use crate::common::tile::Tile;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_ankan};
 
+/// Closed Kan, formed by setting aside 4 tiles of the same kind in a player's closed hand (暗槓).
+/// This can be done during this player's own turn.
+///
+/// Declaring Ankan does not _technically_ open one's hand, although it _is_ revealed to others.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Ankan {

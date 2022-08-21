@@ -4,11 +4,18 @@ use crate::common::typedefs::*;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_pon};
 
+/// An open group of 3 identical (ignoring red) tiles (ポン / 明刻).
+/// May be called from any other player's discard.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Pon {
+    /// The calling player's own 2 tiles.
     pub own: [Tile; 2],
+
+    /// The called tile.
     pub called: Tile,
+
+    /// (discarding player - self) mod 4
     pub dir: Player,
 }
 

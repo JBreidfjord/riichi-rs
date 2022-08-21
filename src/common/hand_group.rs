@@ -7,12 +7,20 @@
 use std::fmt::{Display, Formatter};
 use crate::Tile;
 
-/// 面子 A group of 3 tiles within a player's closed hand.
+/// A group of 3 tiles within a player's _closed_ hand, a.k.a. Mentsu 面子.
+/// Can be either:
+/// - Koutsu (暗)刻子: 3 of a kind (ignoring red); e.g. `222z`, `055m`
+/// - Shuntsu (暗)順子: 3 consecutives (ignoring red); e.g. `789m`, `406s`
 ///
-/// This is encoded as a 6-bit integer (the same size as a Tile!), with 2 fields:
-/// - `[3:0]`: `[111, 123, 222, 234, 333, 345, 444, 456, 555, 567, 666, 678, 777, 789, 888, 999]`
-///   Basically: 
+/// These are like [`crate::Chii`] and [`crate::Pon`] respectively except concealed.
+///
+/// It can be encoded as a 6-bit integer (the same size as a [`Tile`]!), with 2 bitfields:
+/// - `[3:0]`: `[111, 123, 222, 234, 333, 345, 444, 456, 555, 567, 666, 678, 777, 789, 888, 999]`.
+///   Basically with `999` shifting 1 place to occupy the encoding for `89A` (invalid).
+///   For suit 3 (honors), `123`, `234`, ..., `789`, `888`, `999` are all invalid.
+///
 /// - `[5:4]`: suit (0/1/2/3 = m/p/s/z)
+///
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum HandGroup {
     Koutsu(Tile),
@@ -80,7 +88,7 @@ mod tests {
     use assert2::check;
     
     #[test]
-    fn validate_all_hand_groups() {
+    fn all_hand_groups_are_correctly_encoded() {
         let t = |enc| Tile::from_encoding(enc).unwrap();
         let k = |x| Some(HandGroup::Koutsu(t(x)));
         let s = |x| Some(HandGroup::Shuntsu(t(x)));

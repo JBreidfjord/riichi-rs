@@ -4,11 +4,18 @@ use crate::common::tile::Tile;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind};
 
+/// An open group of 3 consecutive tiles (チー / 明順).
+/// The called tile may only come from the previous player's discard.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Chii {
+    /// The calling player's own 2 tiles.
     pub own: [Tile; 2],
+
+    /// The called tile.
     pub called: Tile,
+
+    /// Smallest tile (ignoring red) in the group.
     pub min: Tile,
 }
 

@@ -5,11 +5,18 @@ use crate::common::typedefs::*;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_daiminkan};
 
+/// "Big Open Kan" formed by calling 1 with 3 of the same kind in the closed hand (大明槓).
+/// Similar to [Pon](super::Pon), may be called from any other player's discard.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Daiminkan {
+    /// The calling player's own 3 tiles.
     pub own: [Tile; 3],
+
+    /// The called tile.
     pub called: Tile,
+
+    /// (discarding player - self) mod 4
     pub dir: Player,
 }
 
