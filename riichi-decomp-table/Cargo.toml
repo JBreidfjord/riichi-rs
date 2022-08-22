@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+derive_more = "0.99"
 itertools = "0.10"
 num_enum = "0.5"
 phf = "0.11"
@@ -13,3 +14,4 @@ phf_codegen = "0.11"
 rustc-hash = "1"
 
 [dev-dependencies]
+once_cell = "1"

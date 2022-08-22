@@ -1,10 +1,92 @@
-
 use num_enum::{TryFromPrimitive, IntoPrimitive};
 use rustc_hash::FxHashMap as HashMap;
 
-use super::utils::*;
+use crate::utils::*;
+use details::*;
 
-#[derive(Copy, Clone, Debug, TryFromPrimitive, IntoPrimitive)]
+/*
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct WEntry {
+    pub big: u64,
+    pub tenpai_type: u8,
+    pub tenpai_num: u8,
+    pub anchor_num: u8,
+    pub has_pair: bool,
+}
+// pub type WTable = HashMap<u32, Vec<WEntry>>;
+ */
+
+pub type WTable = HashMap<u32, u64>;
+pub type WTableStatic = phf::Map<u32, u64>;
+
+/// Since the WTable is statically determinable, we can check its number of keys to make sure that
+/// we have generated the correct table.
+pub const W_TABLE_NUM_KEYS: usize = 66913;
+
+pub fn make_w_table(c_table: &super::c_table::CTable) -> WTable {
+    let mut w_table = WTable::with_capacity_and_hasher(
+        W_TABLE_NUM_KEYS, Default::default());
+    for (&key, &value) in c_table.iter() {
+        make_waiting_for_c_entry(&mut w_table, key, value);
+    }
+    w_table
+}
+
+fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
+    let num_tiles = key_sum(key);
+    let mid_len = num_tiles / 3;
+    let has_pair = (num_tiles % 3) == 2;
+
+    let mut push = |new_key, pos: i8, tenpai_type: TenpaiType, _has_pair: bool| {
+        let x = w_table.entry(new_key).or_default();
+        *x = w_push(*x, pos, tenpai_type);
+    };
+
+    if !has_pair {
+        for pos in 0..=8 {
+            if let Some(new_key) = check_pattern(key, 0o1, pos, 0) {
+                push(new_key, pos, TenpaiType::Tanki, true);
+            }
+        }
+    }
+    if mid_len <= 3 {
+        // only 3 or less mentsu in complete part
+        // try add mentsu-based tenpai pattern
+        for pos in 0..=8 {
+            if let Some(new_key) = check_pattern(key, 0o2, pos, 0) {
+                push(new_key, pos, TenpaiType::Shanpon, has_pair);
+            }
+        }
+        for pos in 0..=6 {
+            if let Some(new_key) = check_pattern(key, 0o101, pos, 1) {
+                push(new_key, pos, TenpaiType::Kanchan, has_pair);
+            }
+        }
+        for pos in 0..=7 {
+            let key_low = check_pattern(key, 0o11, pos, -1);
+            let key_high = check_pattern(key, 0o11, pos, 2);
+            if key_low.is_some() && key_high.is_some() {
+                push(key_low.unwrap(), pos, TenpaiType::RyanmenBoth, has_pair);
+            } else if let Some(key) = key_low {
+                push(key, pos, TenpaiType::RyanmenLow, has_pair);
+            } else if let Some(key) = key_high {
+                push(key, pos, TenpaiType::RyanmenHigh, has_pair);
+            }
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct WaitingPattern {
+    pub complete_key: u32,
+    pub tenpai_type: TenpaiType,
+    pub pattern_pos: u8,
+}
+
+impl WaitingPattern {
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum TenpaiType {
     #[num_enum(default)]
@@ -16,80 +98,61 @@ pub enum TenpaiType {
     RyanmenBoth, // e.g. 34m wait 2m/5m
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct WEntry {
-    pub big: u64,
-    pub tenpai_type: u8,
-    pub tenpai_num: u8,
-    pub anchor_num: u8,
-    pub has_pair: bool,
+pub fn w_entry_iter(key: u32, value: u64) -> impl Iterator<Item = WaitingPattern> {
+    WaitingPatternIterator { key, value }
 }
 
-// pub type WTable = HashMap<u32, Vec<WEntry>>;
-pub type WTable = HashMap<u32, u64>;
-pub const W_TABLE_NUM_KEYS: usize = 66913;
-
-pub fn make_w_table(c_table: &super::c_table::CTable) -> WTable {
-    let mut w_table = WTable::with_capacity_and_hasher(W_TABLE_NUM_KEYS, Default::default());
-    for (&key, &big) in c_table.iter() {
-        make_waiting_for_c_entry(&mut w_table, key, big);
-    }
-    w_table
+struct WaitingPatternIterator {
+    key: u32,
+    value: u64,
 }
 
-pub fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _big: u64) {
+impl Iterator for WaitingPatternIterator {
+    type Item = WaitingPattern;
 
-    let num_tiles = key_sum(key);
-    let mid_len = num_tiles / 3;
-    let has_pair = (num_tiles % 3) == 2;
+    fn next(&mut self) -> Option<Self::Item> {
+        use TenpaiType::*;
 
-    let mut push = |new_key, i: i8, tenpai_type: TenpaiType, _has_pair: bool| {
-        let x = w_table.entry(new_key).or_default();
-        *x = x.checked_mul(56).unwrap() + ((i as u8 + 1 + 9 * u8::from(tenpai_type)) as u64);
-    };
-
-    if !has_pair {
-        for i in 0..=8 {
-            if let Some(new_key) = check_pattern(key, 0o1, i, 0) {
-                push(new_key, i, TenpaiType::Tanki, true);
-            }
-        }
-    }
-    if mid_len <= 3 {
-        // only 3 or less mentsu in complete part
-        // try add mentsu-based tenpai pattern
-        for i in 0..=8 {
-            if let Some(new_key) = check_pattern(key, 0o2, i, 0) {
-                push(new_key, i, TenpaiType::Shanpon, has_pair);
-            }
-        }
-        for i in 0..=6 {
-            if let Some(new_key) = check_pattern(key, 0o101, i, 1) {
-                push(new_key, i, TenpaiType::Kanchan, has_pair);
-            }
-        }
-        for i in 0..=7 {
-            let key_low = check_pattern(key, 0o11, i, -1);
-            let key_high = check_pattern(key, 0o11, i, 2);
-            if key_low.is_some() && key_high.is_some() {
-                push(key_low.unwrap(), i, TenpaiType::RyanmenBoth, has_pair);
-            } else if let Some(key) = key_low {
-                push(key, i, TenpaiType::RyanmenLow, has_pair);
-            } else if let Some(key) = key_high {
-                push(key, i, TenpaiType::RyanmenHigh, has_pair);
-            }
-        }
+        let (new_value, pos, tenpai_type) = w_pop(self.value)?;
+        let pattern = match tenpai_type {
+            Tanki => 0o1,
+            Shanpon => 0o2,
+            Kanchan => 0o101,
+            RyanmenHigh | RyanmenLow | RyanmenBoth => 0o11,
+        };
+        let complete_key = self.key - (pattern << ((pos as u32) * 3));
+        self.value = new_value;
+        Some(WaitingPattern{
+            complete_key,
+            tenpai_type,
+            pattern_pos: pos,
+        })
     }
 }
 
-fn check_pattern(key: u32, pat: u8, pat_pos: i8, tenpai_offset: i8) -> Option<u32> {
-    let new_key = key + ((pat as u32) << ((pat_pos as u32) * 3));
-    let tenpai = pat_pos + tenpai_offset;
-    if (0 <= tenpai && tenpai <= 8) &&
-        !key_is_overflow(new_key) &&
-        ((new_key >> ((tenpai as u32) * 3)) & 0o7) < 4 {
-        Some(new_key)
-    } else {
-        None
+pub(crate) mod details {
+    use crate::utils::*;
+    use super::*;
+
+    pub fn check_pattern(key: u32, pattern: u8, pos: i8, tenpai_offset: i8) -> Option<u32> {
+        let new_key = key + ((pattern as u32) << ((pos as u32) * 3));
+        let tenpai = pos + tenpai_offset;
+        if (0 <= tenpai && tenpai <= 8) &&
+            !key_is_overflow(new_key) &&
+            ((new_key >> ((tenpai as u32) * 3)) & 0o7) < 4 {
+            Some(new_key)
+        } else {
+            None
+        }
+    }
+
+    pub fn w_push(w: u64, pos: i8, tenpai_type: TenpaiType) -> u64 {
+        w.checked_mul(56).unwrap() + (((pos as u8) + 1 + 9 * u8::from(tenpai_type)) as u64)
+    }
+
+    pub fn w_pop(w: u64) -> Option<(u64, u8, TenpaiType)> {
+        if w == 0 { return None; }
+        let x = ((w % 56) as u8) - 1;
+        Some((w / 56, x % 9, TenpaiType::try_from(x / 9).unwrap()))
     }
 }

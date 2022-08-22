@@ -1,10 +1,33 @@
 use std::fs::File;
 use std::io;
 use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use itertools::Itertools;
 
 use riichi_decomp_table::*;
+
+pub fn table_to_string(table: &CTable) -> String {
+    const GROUP_STR: [&'static str; 16] = [
+        ",10", ",00", ",11", ",01", ",12", ",02", ",13", ",03",
+        ",14", ",04", ",15", ",05", ",16", ",06", ",17", ",18",
+    ];
+    let mut lines: Vec<String> = vec![];
+    for (&key, &value) in table.iter() {
+        for grouping in c_entry_iter(key, value) {
+            let mid_str = grouping.groups()
+                .map(|ks| GROUP_STR[ks as usize])
+                .sorted()
+                .join("");
+            if let Some(pair) = grouping.pair {
+                lines.push(format!("{:09o}{},2{}", key, mid_str, pair));
+            } else {
+                lines.push(format!("{:09o}{}", key, mid_str));
+            }
+        }
+    }
+    lines.sort();
+    lines.join("\n")
+}
 
 fn main() -> io::Result<()> {
     let t1 = std::time::Instant::now();
@@ -19,14 +42,27 @@ fn main() -> io::Result<()> {
     println!("W table: {} us", dt_w.as_micros());
     println!("W table len: {}", w_table.len());
 
-    BufWriter::new(File::create(PathBuf::from("../../../c.txt"))?)
-        .write_all(c_table::table_to_string(&c_table).as_bytes())?;
+    let c_key = 0o333320000u32;
+    let &c_value = c_table.get(&c_key).unwrap();
+    for x in c_entry_iter(c_key, c_value) {
+        println!("{:?}", x);
+    }
+
+    println!();
+    let w_key = 0o311111113u32;
+    let &w_value = w_table.get(&w_key).unwrap();
+    for x in w_entry_iter(w_key, w_value) {
+        println!("{:?}", x);
+    }
+
+    BufWriter::new(File::create(PathBuf::from("data/c.txt"))?)
+        .write_all(table_to_string(&c_table).as_bytes())?;
 
     let mut c_map_gen = phf_codegen::Map::<u32>::new();
     for (k, v) in c_table.iter() {
         c_map_gen.entry(*k, &format!("{}u64", v));
     }
-    let mut map_file = BufWriter::new(File::create(PathBuf::from("../../../c.rs"))?);
+    let mut map_file = BufWriter::new(File::create(PathBuf::from("data/c.rs"))?);
     write!(map_file,
            "static C_TABLE: phf::Map<u32, u64> = \n{};\n",
            c_map_gen.build())?;
