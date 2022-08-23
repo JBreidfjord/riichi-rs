@@ -37,15 +37,15 @@ fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
     let mid_len = num_tiles / 3;
     let has_pair = (num_tiles % 3) == 2;
 
-    let mut push = |new_key, pos: i8, tenpai_type: TenpaiType, _has_pair: bool| {
+    let mut push = |new_key, pos: i8, waiting_kind: WaitingKind, _has_pair: bool| {
         let x = w_table.entry(new_key).or_default();
-        *x = w_push(*x, pos, tenpai_type);
+        *x = w_push(*x, pos, waiting_kind);
     };
 
     if !has_pair {
         for pos in 0..=8 {
             if let Some(new_key) = check_pattern(key, 0o1, pos, 0) {
-                push(new_key, pos, TenpaiType::Tanki, true);
+                push(new_key, pos, WaitingKind::Tanki, true);
             }
         }
     }
@@ -54,23 +54,23 @@ fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
         // try add mentsu-based tenpai pattern
         for pos in 0..=8 {
             if let Some(new_key) = check_pattern(key, 0o2, pos, 0) {
-                push(new_key, pos, TenpaiType::Shanpon, has_pair);
+                push(new_key, pos, WaitingKind::Shanpon, has_pair);
             }
         }
         for pos in 0..=6 {
             if let Some(new_key) = check_pattern(key, 0o101, pos, 1) {
-                push(new_key, pos, TenpaiType::Kanchan, has_pair);
+                push(new_key, pos, WaitingKind::Kanchan, has_pair);
             }
         }
         for pos in 0..=7 {
             let key_low = check_pattern(key, 0o11, pos, -1);
             let key_high = check_pattern(key, 0o11, pos, 2);
             if key_low.is_some() && key_high.is_some() {
-                push(key_low.unwrap(), pos, TenpaiType::RyanmenBoth, has_pair);
+                push(key_low.unwrap(), pos, WaitingKind::RyanmenBoth, has_pair);
             } else if let Some(key) = key_low {
-                push(key, pos, TenpaiType::RyanmenLow, has_pair);
+                push(key, pos, WaitingKind::RyanmenLow, has_pair);
             } else if let Some(key) = key_high {
-                push(key, pos, TenpaiType::RyanmenHigh, has_pair);
+                push(key, pos, WaitingKind::RyanmenHigh, has_pair);
             }
         }
     }
@@ -79,16 +79,35 @@ fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WaitingPattern {
     pub complete_key: u32,
-    pub tenpai_type: TenpaiType,
+    pub waiting_kind: WaitingKind,
     pub pattern_pos: u8,
 }
 
 impl WaitingPattern {
+    pub fn waiting_pos_low(&self) -> Option<u8> {
+        use WaitingKind::*;
+        let pattern_pos = self.pattern_pos;
+        match self.waiting_kind {
+            Tanki | Shanpon => Some(pattern_pos),
+            Kanchan => Some(pattern_pos + 1),
+            RyanmenHigh => None,
+            RyanmenLow | RyanmenBoth => Some(pattern_pos - 1),  // guaranteed to not wrap
+        }
+    }
+
+    pub fn waiting_pos_high(&self) -> Option<u8> {
+        use WaitingKind::*;
+        let pattern_pos = self.pattern_pos;
+        match self.waiting_kind {
+            RyanmenHigh | RyanmenBoth => Some(pattern_pos + 2),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
-pub enum TenpaiType {
+pub enum WaitingKind {
     #[num_enum(default)]
     Tanki = 0,   // e.g. 1222333444555z wait 1z
     Shanpon,     // e.g. 4477s wait 4s/7s
@@ -111,10 +130,10 @@ impl Iterator for WaitingPatternIterator {
     type Item = WaitingPattern;
 
     fn next(&mut self) -> Option<Self::Item> {
-        use TenpaiType::*;
+        use WaitingKind::*;
 
-        let (new_value, pos, tenpai_type) = w_pop(self.value)?;
-        let pattern = match tenpai_type {
+        let (new_value, pos, waiting_kind) = w_pop(self.value)?;
+        let pattern = match waiting_kind {
             Tanki => 0o1,
             Shanpon => 0o2,
             Kanchan => 0o101,
@@ -124,7 +143,7 @@ impl Iterator for WaitingPatternIterator {
         self.value = new_value;
         Some(WaitingPattern{
             complete_key,
-            tenpai_type,
+            waiting_kind,
             pattern_pos: pos,
         })
     }
@@ -134,25 +153,25 @@ pub(crate) mod details {
     use crate::utils::*;
     use super::*;
 
-    pub fn check_pattern(key: u32, pattern: u8, pos: i8, tenpai_offset: i8) -> Option<u32> {
+    pub fn check_pattern(key: u32, pattern: u8, pos: i8, waiting_offset: i8) -> Option<u32> {
         let new_key = key + ((pattern as u32) << ((pos as u32) * 3));
-        let tenpai = pos + tenpai_offset;
-        if (0 <= tenpai && tenpai <= 8) &&
+        let waiting_pos = pos + waiting_offset;
+        if (0 <= waiting_pos && waiting_pos <= 8) &&
             !key_is_overflow(new_key) &&
-            ((new_key >> ((tenpai as u32) * 3)) & 0o7) < 4 {
+            ((new_key >> ((waiting_pos as u32) * 3)) & 0o7) < 4 {
             Some(new_key)
         } else {
             None
         }
     }
 
-    pub fn w_push(w: u64, pos: i8, tenpai_type: TenpaiType) -> u64 {
-        w.checked_mul(56).unwrap() + (((pos as u8) + 1 + 9 * u8::from(tenpai_type)) as u64)
+    pub fn w_push(w: u64, pos: i8, waiting_kind: WaitingKind) -> u64 {
+        w.checked_mul(56).unwrap() + (((pos as u8) + 1 + 9 * u8::from(waiting_kind)) as u64)
     }
 
-    pub fn w_pop(w: u64) -> Option<(u64, u8, TenpaiType)> {
+    pub fn w_pop(w: u64) -> Option<(u64, u8, WaitingKind)> {
         if w == 0 { return None; }
         let x = ((w % 56) as u8) - 1;
-        Some((w / 56, x % 9, TenpaiType::try_from(x / 9).unwrap()))
+        Some((w / 56, x % 9, WaitingKind::try_from(x / 9).unwrap()))
     }
 }

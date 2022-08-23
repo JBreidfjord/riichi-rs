@@ -62,9 +62,9 @@ fn dfs_shuntsu(table: &mut CTable, n: u8, pos0: u8, key: u32, value: u16) {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct CompleteGrouping {
-    raw_groups: u16,
     pub num_groups: u8,
-    pub pair: Option<u8>,
+    raw_groups: u16,
+    raw_pair: u8,
 }
 
 impl CompleteGrouping {
@@ -73,6 +73,9 @@ impl CompleteGrouping {
     }
     pub fn groups(self) -> impl Iterator<Item = u8> {
         mid_to_smalls(self.raw_groups).into_iter().take(self.num_groups as usize)
+    }
+    pub fn pair(self) -> Option<u8> {
+        if self.raw_pair == u8::MAX { None } else { Some(self.raw_pair) }
     }
 }
 
@@ -93,7 +96,9 @@ impl CTableEntryIterator {
         let n = key_sum(key) as u8;
         debug_assert!(n % 3 != 1);
         CTableEntryIterator {
-            key, value,
+            key,
+            // this will make sure the iterator is run at least once to give you the pair
+            value: if n >= 3 { value } else { 0xFFFF },
             num_groups: n / 3,
             has_pair: n % 3 == 2,
         }
@@ -107,15 +112,17 @@ impl Iterator for CTableEntryIterator {
         if self.value == 0 { return None; }
 
         let mid = big_top(self.value);
-        let pair = if self.has_pair {
-            recover_pair(self.key, self.num_groups, mid)
-        } else { None };
+        let raw_pair = if self.has_pair {
+            recover_known_pair(self.key, self.num_groups, mid)
+        } else {
+            u8::MAX
+        };
         self.value = big_pop(self.value);
 
         Some(CompleteGrouping{
             num_groups: self.num_groups,
             raw_groups: mid,
-            pair,
+            raw_pair,
         })
     }
 
@@ -173,8 +180,8 @@ pub(crate) mod details {
         mid_to_smalls(mid).into_iter().take(n as usize).map(ks_key).sum()
     }
 
-    pub fn recover_pair(key: u32, num_groups: u8, mid: u16) -> Option<u8> {
+    pub fn recover_known_pair(key: u32, num_groups: u8, mid: u16) -> u8 {
         let pair_key = key - mid_to_key(mid, num_groups);
-        if pair_key != 0 { Some((pair_key.trailing_zeros() / 3) as u8) } else { None }
+        (pair_key.trailing_zeros() / 3) as u8
     }
 }

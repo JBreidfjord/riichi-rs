@@ -4,7 +4,7 @@
 use packed_struct::prelude::*;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PackedStruct)]
-#[packed_struct(size_bytes="4", bit_numbering="lsb0", endian="lsb")]
+#[packed_struct(size_bytes="4", bit_numbering="lsb0", endian="msb")]
 pub struct Pack {
     #[packed_field(bits="0..4")]
     pub a: u8,
@@ -20,8 +20,8 @@ pub fn main() {
     {
         let packed = 0x76543210u32;
 
-        let packed_bytes = packed.to_le_bytes();
-        assert_eq!(packed_bytes, [0x10, 0x32, 0x54, 0x76u8]);
+        let packed_bytes = packed.to_be_bytes();
+        assert_eq!(packed_bytes, [0x76, 0x54, 0x32, 0x10u8]);
 
         let fields = Pack::unpack(&packed_bytes).unwrap();
         println!("{}", fields);

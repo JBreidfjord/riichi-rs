@@ -18,7 +18,7 @@ pub fn table_to_string(table: &CTable) -> String {
                 .map(|ks| GROUP_STR[ks as usize])
                 .sorted()
                 .join("");
-            if let Some(pair) = grouping.pair {
+            if let Some(pair) = grouping.pair() {
                 lines.push(format!("{:09o}{},2{}", key, mid_str, pair));
             } else {
                 lines.push(format!("{:09o}{}", key, mid_str));

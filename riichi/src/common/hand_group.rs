@@ -21,7 +21,7 @@ use crate::Tile;
 ///
 /// - `[5:4]`: suit (0/1/2/3 = m/p/s/z)
 ///
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum HandGroup {
     Koutsu(Tile),
     Shuntsu(Tile),
