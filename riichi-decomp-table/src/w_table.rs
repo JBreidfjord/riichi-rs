@@ -83,28 +83,6 @@ pub struct WaitingPattern {
     pub pattern_pos: u8,
 }
 
-impl WaitingPattern {
-    pub fn waiting_pos_low(&self) -> Option<u8> {
-        use WaitingKind::*;
-        let pattern_pos = self.pattern_pos;
-        match self.waiting_kind {
-            Tanki | Shanpon => Some(pattern_pos),
-            Kanchan => Some(pattern_pos + 1),
-            RyanmenHigh => None,
-            RyanmenLow | RyanmenBoth => Some(pattern_pos - 1),  // guaranteed to not wrap
-        }
-    }
-
-    pub fn waiting_pos_high(&self) -> Option<u8> {
-        use WaitingKind::*;
-        let pattern_pos = self.pattern_pos;
-        match self.waiting_kind {
-            RyanmenHigh | RyanmenBoth => Some(pattern_pos + 2),
-            _ => None,
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum WaitingKind {
