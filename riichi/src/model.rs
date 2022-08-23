@@ -118,7 +118,7 @@ impl FuritenFlags {
 }
 
 /// State variables known right before a player's action.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct PreActionState {
     /// The player in action.
     pub action_player: Player,
