@@ -3,11 +3,17 @@
 //! This module mainly provides data model definitions and some straightforward helpers.
 //! Game logic belongs to [`crate::engine`].
 
+use std::cmp::Ordering;
+
+use derive_more::{Constructor, From, Into};
+use num_enum::Default;
+
 use crate::common::tile_set::TileSet37;
 use crate::common::typedefs::*;
 use crate::common::tile::Tile;
 use crate::common::meld::Meld;
 use crate::common::wall::{make_dummy_wall, Wall};
+use crate::tiles_from_str;
 
 trait PartiallyObservable {
     fn observe_by(&self, player: Player) -> Self;
@@ -45,31 +51,47 @@ impl RoundId {
     /// Index of the prevailing wind (場風).
     ///
     /// This is shared by all players (unlike "self wind").
-    pub const fn prevailing_wind(&self) -> Wind {
+    pub const fn prevailing_wind(self) -> Wind {
         Wind::new(self.kyoku / 4)
     }
 
     /// Index of the dealer/button/east-wind player (荘家).
     ///
     /// NOTE: "button" refers to the similar concept in Texas Hold'em, a.k.a. dealer
-    pub const fn button(&self) -> Player { Player::new(self.kyoku % 4) }
+    pub const fn button(self) -> Player { Player::new(self.kyoku % 4) }
 
     /// Index of the player with given self wind.
     /// - east-wind player == button
     /// - south-wind player == button + 1
     /// - west-wind player == button + 2
     /// - north-wind player == button + 3
-    pub fn player_with_self_wind(&self, wind: Wind) -> Player {
+    pub fn player_with_self_wind(self, wind: Wind) -> Player {
         Player::new(self.kyoku + wind.to_u8())
     }
 
     /// Index of the self wind (自風).
-    pub fn self_wind_for_player(&self, player: Player) -> Wind {
+    pub fn self_wind_for_player(self, player: Player) -> Wind {
         Wind::from(player.wrapping_sub(self.button()))
+    }
+
+    /// TODO(summivox): doc
+    pub const fn next_kyoku(self) -> Self {
+        Self {
+            kyoku: self.kyoku + 1,
+            honba: 0,
+        }
+    }
+
+    /// TODO(summivox): doc
+    pub const fn next_honba(self, renchan: bool) -> Self {
+        Self {
+            kyoku: if renchan { self.kyoku } else { self.kyoku + 1 },
+            honba: self.honba + 1,
+        }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RoundBeginState {
     pub rules: (),  // TODO(summivox): define Rules
 
@@ -99,10 +121,23 @@ impl PartiallyObservable for RoundBeginState {
     }
 }
 
+/// Status regarding whether a player is under riichi (リーチ).
+///
+/// <https://riichi.wiki/Riichi>
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct RiichiFlags {
+    /// Player is under active riichi (リーチ).
     pub is_active: bool,
+
+    /// Player declared riichi in one of the first 4 uninterrupted turns of the game (両立直).
+    ///
+    /// <https://riichi.wiki/Daburu_riichi>
     pub is_double: bool,
+
+    /// It has been less than 4 uninterrupted turns since the player declared riichi (一発).
+    /// This includes the player's first turn after riichi.
+    ///
+    /// <https://riichi.wiki/Ippatsu>
     pub is_ippatsu: bool,
 }
 
@@ -117,7 +152,7 @@ impl FuritenFlags {
     pub const fn any(self) -> bool { self.by_discard || self.miss_temporary || self.miss_permanent }
 }
 
-/// State variables known right before a player's action.
+/// State variables known right before a player's action (after tile-drawing, if any).
 #[derive(Clone, Debug, Default)]
 pub struct PreActionState {
     /// The player in action.
@@ -127,11 +162,11 @@ pub struct PreActionState {
     /// beginning of this round.
     pub seq: u8,
 
-    /// Number of tiles drawn from the head of the double-stacked cut wall. This includes:
-    /// - The initial deal (13 x 4 = 52)
-    /// - The one drawn prior to this player's action.
-    /// A normal draw will take `wall[num_drawn_head]`. As an example, before the first action of
-    /// any round, `num_drawn_head == 52` and the tile drawn will be `wall[52]`.
+    /// Number of tiles drawn from the head of the double-stacked cut wall. This includes the
+    /// initial deal (13 x 4 = 52), the current player's normal self draw, and everything in between.
+    ///
+    /// A normal draw is from `wall[num_drawn_head - 1]`. As an example, before the first action of
+    /// any round, `num_drawn_head == 53` and the tile drawn will be `wall[52]`.
     pub num_drawn_head: u8,
 
     /// Number of tiles drawn from the tail of the double-stacked cut wall, as a result of forming
@@ -203,13 +238,33 @@ pub enum Action {
     Ankan(Tile),
     Kakan(Tile),
     TsumoAgari(Tile),
-    Kyuushuukyuuhai,
+    AbortKyuushuukyuuhai,
+}
+
+impl Action {
+    pub fn tile(self) -> Option<Tile> {
+        match self {
+            Action::Discard { tile, .. } => Some(tile),
+            Action::Ankan(tile) => Some(tile),
+            Action::Kakan(tile) => Some(tile),
+            Action::TsumoAgari(tile) => Some(tile),
+            Action::AbortKyuushuukyuuhai => None,
+        }
+    }
+
+    pub fn is_terminal(self) -> bool {
+        match self {
+            Self::TsumoAgari(_) | Self::AbortKyuushuukyuuhai => true,
+            _ => false,
+        }
+    }
 }
 
 /// Reaction from an out-of-turn player.
 /// The lack of reaction / "pass" / unknown reaction can be represented by `Option<Reaction>`.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Reaction {
+    // NOTE: Variant order matters --- used by `derive(Ord)` to comprare priority.
     Chii(Tile, Tile),
     Pon(Tile, Tile),
     Daiminkan,
@@ -220,18 +275,92 @@ pub enum Reaction {
 /// Conclusion of an action-reaction cycle.
 /// Unknown state can be represented by `Option<PostReactionState>`, just like `Reaction`.
 /// However, an explicit `Pass` is included to represent "nothing has happened; move on".
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[repr(u8)]
 pub enum ActionResult {
-    Pass,
+    #[num_enum(default)]
+    Pass = 0,
+
+    // reactions
     Chii,
     Pon,
     Daiminkan,
-    TsumoAgari,
+
+    /// Win by steal (ロン和ガリ).
+    /// Multiple players (but not too many) may call Ron on the same tile (discard/kakan/ankan).
     RonAgari,
+
+    /// Win by self draw (ツモ和ガリ).
+    ///
+    /// Resolution:
+    /// - Determined by in-turn action.
+    /// - No reaction allowed.
+    TsumoAgari,
+
+    /// Nine kinds of terminals (九種九牌).
+    ///
+    /// Resolution:
+    /// - Determined by in-turn action.
+    /// - No reaction allowed.
+    ///
+    /// <https://riichi.wiki/Tochuu_ryuukyoku#Kyuushu_kyuuhai>
+    AbortKyuushuukyuuhai,
+
+    /// No more tiles to draw from the wall (荒牌).
+    /// Penalties payments may apply (不聴罰符), including sub-type [`Self::AbortNagashiMangan`].
+    ///
+    /// Resolution:
+    /// - Determined by end-of-turn resolution.
+    /// - Can be preempted by [`Self::RonAgari`] and all other aborts.
+    ///
+    /// <https://riichi.wiki/Ryuukyoku>
     AbortWallExhausted,
-    AbortFourWind,
+
+    /// Special case of [`Self::AbortWallExhausted`] (流し満貫).
+    /// Treated as penalties payments.
+    ///
+    /// <https://riichi.wiki/Nagashi_mangan>
+    AbortNagashiMangan,
+
+    /// Four Kan's (四開槓), triggered by:
+    /// - the 5th kan by the same player, or
+    /// - the 4th kan if all 4 are not by the same player
+    ///
+    /// Resolution:
+    /// - Determined by end-of-turn resolution.
+    /// - Can be preempted by [`Self::RonAgari`].
+    ///
+    /// Note that kakan and ankan may also be preempted due to Chankan (搶槓).
+    ///
+    /// <https://riichi.wiki/Tochuu_ryuukyoku#Suukaikan>
     AbortFourKan,
+    
+    /// Four of the same wind discarded consecutively since the game starts (四風連打).
+    ///
+    /// Resolution:
+    /// - Determined by end-of-turn resolution.
+    /// - Cannot be preempted.
+    ///
+    /// <https://riichi.wiki/Tochuu_ryuukyoku#Suufon_renda>
+    AbortFourWind,
+
+    /// All four players under active riichi (四家立直)
+    ///
+    /// Resolution:
+    /// - Determined by end-of-turn resolution.
+    /// - Can be preempted by [`Self::RonAgari`].
+    ///
+    /// <https://riichi.wiki/Tochuu_ryuukyoku#Suucha_riichi>
     AbortFourRiichi,
+
+    /// Too many players calling Ron on the same tile; usually 3 (三家和)
+    ///
+    /// Resolution:
+    /// - Determined by end-of-turn resolution.
+    /// - Pre-empts all others.
+    ///
+    /// <https://riichi.wiki/Tochuu_ryuukyoku#Sanchahou>
+    AbortMultiRon,
 }
 
 impl ActionResult {
@@ -252,14 +381,15 @@ impl ActionResult {
     pub const fn is_abort(self) -> bool {
         use ActionResult::*;
         match self {
-            AbortWallExhausted | AbortFourWind | AbortFourKan | AbortFourRiichi => true,
+            AbortKyuushuukyuuhai | AbortWallExhausted | AbortNagashiMangan |
+            AbortFourKan | AbortFourWind | AbortFourRiichi | AbortMultiRon => true,
             _ => false,
         }
     }
     pub const fn is_terminal(self) -> bool { self.is_agari() || self.is_abort() }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct RoundEndState {
     /// The result of the round; equal to the last `ActionResult` before round ended.
     /// Guaranteed to be "terminal" (see [`ActionResult::is_terminal`]).
@@ -272,10 +402,10 @@ pub struct RoundEndState {
     /// Point increments for each player (end - begin)
     pub points_delta: [GamePoints; 4],
 
-    /// Id of the next round; `None` if the game ends.
-    pub next_round_id: Option<RoundId>,
     /// Whether the next round is "this round + 1 honba".
     pub renchan: bool,
+    /// Id of the next round; `None` if the game ends.
+    pub next_round_id: Option<RoundId>,
 
     /// If at least 1 player has won this round, how they did so.
     pub agari_summary: Option<()>,  // TODO(summivox): implement `AgariSummary`
@@ -291,6 +421,22 @@ pub enum NextOrEnd {
 mod test {
     use super::*;
     use assert2::check;
+    use itertools::Itertools;
+
+    #[test]
+    fn reaction_ordering_is_correct() {
+        let reactions = [
+            Reaction::Chii(Tile::MIN, Tile::MIN.succ().unwrap()),
+            Reaction::Chii(Tile::MIN.succ().unwrap(), Tile::MIN.succ2().unwrap()),
+            Reaction::Pon(Tile::MIN, Tile::MIN),
+            Reaction::Pon(Tile::MIN.succ().unwrap(), Tile::MIN.succ().unwrap()),
+            Reaction::Daiminkan,
+            Reaction::RonAgari,
+        ];
+        for (low, high) in reactions.iter().tuple_windows() {
+            check!(low < high);
+        }
+    }
 
     #[test]
     fn round_id_computes_correct_self_wind() {

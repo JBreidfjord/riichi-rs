@@ -83,7 +83,7 @@ pub struct WaitingPattern {
     pub pattern_pos: u8,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, TryFromPrimitive, IntoPrimitive)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, TryFromPrimitive, IntoPrimitive)]
 #[repr(u8)]
 pub enum WaitingKind {
     #[num_enum(default)]

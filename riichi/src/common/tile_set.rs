@@ -38,7 +38,7 @@ impl From<&[Tile]> for TileSet37 {
 }
 
 impl TileSet37 {
-    fn to_sorted_vec(&self) -> Vec<Tile> {
+    pub fn to_sorted_vec(&self) -> Vec<Tile> {
         let mut tiles: Vec<Tile> = vec![];
         tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
         for (encoding, count) in self.0.into_iter().enumerate() {
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn ts34_packs_correctly() {
-        let mut h = TileSet34::from(&tiles_from_str("147m258p369s77z")[..]);
+        let h = TileSet34::from(&tiles_from_str("147m258p369s77z")[..]);
         assert_eq!(h.packed(), [
             0o001001001,
             0o010010010,

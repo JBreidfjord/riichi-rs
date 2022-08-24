@@ -21,3 +21,5 @@ riichi-decomp-table = { path = "../riichi-decomp-table" }
 [dev-dependencies]
 assert2 = "0.3"
 bencher = "0.1.5"
+pretty_assertions = "1.2"
+pretty_assertions_sorted = "1.2"

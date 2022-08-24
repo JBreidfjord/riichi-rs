@@ -88,6 +88,9 @@ pub const DORA_INDICATOR_INDEX: [usize; 5] = [130, 128, 126, 124, 122];
 pub const URA_DORA_INDICATOR_INDEX: [usize; 5] = [131, 129, 127, 125, 123];
 pub const KAN_DRAW_INDEX: [usize; 4] = [134, 135, 132, 133];
 
+/// Total number of draws (front + back) cannot exceed this.
+pub const MAX_NUM_DRAWS: u8 = 70;
+
 /// Draw the initial 13 tiles for each of the 4 players, according to standard rules.
 /// See [module-level docs](self).
 pub fn deal(wall: &[Tile; 136], button: Player) -> [TileSet37; 4] {

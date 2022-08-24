@@ -23,7 +23,6 @@ pub use pon::Pon;
 pub use kakan::Kakan;
 pub use daiminkan::Daiminkan;
 pub use ankan::Ankan;
-pub(crate) use packed::PackedMeld;
 
 #[derive(Copy, Clone, Debug, Display, Eq, PartialEq)]
 pub enum Meld {
@@ -32,6 +31,15 @@ pub enum Meld {
     Kakan(Kakan),
     Daiminkan(Daiminkan),
     Ankan(Ankan),
+}
+
+impl Meld {
+    pub fn is_kan(&self) -> bool {
+        match self {
+            Self::Kakan(_) | Self::Daiminkan(_) | Self::Ankan(_) => true,
+            _ => false
+        }
+    }
 }
 
 #[cfg(test)]
