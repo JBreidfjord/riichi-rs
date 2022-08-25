@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use crate::analysis::{Decomposer, FullHandWaitingPattern};
+use crate::analysis::FullHandWaitingPattern;
 
 use crate::common::*;
 use crate::model::*;
@@ -121,8 +121,8 @@ pub fn is_wall_exhausted(s: &PreActionState) -> bool {
 /// specified player.
 /// Assuming [`is_wall_exhausted`].
 pub fn is_nagashi_mangan(s: &PreActionState, player: Player) -> bool {
-    s.discards[player.to_usize()].iter().all(|&(tile, called_player)|
-        tile.is_terminal() && called_player == player)
+    s.discards[player.to_usize()].iter().all(|discard|
+        discard.tile.is_terminal() && discard.called_by == player)
 }
 
 /// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for all
@@ -138,8 +138,8 @@ pub fn is_aborted_four_wind(s: &PreActionState, action: Action) -> bool {
         return is_init_abortable(s) &&
             s.seq == 3 &&
             tile.is_wind() &&
-            s.discards[0..3].iter().all(|river|
-                river.len() == 1 && river[0].0 == tile);
+            s.discards[0..3].iter().all(|discards|
+                discards.len() == 1 && discards[0].tile == tile);
     }
     false
 }

@@ -3,16 +3,11 @@
 //! This module mainly provides data model definitions and some straightforward helpers.
 //! Game logic belongs to [`crate::engine`].
 
-use std::cmp::Ordering;
-
-use derive_more::{Constructor, From, Into};
-
 use crate::common::tile_set::TileSet37;
 use crate::common::typedefs::*;
 use crate::common::tile::Tile;
 use crate::common::meld::Meld;
 use crate::common::wall::{make_dummy_wall, Wall};
-use crate::tiles_from_str;
 
 trait PartiallyObservable {
     fn observe_by(&self, player: Player) -> Self;
@@ -132,6 +127,17 @@ impl PartiallyObservable for RoundBeginState {
     }
 }
 
+/// Represents one tile in a player's discard stream.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct Discard {
+    /// The discarded tile.
+    pub tile: Tile,
+    /// If called by another player, that player; otherwise the player who discarded this tile.
+    pub called_by: Player,
+    /// Whether this tile was discarded immediately after being drawn ().
+    pub is_tsumokiri: bool,
+}
+
 /// Status regarding whether a player is under riichi (リーチ).
 ///
 /// <https://riichi.wiki/Riichi>
@@ -209,8 +215,8 @@ pub struct PreActionState {
 
     /// The discard stream of each player.
     /// Tiles that are called by other players are explicitly marked so, not excluded.
-    /// All other tiles will have the "called player" field equal to the player itself.
-    pub discards: [Vec<(Tile, Player)>; 4],
+    /// See [`Discard`].
+    pub discards: [Vec<Discard>; 4],
 
     /// Furiten status for each player before action.
     /// **A player can only observe their own status.**
@@ -244,7 +250,7 @@ pub enum Action {
     Discard {
         tile: Tile,
         declare_riichi: bool,
-        tsumokiri: bool,
+        is_tsumokiri: bool,
     },
     Ankan(Tile),
     Kakan(Tile),
@@ -290,25 +296,29 @@ pub enum Reaction {
 #[repr(u8)]
 pub enum ActionResult {
     #[num_enum(default)]
+    /// The action successfully took place without any reaction.
     Pass = 0,
 
-    // reactions
+    /// A [`crate::Chii`] has been called (チー).
     Chii,
+    /// A [`crate::Pon`] has been called (ポン).
     Pon,
+    /// A [`crate::Daiminkan`] has been called (大明槓).
     Daiminkan,
 
-    /// Win by steal (ロン和ガリ).
+    /// At least one player has won by steal (ロン和ガリ).
     /// Multiple players (but not too many) may call Ron on the same tile (discard/kakan/ankan).
     RonAgari,
 
-    /// Win by self draw (ツモ和ガリ).
+    /// The player in action has won by self-draw (ツモ和ガリ).
     ///
     /// Resolution:
     /// - Determined by in-turn action.
     /// - No reaction allowed.
     TsumoAgari,
 
-    /// Nine kinds of terminals (九種九牌).
+    /// The round has been aborted due to the player in action declaring "nine kinds of terminals"
+    /// (九種九牌).
     ///
     /// Resolution:
     /// - Determined by in-turn action.
@@ -317,7 +327,7 @@ pub enum ActionResult {
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Kyuushu_kyuuhai>
     AbortKyuushuukyuuhai,
 
-    /// No more tiles to draw from the wall (荒牌).
+    /// The round has ended because no more tiles can be drawn from the wall (荒牌).
     /// Penalties payments may apply (不聴罰符), including sub-type [`Self::AbortNagashiMangan`].
     ///
     /// Resolution:
@@ -333,9 +343,9 @@ pub enum ActionResult {
     /// <https://riichi.wiki/Nagashi_mangan>
     AbortNagashiMangan,
 
-    /// Four Kan's (四開槓), triggered by:
-    /// - the 5th kan by the same player, or
-    /// - the 4th kan if all 4 are not by the same player
+    /// Four Kan's (四開槓).
+    /// - A player has attemped to call the 5th Kan of the round; all 5 are by the same player.
+    /// - A player has attempted to call the 4th Kan of the round; all 4 are NOT by the same player.
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
@@ -346,7 +356,8 @@ pub enum ActionResult {
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suukaikan>
     AbortFourKan,
     
-    /// Four of the same wind discarded consecutively since the game starts (四風連打).
+    /// The round has been aborted because four of the same kind of wind tile has been discarded
+    /// consecutively since the game starts (四風連打).
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
@@ -355,7 +366,7 @@ pub enum ActionResult {
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suufon_renda>
     AbortFourWind,
 
-    /// All four players under active riichi (四家立直)
+    /// The round has been aborted because all four players are under active riichi (四家立直).
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
@@ -364,7 +375,7 @@ pub enum ActionResult {
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suucha_riichi>
     AbortFourRiichi,
 
-    /// Too many players calling Ron on the same tile; usually 3 (三家和)
+    /// The round has been aborted because too many players (usually 3) called Ron on the same tile.
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.

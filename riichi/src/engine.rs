@@ -1,6 +1,9 @@
 //! Core game logic, i.e. state transitions.
 
-mod utils;
+pub mod agari;
+pub mod utils;
+
+use agari::*;
 use utils::*;
 
 use itertools::Itertools;
@@ -172,7 +175,7 @@ impl Engine {
             Action::Discard {
                 tile: discard,
                 declare_riichi,
-                tsumokiri,
+                is_tsumokiri: tsumokiri,
             } => {
                 // D'oh!
                 if under_riichi && declare_riichi { return Err(DeclareRiichiAgain); }
@@ -211,6 +214,7 @@ impl Engine {
                     }
                 }
             }
+
             Action::Ankan(tile) => {
                 let tile = tile.to_normal();
                 if under_riichi && !is_ankan_ok_under_riichi(&self.wait_cache[pp], tile) {
@@ -232,13 +236,12 @@ impl Engine {
                 if hand[added] == 0 { return Err(TileNotExist(added)); }
                 hand[added] -= 1;
 
-                let (_i, pon) = s.melds[pp]
+                let &pon = s.melds[pp]
                     .iter()
-                    .enumerate()
-                    .filter_map(|(i, &meld)| {
+                    .filter_map(|meld| {
                         if let Meld::Pon(pon) = meld {
-                            if pon.called.to_normal() == added {
-                                return Some((i, pon));
+                            if pon.called.to_normal() == added.to_normal() {
+                                return Some(pon);
                             }
                         }
                         None
@@ -249,6 +252,7 @@ impl Engine {
                 self.meld_cache[pp] =
                     Kakan::from_pon_added(pon, added).map(|kakan| Meld::Kakan(kakan));
             }
+
             Action::TsumoAgari(_tile) => {
                 // TODO(summivox): agari
             }
@@ -462,9 +466,12 @@ impl Engine {
         }
 
         match action {
-            Action::Discard { tile: discard, declare_riichi, tsumokiri } => {
-                // TODO(summivox): mark tsumokiri
-                next.discards[pp].push((discard, caller));
+            Action::Discard { tile: discard, declare_riichi, is_tsumokiri } => {
+                next.discards[pp].push(Discard {
+                    tile: discard,
+                    called_by: caller,
+                    is_tsumokiri,
+                });
                 if declare_riichi {
                     next.riichi[pp] = RiichiFlags {
                         is_active: true,
@@ -484,7 +491,7 @@ impl Engine {
                 // furiten-by-discard == some tile in the waiting set exists in the discard set
                 if !next.furiten[pp].by_discard && !next.furiten[pp].miss_permanent {
                     let discard_mask = TileMask34::from_iter(
-                        self.s.discards[pp].iter().map(|&(tile, _)| tile));
+                        self.s.discards[pp].iter().map(|discard| discard.tile));
                     let wait_mask = self.wait_mask[pp];
 
                     next.furiten[pp].by_discard = discard_mask.0 & wait_mask.0 > 0
@@ -503,6 +510,7 @@ impl Engine {
                     }
                 }
             }
+
             Action::Ankan(_) | Action::Kakan(_) => {
                 let ankan_or_kakan = self.meld_cache[pp].unwrap();
                 next.incoming_meld = Some(ankan_or_kakan);

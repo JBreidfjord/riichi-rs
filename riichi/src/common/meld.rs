@@ -7,7 +7,6 @@
 //! - <https://ja.wikipedia.org/wiki/%E5%89%AF%E9%9C%B2>
 
 use std::fmt::{Display, Formatter};
-use derive_more::{Display};
 
 use crate::common::hand_group::HandGroup;
 use crate::common::typedefs::*;

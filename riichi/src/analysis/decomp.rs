@@ -307,7 +307,7 @@ mod tests {
 
     use std::str::FromStr;
 
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
 
     fn print_decomp(keys: [u32; 4]) {
         println!(
