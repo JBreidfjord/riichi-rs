@@ -1,20 +1,18 @@
-//! # Tile 牌
+//! Tile 牌
 //!
-//! See [`Tile`][].
+//! See [`Tile`].
 //!
-//! ## References
-//!
+//! ## Ref
 //! - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C>
 //! - <https://en.wikipedia.org/wiki/Mahjong_tiles>
-//!
 
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-/// Represents one tile.
+/// Represents one tile (牌).
 ///
-/// This is encoded as a 6-bit integer:
+/// Encoded as a 6-bit integer:
 ///
 /// | Encoding   |  Shorthand  | Category (EN) | Category (JP) |
 /// |------------|-------------|---------------|---------------|
@@ -25,7 +23,7 @@ use std::str::FromStr;
 /// | 31, 32, 33 |  5z, 6z, 7z | dragons       | 三元牌        |
 /// | 34, 35, 36 |  0m, 0p, 0s | reds          | 赤牌          |
 ///
-/// Note that only red 5's can be represented.
+/// Note that only red 5's can be represented (not other numbers or honors).
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Tile(u8);
 

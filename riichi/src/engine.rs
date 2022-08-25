@@ -18,8 +18,14 @@ pub enum ActionError {
     #[error("Discarding from the closed hand while under riichi.")]
     DiscardClosedHandUnderRiichi,
 
+    #[error("Discarding {0} is swap-calling (kuikae) due to {1}")]
+    NoSwapCalling(Tile, Meld),
+
     #[error("Tile {0} does not exist in the closed hand.")]
     TileNotExist(Tile),
+
+    #[error("Attempting to declare riichi when already under riichi.")]
+    DeclareRiichiAgain,
 
     #[error("Attempting to declare riichi with an open hand.")]
     DeclareRiichiWithOpenMeld,
@@ -92,13 +98,16 @@ pub struct Engine {
     /// Computed after the action is registered.
     wait_cache: [Vec<FullHandWaitingPattern>; 4],
 
+    /// Waiting tile set for the corresponding entry in [`Self::wait_cache`].
+    wait_mask: [TileMask34; 4],
+
     /// Target meld made by the player, either action or reaction.
     meld_cache: [Option<Meld>; 4],
 }
 
 impl Engine {
+    // TODO(summivox): rules
     const RIICHI_POT: GamePoints = 1000;
-    const NO_WAIT_PENALTY_TOTAL: GamePoints = 3000;
 
     pub fn new() -> Self {
         Self {
@@ -111,6 +120,7 @@ impl Engine {
 
             hand_after_action: Default::default(),
             wait_cache: Default::default(),
+            wait_mask: Default::default(),
             meld_cache: Default::default(),
         }
     }
@@ -124,13 +134,19 @@ impl Engine {
         self.meld_cache = Default::default();
     }
 
-    pub fn pre_action(&mut self, pre_action: PreActionState) -> &mut Self {
+    pub fn with_begin_state(&mut self, begin: RoundBeginState) -> &mut Self {
+        self.clear_cache();
+        self.begin = begin;
+        self
+    }
+
+    pub fn with_pre_action(&mut self, pre_action: PreActionState) -> &mut Self {
         self.clear_cache();
         self.s = pre_action;
         self
     }
 
-    pub fn action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
+    pub fn register_action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
         self.clear_cache();  // not redundant
         self.check_action(action)?;
         self.action = Some(action);
@@ -150,27 +166,32 @@ impl Engine {
             hand[draw] += 1;
         };
 
+        let under_riichi = s.riichi[pp].is_active;
+
         match action {
             Action::Discard {
-                tile,
-                riichi,
+                tile: discard,
+                declare_riichi,
                 tsumokiri,
             } => {
+                // D'oh!
+                if under_riichi && declare_riichi { return Err(DeclareRiichiAgain); }
+
                 // Discarded tile must be either just drawn, or already in our closed hand.
                 if tsumokiri {
-                    if s.draw != Some(tile) {
-                        return Err(TsumokiriMismatch(tile, s.draw));
+                    if s.draw != Some(discard) {
+                        return Err(TsumokiriMismatch(discard, s.draw));
                     }
                 } else {
-                    if s.riichi[pp].is_active {
+                    if under_riichi {
                         return Err(DiscardClosedHandUnderRiichi);
                     }
                 }
-                if hand[tile] == 0 { return Err(TileNotExist(tile)); }
-                hand[tile] -= 1;
+                if hand[discard] == 0 { return Err(TileNotExist(discard)); }
+                hand[discard] -= 1;
 
                 // Declaring riichi requires a closed 3N+1 ready (tenpai) hand after discarding.
-                if riichi {
+                if declare_riichi {
                     // Ankan is considered closed; all other melds are not ok.
                     if s.melds[pp]
                         .iter()
@@ -184,17 +205,16 @@ impl Engine {
                     }
                 }
 
-                if let Some(Meld::Chii(chii)) = s.incoming_meld {
-                    // TODO(summivox): check kui-kae
+                if let Some(meld) = s.incoming_meld {
+                    if is_forbidden_swap_call(meld, discard) {
+                        return Err(NoSwapCalling(discard, meld));
+                    }
                 }
             }
             Action::Ankan(tile) => {
                 let tile = tile.to_normal();
-                if s.riichi[pp].is_active {
-                    // TODO(summivox): check ankan-riichi conflict using 3N+1 tenpai
-                    if false {
+                if under_riichi && !is_ankan_ok_under_riichi(&self.wait_cache[pp], tile) {
                         return Err(InvalidAnkanUnderRiichi(tile));
-                    }
                 }
 
                 let (num_normal, num_red) = count_for_kan(&hand, tile);
@@ -244,11 +264,9 @@ impl Engine {
         Ok(())
     }
 
-    pub fn reaction(
-        &mut self,
-        reactor: Player,
-        reaction: Reaction,
-    ) -> Result<&mut Self, ReactionError> {
+    pub fn register_reaction(&mut self, reactor: Player, reaction: Reaction)
+        -> Result<&mut Self, ReactionError> {
+
         self.reactions[reactor.to_usize()] = None;
         self.check_reaction(reactor, reaction)?;
         self.reactions[reactor.to_usize()] = Some(reaction);
@@ -339,7 +357,19 @@ impl Engine {
         Ok(())
     }
 
-    pub fn resolve_reaction(&self) -> Option<ActionResult> {
+    pub fn next(&self) -> Option<(ActionResult, NextOrEnd)> {
+        let action = self.action?;
+        let action_result = self.resolve_reaction()?;
+        if action_result.is_abort() {
+            Some((action_result, self.next_abort(action_result)))
+        } else if action_result.is_agari() {
+            Some((action_result, self.next_agari(action_result)))
+        } else {
+            Some((action_result, self.next_normal(action, action_result)))
+        }
+    }
+
+    fn resolve_reaction(&self) -> Option<ActionResult> {
         let s = &self.s;
         let p = s.action_player;
         let action = self.action?;
@@ -369,9 +399,8 @@ impl Engine {
 
                 // Ron takes precedence over everything else at this point.
                 Reaction::RonAgari => {
-
                     // Triple win => Abort
-                    // TODO(summivox): also handle double?
+                    // TODO(summivox): rule
                     let num_rons = self.reactions.into_iter()
                         .filter(|&rr| rr == Some(Reaction::RonAgari)).count();
                     return if num_rons == 3 {
@@ -385,7 +414,7 @@ impl Engine {
 
         if is_aborted_four_wind(s, action) { return Some(ActionResult::AbortFourWind); }
         if is_aborted_four_riichi(s, action) { return Some(ActionResult::AbortFourRiichi); }
-        if is_aborted_four_kan(s, result) { return Some(ActionResult::AbortFourKan); }
+        if is_aborted_four_kan(s, action, result) { return Some(ActionResult::AbortFourKan); }
         if result == ActionResult::Pass && is_wall_exhausted(s) {
             if is_any_player_nagashi_mangan(s) { return Some(ActionResult::AbortNagashiMangan); }
             return Some(ActionResult::AbortWallExhausted);
@@ -394,22 +423,9 @@ impl Engine {
         Some(result)
     }
 
-    pub fn next(&self) -> Option<(ActionResult, NextOrEnd)> {
-        let action = self.action?;
-        let action_result = self.resolve_reaction()?;
-        if action_result.is_abort() {
-            Some((action_result, self.next_abort(action_result)))
-        } else if action_result.is_agari() {
-            Some((action_result, self.next_agari(action_result)))
-        } else {
-            Some((action_result, self.next_normal(action, action_result)))
-        }
-    }
-
     fn next_normal(&self, action: Action, action_result: ActionResult) -> NextOrEnd {
         let p = self.s.action_player;
         let pp = p.to_usize();
-        let caller;
 
         // Provide defaults for values completely dependent on the action-reaction.
         let mut next = PreActionState {
@@ -428,14 +444,16 @@ impl Engine {
             _ => {}
         }
 
-        // Find the owner of Chii/Pon/Daiminkan. If none, represent this with "caller == p".
+        // Find the owner of any Chii/Pon/Daiminkan. If none, represent this with "caller == p".
         let caller =
-            other_players_after(p).into_iter().filter(|q| match self.reactions[q] {
-                Some(Reaction::Chii(_, _)) => action_result == ActionResult::Chii,
-                Some(Reaction::Pon(_, _)) => action_result == ActionResult::Pon,
-                Some(Reaction::Daiminkan) => action_result == ActionResult::Daiminkan,
-                _ => false
-            }).exactly_one().ok().unwrap_or(p);
+            other_players_after(p).into_iter().filter(|q|
+                match self.reactions[q.to_usize()] {
+                    Some(Reaction::Chii(_, _)) => action_result == ActionResult::Chii,
+                    Some(Reaction::Pon(_, _)) => action_result == ActionResult::Pon,
+                    Some(Reaction::Daiminkan) => action_result == ActionResult::Daiminkan,
+                    _ => false
+                }
+            ).exactly_one().ok().unwrap_or(p);
 
         if caller != p {
             let meld = self.meld_cache[caller.to_usize()].unwrap();
@@ -444,9 +462,10 @@ impl Engine {
         }
 
         match action {
-            Action::Discard { tile, riichi, tsumokiri } => {
-                next.discards[pp].push((tile, caller));
-                if riichi {
+            Action::Discard { tile: discard, declare_riichi, tsumokiri } => {
+                // TODO(summivox): mark tsumokiri
+                next.discards[pp].push((discard, caller));
+                if declare_riichi {
                     next.riichi[pp] = RiichiFlags {
                         is_active: true,
                         is_ippatsu: caller == p,
@@ -458,6 +477,30 @@ impl Engine {
                     next.num_drawn_head += 1;
                 } else {
                     next.action_player = caller;
+                }
+
+                // Check furiten.
+                // For the discarding player:
+                // furiten-by-discard == some tile in the waiting set exists in the discard set
+                if !next.furiten[pp].by_discard && !next.furiten[pp].miss_permanent {
+                    let discard_mask = TileMask34::from_iter(
+                        self.s.discards[pp].iter().map(|&(tile, _)| tile));
+                    let wait_mask = self.wait_mask[pp];
+
+                    next.furiten[pp].by_discard = discard_mask.0 & wait_mask.0 > 0
+                }
+                // Temporary miss expires after discarding.
+                next.furiten[pp].miss_temporary = false;
+                // For another player who misses the chance to win (discard in waiting set):
+                // - Immediately enters temporary miss state
+                // - Immediately enters permanent miss state if under riichi
+                for q in other_players_after(p) {
+                    let qq = q.to_usize();
+                    if next.furiten[qq].miss_permanent { continue; }
+                    if self.wait_mask[qq].has(discard) {
+                        next.furiten[qq].miss_temporary = true;
+                        next.furiten[qq].miss_permanent = self.s.riichi[qq].is_active;
+                    }
                 }
             }
             Action::Ankan(_) | Action::Kakan(_) => {
@@ -477,8 +520,6 @@ impl Engine {
             Action::TsumoAgari(_) | Action::AbortKyuushuukyuuhai => panic!()
         }
 
-        // TODO(summivox): check furiten for all
-
         NextOrEnd::Next(next)
     }
 
@@ -495,39 +536,25 @@ impl Engine {
     }
 
     fn next_abort(&self, action_result: ActionResult) -> NextOrEnd {
-        // TODO(summivox): derive from rules
+        // TODO(summivox): rules
         let riichi_pot = Self::RIICHI_POT;
-        let no_wait = Self::NO_WAIT_PENALTY_TOTAL;
 
         let mut end = RoundEndState {
             round_result: action_result,
-            pot: self.begin.pot + num_active_riichi(&self.s) * riichi_pot,
+            pot: self.begin.pot + (num_active_riichi(&self.s) as GamePoints * riichi_pot),
             points: self.begin.points,
             ..RoundEndState::default()
         };
 
         let round_id = self.begin.round_id;
+        // ugly syntax gets around array::map moving the Vec value
+        let waiting = [0, 1, 2, 3].map(|i| !self.wait_cache[i].is_empty() as u8);
         match action_result {
-            ActionResult::AbortWallExhausted => {
-                let waiting =
-                    self.wait_cache.map(|w|!w.is_empty() as u8);
-                let num_waiting = waiting.into_iter().sum();
-                let (down, up) = match num_waiting {
-                    1 => (-no_wait / 3, no_wait / 1),
-                    2 => (-no_wait / 2, no_wait / 2),
-                    3 => (-no_wait / 1, no_wait / 3),
-                    _ => (0, 0),
-                };
-                end.points_delta = waiting.map(|w| if w > 0 { up } else { down });
-                end.renchan = waiting[round_id.button().to_usize()] > 0;
-                end.next_round_id = Some(round_id.next_honba(end.renchan));
-                // TODO(summivox): handle end-of-the-entire-game
-            }
-
-            ActionResult::AbortNagashiMangan => {
-                end.points_delta = resolve_nagashi_mangan(&self.s, round_id.button());
-                // same renchan rules as normal wall exhausted
-                end.renchan = waiting[round_id.button().to_usize()] > 0;
+            ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
+                // The latter is only a special case of the former, with points delta being the
+                // only real distinction. Therefore, we merge the handling.
+                (end.points_delta, end.renchan) =
+                    resolve_wall_exhausted(&self.s, waiting, round_id.button());
                 end.next_round_id = Some(round_id.next_honba(end.renchan));
             }
 
@@ -541,15 +568,18 @@ impl Engine {
             _ => panic!()
         }
 
-        for i in 0..4 { end.points[i] += end.delta[i]; }
+        for i in 0..4 { end.points[i] += end.points_delta[i]; }
 
         NextOrEnd::End(end)
     }
 
     fn cache_wait_for(&mut self, player: Player) {
-        self.wait_cache[player.to_usize()] =
-            self.decomposer.with_tile_set(s.closed_hands[player.to_usize()])
-                .into().iter().collect_vec()
+        let wait =
+            self.decomposer.with_tile_set(self.s.closed_hands[player.to_usize()].into())
+                .iter().collect_vec();
+        self.wait_mask[player.to_usize()] =
+            TileMask34::from_iter(wait.iter().map(|p| p.waiting_tile));
+        self.wait_cache[player.to_usize()] = wait;
     }
     fn cache_wait_for_all(&mut self) {
         for player in all_players() { self.cache_wait_for(player); }

@@ -6,7 +6,6 @@
 use std::cmp::Ordering;
 
 use derive_more::{Constructor, From, Into};
-use num_enum::Default;
 
 use crate::common::tile_set::TileSet37;
 use crate::common::typedefs::*;
@@ -91,9 +90,9 @@ impl RoundId {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct RoundBeginState {
-    pub rules: (),  // TODO(summivox): define Rules
+    pub rules: (),  // TODO(summivox): rules
 
     /// Kyoku-honba that identifies this round.
     pub round_id: RoundId,
@@ -111,6 +110,18 @@ pub struct RoundBeginState {
 
     /// Points for each player.
     pub points: [GamePoints; 4],
+}
+
+impl Default for RoundBeginState {
+    fn default() -> Self {
+        Self {
+            rules: (),
+            round_id: Default::default(),
+            wall: make_dummy_wall(),
+            pot: 0,
+            points: [0; 4],
+        }
+    }
 }
 
 impl PartiallyObservable for RoundBeginState {
@@ -232,7 +243,7 @@ impl PartiallyObservable for PreActionState {
 pub enum Action {
     Discard {
         tile: Tile,
-        riichi: bool,
+        declare_riichi: bool,
         tsumokiri: bool,
     },
     Ankan(Tile),
@@ -275,7 +286,7 @@ pub enum Reaction {
 /// Conclusion of an action-reaction cycle.
 /// Unknown state can be represented by `Option<PostReactionState>`, just like `Reaction`.
 /// However, an explicit `Pass` is included to represent "nothing has happened; move on".
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, num_enum::Default, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ActionResult {
     #[num_enum(default)]

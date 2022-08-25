@@ -1,12 +1,24 @@
 //! Unordered multi-sets of tiles, represented as histograms.
+//!
+//! - When red 5's are counted separately, use [`TileSet37`].
+//! - If red 5's are treated the same as normal 5's, use [`TileSet34`].
+//!
+//! Both can be directly indexed with [`Tile`] (red or normal, 37 or 34).
+//!
+//! A [`TileSet37`] can be converted to a [`TileSet34`] with red 5's folded into normal 5's.
 
 use std::ops::{Index, IndexMut};
 
-use derive_more::{Constructor, From, Into, Index, IndexMut};
+use derive_more::{
+    Constructor, From, Into, Index, IndexMut,
+    BitAnd, BitOr, BitXor,
+    BitAndAssign, BitOrAssign, BitXorAssign,
+};
 
 use crate::Tile;
 
-/// Histogram for all 37 kinds of tiles (including red)
+/// Histogram for all 37 kinds of tiles (including red).
+/// Can be directly indexed with [`Tile`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, Index, IndexMut)]
 pub struct TileSet37([u8; 37]);
 
@@ -27,13 +39,13 @@ impl Default for TileSet37 {
     fn default() -> Self { TileSet37([0u8; 37]) }
 }
 
-impl From<&[Tile]> for TileSet37 {
-    fn from(tiles: &[Tile]) -> Self {
-        let mut histogram = TileSet37::default();
-        for &tile in tiles {
-            histogram[tile] += 1;
+impl FromIterator<Tile> for TileSet37 {
+    fn from_iter<T: IntoIterator<Item=Tile>>(tiles: T) -> Self {
+        let mut ts = Self::default();
+        for tile in tiles {
+            ts[tile] += 1;
         }
-        histogram
+        ts
     }
 }
 
@@ -50,7 +62,8 @@ impl TileSet37 {
     }
 }
 
-/// Histogram for all 34 kinds of normal tiles (red 5's are treated as normal 5's)
+/// Histogram for all 34 kinds of normal tiles (red 5's are treated as normal 5's).
+/// Can be directly indexed with [`Tile`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, Index, IndexMut)]
 pub struct TileSet34([u8; 34]);
 
@@ -82,13 +95,13 @@ impl From<TileSet37> for TileSet34 {
     }
 }
 
-impl From<&[Tile]> for TileSet34 {
-    fn from(tiles: &[Tile]) -> Self {
-        let mut histogram = TileSet34::default();
-        for &tile in tiles {
-            histogram[tile] += 1;
+impl FromIterator<Tile> for TileSet34 {
+    fn from_iter<T: IntoIterator<Item=Tile>>(tiles: T) -> Self {
+        let mut ts = Self::default();
+        for tile in tiles {
+            ts[tile.to_normal()] += 1;
         }
-        histogram
+        ts
     }
 }
 
@@ -119,6 +132,58 @@ impl TileSet34 {
     }
 }
 
+/// 1-bit-per-tile version of [`TileSet34`], i.e. non-multi set.
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq,
+    Constructor, From, Into,
+    BitAnd, BitOr, BitXor,
+    BitAndAssign, BitOrAssign, BitXorAssign,
+)]
+pub struct TileMask34(pub u64);
+
+impl FromIterator<Tile> for TileMask34 {
+    fn from_iter<T: IntoIterator<Item=Tile>>(tiles: T) -> Self {
+        let mut mask = 0u64;
+        for tile in tiles {
+            mask |= 1u64 << tile.normal_encoding() as u64;
+        }
+        Self(mask)
+    }
+}
+
+impl TileMask34 {
+    pub fn has(self, tile: Tile) -> bool {
+        (self.0 >> (tile.normal_encoding() as u64)) & 1 == 1
+    }
+}
+
+impl From<TileSet37> for TileMask34 {
+    fn from(ts37: TileSet37) -> Self {
+        let mut mask = 0u64;
+        for i in 0..34 {
+            if ts37[i] > 0 {
+                mask |= 1 << i;
+            }
+        }
+        if ts37[34] > 0 { mask |= 1 << 4; }
+        if ts37[35] > 0 { mask |= 1 << 13; }
+        if ts37[36] > 0 { mask |= 1 << 22; }
+        Self(mask)
+    }
+}
+
+impl From<TileSet34> for TileMask34 {
+    fn from(ts34: TileSet34) -> Self {
+        let mut mask = 0u64;
+        for i in 0..34 {
+            if ts34[i] > 0 {
+                mask |= 1 << i;
+            }
+        }
+        Self(mask)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -127,7 +192,7 @@ mod tests {
 
     #[test]
     fn histogram_can_be_indexed_with_tile() {
-        let mut h = TileSet37::from(&tiles_from_str("1112345678999m")[..]);
+        let mut h = TileSet37::from_iter(tiles_from_str("1112345678999m"));
         h[Tile::from_str("9m").unwrap()] -= 2;
         h[Tile::from_str("7z").unwrap()] += 2;
         assert_eq!(h, [
@@ -155,12 +220,26 @@ mod tests {
 
     #[test]
     fn ts34_packs_correctly() {
-        let h = TileSet34::from(&tiles_from_str("147m258p369s77z")[..]);
+        let h = TileSet34::from_iter(tiles_from_str("147m258p369s77z"));
         assert_eq!(h.packed(), [
             0o001001001,
             0o010010010,
             0o100100100,
             0o2000000,
         ]);
+    }
+
+    #[test]
+    fn mask34_examples() {
+        let tiles1 = tiles_from_str("147m208p369s77z");
+        let mask1 = TileMask34::from_iter(tiles1);
+        assert_eq!(u64::from(mask1), 0b1000000100100100010010010001001001u64);
+
+        let tiles2 = tiles_from_str("1112345678999m");
+        let mask2 = TileMask34::from_iter(tiles2);
+        assert_eq!(u64::from(mask2), 0b111111111u64);
+
+        let mask_and = mask1 & mask2;
+        assert_eq!(u64::from(mask_and), 0b001001001u64);
     }
 }
