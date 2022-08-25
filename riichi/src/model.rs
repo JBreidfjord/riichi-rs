@@ -3,11 +3,14 @@
 //! This module mainly provides data model definitions and some straightforward helpers.
 //! Game logic belongs to [`crate::engine`].
 
+use arrayvec::ArrayVec;
+
 use crate::common::tile_set::TileSet37;
 use crate::common::typedefs::*;
 use crate::common::tile::Tile;
 use crate::common::meld::Meld;
 use crate::common::wall::{make_dummy_wall, Wall};
+use crate::rules::Rules;
 
 trait PartiallyObservable {
     fn observe_by(&self, player: Player) -> Self;
@@ -87,7 +90,7 @@ impl RoundId {
 
 #[derive(Clone, Debug)]
 pub struct RoundBeginState {
-    pub rules: (),  // TODO(summivox): rules
+    pub rules: Rules,
 
     /// Kyoku-honba that identifies this round.
     pub round_id: RoundId,
@@ -110,7 +113,7 @@ pub struct RoundBeginState {
 impl Default for RoundBeginState {
     fn default() -> Self {
         Self {
-            rules: (),
+            rules: Default::default(),
             round_id: Default::default(),
             wall: make_dummy_wall(),
             pot: 0,
@@ -172,6 +175,8 @@ impl FuritenFlags {
 /// State variables known right before a player's action (after tile-drawing, if any).
 #[derive(Clone, Debug, Default)]
 pub struct PreActionState {
+    /******** SMALL FIELDS ********/
+
     /// The player in action.
     pub action_player: Player,
 
@@ -208,15 +213,7 @@ pub struct PreActionState {
     /// Note that this is not mutually exclusive with `draw`; kan => both draw and meld.
     pub incoming_meld: Option<Meld>,
 
-    /// The concealed/closed hand of each player, represented as a [`TileSet37`].
-    /// Note that this does NOT include any newly drawn tile.
-    /// **A player can only observe their own hand.**
-    pub closed_hands: [TileSet37; 4],
-
-    /// The discard stream of each player.
-    /// Tiles that are called by other players are explicitly marked so, not excluded.
-    /// See [`Discard`].
-    pub discards: [Vec<Discard>; 4],
+    /******** MEDIUM FIELDS ********/
 
     /// Furiten status for each player before action.
     /// **A player can only observe their own status.**
@@ -227,6 +224,18 @@ pub struct PreActionState {
 
     /// Melds / open hands of each player.
     pub melds: [Vec<Meld>; 4],
+
+    /******** LARGE FIELDS ********/
+
+    /// The concealed/closed hand of each player, represented as a [`TileSet37`].
+    /// Note that this does NOT include any newly drawn tile.
+    /// **A player can only observe their own hand.**
+    pub closed_hands: [TileSet37; 4],
+
+    /// The discard stream of each player.
+    /// Tiles that are called by other players are explicitly marked so, not excluded.
+    /// See [`Discard`].
+    pub discards: [Vec<Discard>; 4],
 }
 
 impl PartiallyObservable for PreActionState {
@@ -439,11 +448,20 @@ pub enum NextOrEnd {
     End(RoundEndState),
 }
 
+pub struct Turn {
+
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use assert2::check;
     use itertools::Itertools;
+
+    #[test]
+    fn print_state_size() {
+        dbg!(std::mem::size_of::<PreActionState>());
+    }
 
     #[test]
     fn reaction_ordering_is_correct() {

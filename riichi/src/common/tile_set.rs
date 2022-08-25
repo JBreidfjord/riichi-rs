@@ -106,15 +106,24 @@ impl FromIterator<Tile> for TileSet34 {
 }
 
 impl TileSet34 {
-    pub fn to_sorted_vec(&self) -> Vec<Tile> {
-        let mut tiles: Vec<Tile> = vec![];
-        tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
-        for (encoding, count) in self.0.into_iter().enumerate() {
-            for _ in 0..count {
-                tiles.push(Tile::from_encoding(encoding as u8).unwrap());
+    pub fn from_packed(packed: [u32; 4]) -> Self {
+        let mut ts34 = Self::default();
+        let mut i = 0;
+        for s in 0..3 {
+            let mut m = packed[s];
+            for _ in 0..9 {
+                ts34[i] = (m & 0o7) as u8;
+                i += 1;
+                m >>= 3;
             }
         }
-        tiles
+        let mut m = packed[3];
+        for _ in 0..7 {
+            ts34[i] = (m & 0o7) as u8;
+            i += 1;
+            m >>= 3;
+        }
+        ts34
     }
 
     /// Compress the histogram so that each element takes 3 bits (valid range `0..=4`).
@@ -129,6 +138,17 @@ impl TileSet34 {
             packed[s] = (packed[s] << 3) | (h[i] as u32);
         }
         packed
+    }
+
+    pub fn to_sorted_vec(&self) -> Vec<Tile> {
+        let mut tiles: Vec<Tile> = vec![];
+        tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
+        for (encoding, count) in self.0.into_iter().enumerate() {
+            for _ in 0..count {
+                tiles.push(Tile::from_encoding(encoding as u8).unwrap());
+            }
+        }
+        tiles
     }
 }
 
@@ -227,6 +247,7 @@ mod tests {
             0o100100100,
             0o2000000,
         ]);
+        assert_eq!(TileSet34::from_packed(h.packed()), h);
     }
 
     #[test]

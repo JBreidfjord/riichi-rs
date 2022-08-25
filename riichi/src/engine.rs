@@ -1,9 +1,11 @@
 //! Core game logic, i.e. state transitions.
 
 pub mod agari;
+pub mod errors;
 pub mod utils;
 
 use agari::*;
+pub use errors::*;
 use utils::*;
 
 use itertools::Itertools;
@@ -12,78 +14,6 @@ use thiserror::Error;
 use crate::analysis::{Decomposer, FullHandWaitingPattern};
 use crate::common::*;
 use crate::model::*;
-
-#[derive(Error, Debug)]
-pub enum ActionError {
-    #[error("Tsumokiri discard tile {0} != drawn tile {1:?}")]
-    TsumokiriMismatch(Tile, Option<Tile>),
-
-    #[error("Discarding from the closed hand while under riichi.")]
-    DiscardClosedHandUnderRiichi,
-
-    #[error("Discarding {0} is swap-calling (kuikae) due to {1}")]
-    NoSwapCalling(Tile, Meld),
-
-    #[error("Tile {0} does not exist in the closed hand.")]
-    TileNotExist(Tile),
-
-    #[error("Attempting to declare riichi when already under riichi.")]
-    DeclareRiichiAgain,
-
-    #[error("Attempting to declare riichi with an open hand.")]
-    DeclareRiichiWithOpenMeld,
-
-    #[error("Attempting to declare riichi with a hand not ready after discarding.")]
-    DeclareRiichiWhileNotReady,
-
-    #[error("Attempting invalid ankan on {0} under riichi.")]
-    InvalidAnkanUnderRiichi(Tile),
-
-    #[error("Cannot ankan on {0} with only {} in hand.")]
-    NotEnoughForAnkan(Tile, u8),
-
-    #[error("Attempting kakan on {0} without corresponding pon.")]
-    NoPonForKakan(Tile),
-
-    #[error("Cannot kyuushuukyuuhai with only {0} kinds of terminals in hand.")]
-    NotEnoughForKyuushuukyuuhai(u8),
-
-    #[error("Cannot abort after the first go-around.")]
-    NotInitAbortable,
-}
-
-#[derive(Error, Debug)]
-pub enum ReactionError {
-    #[error("No action to react to.")]
-    NoAction,
-
-    #[error("The action is terminal; no reactions possible.")]
-    TerminalAction,
-
-    #[error("Cannot declare an open meld under riichi.")]
-    MeldUnderRiichi,
-
-    #[error("Tile {0} does not exist in the closed hand.")]
-    TileNotExist(Tile),
-
-    #[error("You can only call a discarded tile (is actually {0:?})")]
-    NotDiscard(Action),
-
-    #[error("Can only Chii on the previous player's discard.")]
-    CanOnlyChiiPrevPlayer,
-
-    #[error("Cannot Chii {2} with own {0}{1}.")]
-    InvalidChii(Tile, Tile, Tile),
-
-    #[error("Cannot Pon {2} with own {0}{1}.")]
-    InvalidPon(Tile, Tile, Tile),
-
-    #[error("Cannot Daiminkan.")]
-    InvalidDaiminkan,
-
-    #[error("No ron when you are furiten: {0:?}")]
-    Furiten(FuritenFlags),
-}
 
 pub struct Engine {
     /// Keep a ref to the decomposer.
