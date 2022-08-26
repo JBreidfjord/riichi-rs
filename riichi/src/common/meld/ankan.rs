@@ -1,7 +1,9 @@
 use std::fmt::{Display, Formatter};
 
-use crate::common::tile::Tile;
+use crate::common::Tile;
+use crate::common::TileSet37;
 use crate::common::utils::*;
+use super::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_ankan};
 
 /// Closed Kan, formed by setting aside 4 tiles of the same kind in a player's closed hand (暗槓).
@@ -15,16 +17,30 @@ pub struct Ankan {
 }
 
 impl Ankan {
-    pub fn from_tiles(own0: Tile, own1: Tile, own2: Tile, own3: Tile) -> Option<Self> {
-        if own0.to_normal() != own1.to_normal() ||
-            own0.to_normal() != own2.to_normal() ||
-            own0.to_normal() != own3.to_normal() { return None; }
-        let mut own = [own0, own1, own2, own3];
+    pub const fn num(self) -> u8 { self.own[0].normal_num() }
+    pub const fn suit(self) -> u8 { self.own[0].suit() }
+
+    /// Constructs from 4 own tiles.
+    pub fn from_tiles(mut own: [Tile; 4]) -> Option<Self> {
+        if own[0].to_normal() != own[1].to_normal() ||
+            own[0].to_normal() != own[2].to_normal() ||
+            own[0].to_normal() != own[3].to_normal() { return None; }
         own.sort();
         Some(Ankan { own })
     }
-    pub const fn num(self) -> u8 { self.own[0].normal_num() }
-    pub const fn suit(self) -> u8 { self.own[0].suit() }
+
+    /// Constructs from the closed hand for the specified tile.
+    pub fn from_hand(hand: &TileSet37, tile: Tile) -> Option<Self> {
+        let (num_normal, num_red) = count_for_kan(hand, tile);
+        if num_normal + num_red != 4 { return None; }
+        Self::from_tiles(ankan_tiles(tile, num_red))
+    }
+
+    /// Removes all own tiles from the hand (where this was constructed from).
+    pub fn consume_from_hand(self, hand: &mut TileSet37) {
+        hand[self.own[0]] = 0;
+        hand[self.own[3]] = 0;
+    }
 }
 
 impl Display for Ankan {
@@ -53,7 +69,7 @@ impl TryFrom<PackedMeld> for Ankan {
         if r1 { own1 = own1.to_red(); }
         if r2 { own2 = own2.to_red(); }
         if r3 { own3 = own3.to_red(); }
-        Ankan::from_tiles(own0, own1, own2, own3).ok_or(())
+        Ankan::from_tiles([own0, own1, own2, own3]).ok_or(())
     }
 }
 

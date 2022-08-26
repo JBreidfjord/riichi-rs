@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 
-use crate::common::tile::Tile;
+use crate::common::Tile;
+use crate::common::TileSet37;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind};
 
@@ -20,6 +21,10 @@ pub struct Chii {
 }
 
 impl Chii {
+    pub const fn dir(self) -> u8 { self.called.normal_num() - self.min.num() }
+    pub const fn suit(self) -> u8 { self.called.suit() }
+
+    /// Construct from own tiles and the called tile.
     pub fn from_tiles(own0: Tile, own1: Tile, called: Tile) -> Option<Self> {
         let suit = called.suit();
         if own0.suit() != suit || own1.suit() != suit { return None; }
@@ -31,10 +36,17 @@ impl Chii {
         if !(b == a.succ().unwrap() && c == b.succ().unwrap()) { return None; }
         Some(Chii { own: [own0, own1], called, min: a })
     }
-    pub const fn dir(self) -> u8 {
-        self.called.normal_num() - self.min.num()
+
+    /// Checks whether own tiles exist in player's closed hand.
+    pub fn is_in_hand(self, hand: &TileSet37) -> bool {
+        hand[self.own[0]] >= 1 && hand[self.own[1]] >= 1
     }
-    pub const fn suit(self) -> u8 { self.called.suit() }
+
+    /// Removes own tiles from player's closed hand (assuming they exist).
+    pub fn consume_from_hand(self, hand: &mut TileSet37) {
+        hand[self.own[0]] -= 1;
+        hand[self.own[1]] -= 1;
+    }
 }
 
 impl Display for Chii {

@@ -45,7 +45,7 @@
 //! - <https://riichi.wiki/Yama>
 
 use crate::{Player, Tile};
-use crate::common::tile_set::TileSet37;
+use crate::common::tile_set::{TileSet34, TileSet37};
 
 /// The wall of tiles.
 /// See [module-level docs](self).
@@ -78,6 +78,11 @@ pub fn make_sorted_wall(num_reds: [u8; 3]) -> Wall {
     wall
 }
 
+/// Make sure that a wall is valid --- 34 kinds x 4 each = 136
+pub fn is_valid_wall(wall: Wall) -> bool {
+    TileSet34::from_iter(wall).into_iter().all(|n| n == 4)
+}
+
 pub const DEAL_INDEX: [[usize; 13]; 4] = [
     [0x00, 0x01, 0x02, 0x03, 0x10, 0x11, 0x12, 0x13, 0x20, 0x21, 0x22, 0x23, 0x30],
     [0x04, 0x05, 0x06, 0x07, 0x14, 0x15, 0x16, 0x17, 0x24, 0x25, 0x26, 0x27, 0x31],
@@ -93,7 +98,7 @@ pub const MAX_NUM_DRAWS: u8 = 70;
 
 /// Draw the initial 13 tiles for each of the 4 players, according to standard rules.
 /// See [module-level docs](self).
-pub fn deal(wall: &[Tile; 136], button: Player) -> [TileSet37; 4] {
+pub fn deal(wall: &Wall, button: Player) -> [TileSet37; 4] {
     let mut hists = [TileSet37::default(); 4];
     for i in 0..4 {
         for wall_index in DEAL_INDEX[i] {
@@ -103,6 +108,24 @@ pub fn deal(wall: &[Tile; 136], button: Player) -> [TileSet37; 4] {
     }
     hists
 }
+
+pub fn dora_indicator(wall: &Wall, i: usize) -> Tile {
+    wall[DORA_INDICATOR_INDEX[i]]
+}
+pub fn ura_dora_indicator(wall: &Wall, i: usize) -> Tile {
+    wall[URA_DORA_INDICATOR_INDEX[i]]
+}
+pub fn dora_indicators(wall: &Wall) -> [Tile; 5] {
+    DORA_INDICATOR_INDEX.map(|i| wall[i])
+}
+pub fn ura_dora_indicators(wall: &Wall) -> [Tile; 5] {
+    URA_DORA_INDICATOR_INDEX.map(|i| wall[i])
+}
+
+pub fn kan_draw(wall: &Wall, i: usize) -> Tile {
+    wall[KAN_DRAW_INDEX[i]]
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -116,7 +139,9 @@ mod tests {
             "111122223333444400556666777788889999p",
             "111122223333444455556666777788889999s",
             "1111222233334444555566667777z");
-        assert_eq!(make_sorted_wall([1, 2, 0])[..], tiles_from_str(ans)[..]);
+        let wall = make_sorted_wall([1, 2, 0]);
+        assert_eq!(wall[..], tiles_from_str(ans)[..]);
+        assert!(is_valid_wall(wall));
     }
 
     #[test]

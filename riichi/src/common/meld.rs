@@ -8,7 +8,8 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::common::hand_group::HandGroup;
+use crate::common::HandGroup;
+use crate::common::TileSet37;
 use crate::common::typedefs::*;
 
 mod chii;
@@ -17,12 +18,14 @@ mod kakan;
 mod daiminkan;
 mod ankan;
 mod packed;
+mod utils;
 
 pub use chii::Chii;
 pub use pon::Pon;
 pub use kakan::Kakan;
 pub use daiminkan::Daiminkan;
 pub use ankan::Ankan;
+pub use utils::*;
 
 /// Sum type of all kinds of melds (副露).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -48,7 +51,7 @@ impl Meld {
         }
     }
 
-    /// Maps to the equivalent closed-hand group.
+    /// Maps to the equivalent closed-hand group. Useful for e.g. winning condition calculations.
     /// - Chii => [`HandGroup::Shuntsu`]
     /// - Pon/Kan => [`HandGroup::Koutsu`] (ignoring the 4th tile)
     pub fn to_equivalent_group(&self) -> HandGroup {
@@ -59,6 +62,16 @@ impl Meld {
             Meld::Kakan(kakan) => Koutsu(kakan.added.to_normal()),
             Meld::Daiminkan(daiminkan) => Koutsu(daiminkan.called.to_normal()),
             Meld::Ankan(ankan) => Koutsu(ankan.own[0].to_normal()),
+        }
+    }
+
+    pub fn consume_from_hand(&self, hand: &mut TileSet37) {
+        match self {
+            Meld::Chii(chii) => chii.consume_from_hand(hand),
+            Meld::Pon(pon) => pon.consume_from_hand(hand),
+            Meld::Daiminkan(daiminkan) => daiminkan.consume_from_hand(hand),
+            Meld::Kakan(kakan) => kakan.consume_from_hand(hand),
+            Meld::Ankan(ankan) => ankan.consume_from_hand(hand),
         }
     }
 }

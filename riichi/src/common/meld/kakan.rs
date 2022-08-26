@@ -1,8 +1,10 @@
 use std::fmt::{Display, Formatter};
 
-use crate::common::tile::Tile;
+use crate::common::Tile;
+use crate::common::TileSet37;
 use crate::common::typedefs::*;
 use crate::common::utils::*;
+use crate::count_for_kan;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_kakan};
 use super::Pon;
 
@@ -19,12 +21,31 @@ pub struct Kakan {
 }
 
 impl Kakan {
+    pub const fn num(self) -> u8 { self.added.normal_num() }
+    pub const fn suit(self) -> u8 { self.added.suit() }
+
+    /// Constructs from an existing Pon and the (last) added tile.
     pub fn from_pon_added(pon: Pon, added: Tile) -> Option<Self> {
         if added.to_normal() != pon.called.to_normal() { return None; }
         Some(Kakan { pon, added })
     }
-    pub const fn num(self) -> u8 { self.added.normal_num() }
-    pub const fn suit(self) -> u8 { self.added.suit() }
+
+    /// Constructs from an existing Pon and the closed hand.
+    /// If the closed hand does not have the last remaining tile, returns `None`.
+    pub fn from_pon_hand(pon: Pon, hand: &TileSet37) -> Option<Self> {
+        let added = pon.called.to_normal();
+        let (num_normal, num_red) = count_for_kan(hand, added);
+        match (num_normal, num_red) {
+            (1, 0) => Some(Kakan { pon, added }),
+            (0, 1) => Some(Kakan { pon, added: added.to_red() }),
+            _ => None,
+        }
+    }
+
+    /// Removes the added tile from the hand (where this was constructed from).
+    pub fn consume_from_hand(self, hand: &mut TileSet37) {
+        hand[self.added] -= 1;
+    }
 }
 
 impl Display for Kakan {

@@ -4,13 +4,13 @@ use crate::analysis::FullHandWaitingPattern;
 use crate::common::*;
 use crate::model::*;
 
-impl RoundBeginState {
-    pub fn to_initial_pre_action_state(&self) -> PreActionState {
+impl RoundBegin {
+    pub fn to_initial_state(&self) -> State {
         let wall = &self.wall;
         let button = self.round_id.button();
-        PreActionState {
-            action_player: button,
+        State {
             seq: 0,
+            action_player: button,
             num_drawn_head: 53,
             num_drawn_tail: 0,
             num_dora_indicators: 0,
@@ -18,8 +18,8 @@ impl RoundBeginState {
             incoming_meld: None,
             closed_hands: wall::deal(wall, button),
             discards: [vec![], vec![], vec![], vec![]],
-            furiten: [FuritenFlags::default(); 4],
-            riichi: [RiichiFlags::default(); 4],
+            furiten: Default::default(),
+            riichi: Default::default(),
             melds: [vec![], vec![], vec![], vec![]],
         }
     }
@@ -52,27 +52,6 @@ pub fn other_players_after(player: Player) -> [Player; 3] {
     ]
 }
 
-pub fn count_for_kan(hand: &TileSet37, tile: Tile) -> (usize, usize) {
-    let t = tile.to_normal();
-    let num_normal = hand[t.to_normal()];
-    let num_red = if t.num() == 5 { hand[t.to_red()] } else { 0 };
-    (num_normal as usize, num_red as usize)
-}
-pub fn ankan_tiles(tile: Tile, num_red: usize) -> [Tile; 4] {
-    let mut tiles = [tile, tile, tile, tile];
-    for i in 0..num_red { tiles[i] = tile.to_red(); }
-    tiles
-}
-pub fn daiminkan_tiles(tile: Tile, num_red: usize) -> [Tile; 3] {
-    let mut tiles = [tile, tile, tile];
-    for i in 0..num_red { tiles[i] = tile.to_red(); }
-    tiles
-}
-
-pub fn num_active_riichi(s: &PreActionState) -> usize {
-    s.riichi.into_iter().filter(|flags| flags.is_active).count()
-}
-
 /// Returns if this discard immediately after calling Chii/Pon constitutes a swap call (喰い替え),
 /// i.e. the discarded tile can form the same group as the meld. This is usually forbidden.
 ///
@@ -82,7 +61,7 @@ pub fn num_active_riichi(s: &PreActionState) -> usize {
 ///
 /// <https://riichi.wiki/Kuikae>
 pub fn is_forbidden_swap_call(meld: Meld, discard: Tile) -> bool {
-    // TODO(summivox): rules
+    // TODO(summivox): rules (kuikae)
     let discard = discard.to_normal();
     match meld {
         Meld::Chii(chii) => {
@@ -99,7 +78,7 @@ pub fn is_forbidden_swap_call(meld: Meld, discard: Tile) -> bool {
 
 /// <https://riichi.wiki/Kan#Kan_during_riichi>
 pub fn is_ankan_ok_under_riichi(decomps: &[FullHandWaitingPattern], ankan: Tile) -> bool {
-    // TODO(summivox): rule
+    // TODO(summivox): rules (ankan-riichi, okuri-kan, relaxed-ankan-riichi)
     // TODO(summivox): okuri-kan (need to also check the discard)
     // TODO(summivox): relaxed rule (sufficient to not change the set of waiting tiles)
     let ankan = ankan.to_normal();
@@ -107,52 +86,58 @@ pub fn is_ankan_ok_under_riichi(decomps: &[FullHandWaitingPattern], ankan: Tile)
         decomp.groups().any(|group| group == HandGroup::Koutsu(ankan)))
 }
 
-/// Affects [`ActionResult::AbortKyuushuukyuuhai`] and [`RiichiFlags::is_double`].
-pub fn is_init_abortable(s: &PreActionState) -> bool {
-    s.seq <= 3 && s.melds.iter().all(|melds| melds.is_empty())
+/********/
+
+pub fn num_active_riichi(state: &State) -> usize {
+    state.riichi.into_iter().filter(|flags| flags.is_active).count()
+}
+
+/// Affects [`ActionResult::AbortNineKinds`] and [`RiichiFlags::is_double`].
+pub fn is_init_abortable(state: &State) -> bool {
+    state.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
 }
 
 /// Checks if [`ActionResult::AbortWallExhausted`] applies (during end-of-turn resolution).
-pub fn is_wall_exhausted(s: &PreActionState) -> bool {
-    s.num_drawn_head + s.num_drawn_tail == wall::MAX_NUM_DRAWS
+pub fn is_wall_exhausted(state: &State) -> bool {
+    state.num_drawn_head + state.num_drawn_tail == wall::MAX_NUM_DRAWS
 }
 
 /// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for the
 /// specified player.
 /// Assuming [`is_wall_exhausted`].
-pub fn is_nagashi_mangan(s: &PreActionState, player: Player) -> bool {
-    s.discards[player.to_usize()].iter().all(|discard|
+pub fn is_nagashi_mangan(state: &State, player: Player) -> bool {
+    state.discards[player.to_usize()].iter().all(|discard|
         discard.tile.is_terminal() && discard.called_by == player)
 }
 
 /// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for all
 /// players.
 /// Assuming [`is_wall_exhausted`].
-pub fn is_any_player_nagashi_mangan(s: &PreActionState) -> bool {
-    all_players().into_iter().all(|player| is_nagashi_mangan(s, player))
+pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
+    all_players().into_iter().all(|player| is_nagashi_mangan(state, player))
 }
 
 /// Checks if [`ActionResult::AbortFourWind`] applies (during end-of-turn resolution).
-pub fn is_aborted_four_wind(s: &PreActionState, action: Action) -> bool {
-    if let Action::Discard { tile, .. } = action {
-        return is_init_abortable(s) &&
-            s.seq == 3 &&
-            tile.is_wind() &&
-            s.discards[0..3].iter().all(|discards|
-                discards.len() == 1 && discards[0].tile == tile);
+pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
+    if let Action::Discard(discard) = action {
+        return is_init_abortable(state) &&
+            state.seq == 3 &&
+            discard.tile.is_wind() &&
+            state.discards[0..3].iter().all(|discards|
+                discards.len() == 1 && discards[0].tile == discard.tile);
     }
     false
 }
 
 /// Checks if [`ActionResult::AbortFourKan`] applies (during end-of-turn resolution).
-pub fn is_aborted_four_kan(s: &PreActionState, action: Action, tentative_result: ActionResult) -> bool {
-    let pp = s.action_player.to_usize();
+pub fn is_aborted_four_kan(state: &State, action: Action, tentative_result: ActionResult) -> bool {
+    let pp = state.action_player.to_usize();
 
     if matches!(action, Action::Kakan(_)) ||
         matches!(action, Action::Ankan(_)) ||
         tentative_result == ActionResult::Daiminkan {
         let kan_players =
-            s.melds.iter().enumerate().flat_map(|(player, melds_p)|
+            state.melds.iter().enumerate().flat_map(|(player, melds_p)|
                 melds_p.iter().filter_map(move |meld|
                     if meld.is_kan() { Some(player) } else { None })).collect_vec();
 
@@ -165,15 +150,29 @@ pub fn is_aborted_four_kan(s: &PreActionState, action: Action, tentative_result:
 }
 
 /// Checks if [`ActionResult::AbortFourRiichi`] applies (during end-of-turn resolution).
-pub fn is_aborted_four_riichi(s: &PreActionState, action: Action) -> bool {
-    matches!(action, Action::Discard{declare_riichi: true, ..}) && num_active_riichi(s) == 3
+pub fn is_aborted_four_riichi(state: &State, action: Action) -> bool {
+    matches!(action, Action::Discard(Discard{declares_riichi: true, ..})) &&
+        num_active_riichi(state) == 3  // not a typo --- the last player only declared => not active yet
+}
+
+/// When the wall has been exhausted, returns the points delta for each player as well as if the
+/// button player stays the same in the next round (renchan 連荘).
+pub fn resolve_wall_exhausted(
+    state: &State, waiting: [u8; 4], button: Player) -> ([GamePoints; 4], bool) {
+    let renchan = waiting[button.to_usize()] > 0;
+    let delta_nagashi = calc_nagashi_mangan_delta(state, button);
+    if delta_nagashi == [0; 4] {
+        (calc_wall_exhausted_delta(waiting), renchan)
+    } else {
+        (delta_nagashi, renchan)
+    }
 }
 
 /// When the wall has been exhausted and no player has achieved
 /// [`ActionResult::AbortNagashiMangan`], given whether each player is waiting (1) or not (0),
 /// returns the points delta for each player.
 pub fn calc_wall_exhausted_delta(waiting: [u8; 4]) -> [GamePoints; 4] {
-    // TODO(summivox): rules
+    // TODO(summivox): rules (ten-no-ten points)
     const NO_WAIT_PENALTY_TOTAL: GamePoints = 3000;
     let no_wait = NO_WAIT_PENALTY_TOTAL;
 
@@ -189,12 +188,12 @@ pub fn calc_wall_exhausted_delta(waiting: [u8; 4]) -> [GamePoints; 4] {
 
 /// When the wall has been exhausted and some player has achieved
 /// [`ActionResult::AbortNagashiMangan`], returns the points delta for each player.
-pub fn calc_nagashi_mangan_delta(s: &PreActionState, button: Player) -> [GamePoints; 4] {
-    // TODO(summivox): rules
+pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 4] {
+    // TODO(summivox): rules (nagashi-mangan-points)
 
     let mut delta = [0; 4];
     for player in all_players() {
-        if is_nagashi_mangan(s, player) {
+        if is_nagashi_mangan(state, player) {
             if player == button {
                 delta[player.to_usize()] += 12000 + 4000;
                 for qq in 0..4 { delta[qq] -= 4000; }
@@ -206,17 +205,4 @@ pub fn calc_nagashi_mangan_delta(s: &PreActionState, button: Player) -> [GamePoi
         }
     }
     delta
-}
-
-/// When the wall has been exhausted, returns the points delta for each player as well as if the
-/// button player stays the same in the next round (renchan 連荘).
-pub fn resolve_wall_exhausted(
-    s: &PreActionState, waiting: [u8; 4], button: Player) -> ([GamePoints; 4], bool) {
-    let renchan = waiting[button.to_usize()] > 0;
-    let delta_nagashi = calc_nagashi_mangan_delta(s, button);
-    if delta_nagashi == [0; 4] {
-        (calc_wall_exhausted_delta(waiting), renchan)
-    } else {
-        (delta_nagashi, renchan)
-    }
 }

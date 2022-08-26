@@ -10,7 +10,7 @@
 use std::ops::{Index, IndexMut};
 
 use derive_more::{
-    Constructor, From, Into, Index, IndexMut,
+    Constructor, From, Into, IntoIterator, Index, IndexMut,
     BitAnd, BitOr, BitXor,
     BitAndAssign, BitOrAssign, BitXorAssign,
 };
@@ -19,7 +19,7 @@ use crate::Tile;
 
 /// Histogram for all 37 kinds of tiles (including red).
 /// Can be directly indexed with [`Tile`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, Index, IndexMut)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
 pub struct TileSet37([u8; 37]);
 
 impl Index<Tile> for TileSet37 {
@@ -64,7 +64,7 @@ impl TileSet37 {
 
 /// Histogram for all 34 kinds of normal tiles (red 5's are treated as normal 5's).
 /// Can be directly indexed with [`Tile`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, Index, IndexMut)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
 pub struct TileSet34([u8; 34]);
 
 impl Index<Tile> for TileSet34 {
@@ -85,9 +85,9 @@ impl Default for TileSet34 {
 }
 
 // Conversion is one-way from 37 to 34 (count of red is lost).
-impl From<TileSet37> for TileSet34 {
-    fn from(original: TileSet37) -> Self {
-        let mut result: [u8; 34] = (&original[..34]).try_into().unwrap();
+impl From<&TileSet37> for TileSet34 {
+    fn from(original: &TileSet37) -> Self {
+        let mut result: [u8; 34] = (original[..34]).try_into().unwrap();
         result[4] += original[34];
         result[13] += original[35];
         result[22] += original[36];

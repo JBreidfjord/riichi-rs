@@ -3,24 +3,13 @@ use crate::analysis::FullHandWaitingPattern;
 use crate::common::*;
 use crate::model::*;
 
+/// A bundle of intermediate results during the Agari computation.
 #[derive(Copy, Clone, Default)]
 pub struct AgariFacts {
     pub kind: AgariKind,
 }
 
-#[derive(Copy, Clone, Debug, num_enum::Default, Eq, PartialEq)]
-#[repr(u8)]
-pub enum AgariKind {
-    #[num_enum(default)]
-    Ron = 0,
-    Tsumo,
-}
-
-pub struct AgariResult {
-    // TODO
-}
-
-pub fn calc_agari(s: &PreActionState, winner: Player, waits: &[FullHandWaitingPattern], wait_mask: TileMask34)
+pub fn calc_agari(s: &State, winner: Player, waits: &[FullHandWaitingPattern], wait_mask: TileMask34)
     -> Option<AgariResult> {
 
     let mut facts = AgariFacts::default();

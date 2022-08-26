@@ -382,6 +382,7 @@ mod tests {
         // junsei chuuren poutou 「純正九蓮宝燈」
         // https://riichi.wiki/Chuuren_poutou
         // TODO(summivox): complete transcribing all 15...
+
         //     111m 999m 234m 567m 8+8m
         //     111m 999m 234m 678m 5+5m
         //     111m 999m 345m 678m 2+2m
@@ -397,6 +398,7 @@ mod tests {
         //     999m 345m 678m 11m 12+3m
         //     123m 456m 789m 11m 99+9m
         //     123m 456m 789m 99m 11+1m
+
         /*
         check_decomp([0o311111113, 0, 0, 0], &[
 

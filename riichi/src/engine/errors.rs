@@ -20,6 +20,9 @@ pub enum ActionError {
     #[error("Attempting to declare riichi when already under riichi.")]
     DeclareRiichiAgain,
 
+    #[error("Attempting to declare riichi without enough points.")]
+    DeclareRiichiWithoutPoints,
+
     #[error("Attempting to declare riichi with an open hand.")]
     DeclareRiichiWithOpenMeld,
 
@@ -29,14 +32,14 @@ pub enum ActionError {
     #[error("Attempting invalid ankan on {0} under riichi.")]
     InvalidAnkanUnderRiichi(Tile),
 
-    #[error("Cannot ankan on {0} with only {} in hand.")]
-    NotEnoughForAnkan(Tile, u8),
+    #[error("Cannot ankan on {0}; not enough in hand")]
+    NotEnoughForAnkan(Tile),
 
     #[error("Attempting kakan on {0} without corresponding pon.")]
     NoPonForKakan(Tile),
 
-    #[error("Cannot kyuushuukyuuhai with only {0} kinds of terminals in hand.")]
-    NotEnoughForKyuushuukyuuhai(u8),
+    #[error("Cannot declare Kyuushuukyuuhai with only {0} kinds of terminals in hand.")]
+    NotEnoughKindsForNineKinds(u8),
 
     #[error("Cannot abort after the first go-around.")]
     NotInitAbortable,
@@ -62,10 +65,10 @@ pub enum ReactionError {
     #[error("Can only Chii on the previous player's discard.")]
     CanOnlyChiiPrevPlayer,
 
-    #[error("Cannot Chii {2} with own {0}{1}.")]
+    #[error("Cannot Chii {2} with own {0}{1} (own may not exist).")]
     InvalidChii(Tile, Tile, Tile),
 
-    #[error("Cannot Pon {2} with own {0}{1}.")]
+    #[error("Cannot Pon {2} with own {0}{1} (own may not exist).")]
     InvalidPon(Tile, Tile, Tile),
 
     #[error("Cannot Daiminkan.")]

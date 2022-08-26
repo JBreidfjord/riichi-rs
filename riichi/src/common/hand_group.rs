@@ -65,6 +65,14 @@ impl HandGroup {
             }
         }
     }
+
+    /// Returns the min tile in the group.
+    pub fn min_tile(self) -> Tile {
+        match self {
+            HandGroup::Koutsu(tile) => tile,
+            HandGroup::Shuntsu(tile) => tile,
+        }
+    }
 }
 
 impl Display for HandGroup {

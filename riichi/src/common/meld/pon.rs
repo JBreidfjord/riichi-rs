@@ -1,5 +1,7 @@
 use std::fmt::{Display, Formatter};
-use crate::common::tile::Tile;
+
+use crate::common::Tile;
+use crate::common::TileSet37;
 use crate::common::typedefs::*;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_pon};
@@ -20,6 +22,10 @@ pub struct Pon {
 }
 
 impl Pon {
+    pub const fn num(self) -> u8 { self.called.normal_num() }
+    pub const fn suit(self) -> u8 { self.called.suit() }
+
+    /// Constructs from own tiles, called tile, and the relative pos of the discarding player.
     pub fn from_tiles_dir(own0: Tile, own1: Tile, called: Tile, dir: Player) -> Option<Self> {
         if own0.to_normal() != called.to_normal() ||
             own1.to_normal() != called.to_normal() ||
@@ -27,8 +33,18 @@ impl Pon {
         let (own0, own1) = sort2(own0, own1);
         Some(Pon { own: [own0, own1], called, dir })
     }
-    pub const fn num(self) -> u8 { self.called.normal_num() }
-    pub const fn suit(self) -> u8 { self.called.suit() }
+
+    /// Checks whether own tiles exist in player's closed hand.
+    pub fn is_in_hand(self, hand: &TileSet37) -> bool {
+        if self.own[0] != self.own[1] { hand[self.own[0]] >= 1 && hand[self.own[1]] >= 1 }
+        else { hand[self.own[0]] >= 2 }
+    }
+
+    /// Removes own tiles from player's closed hand (assuming they exist).
+    pub fn consume_from_hand(self, hand: &mut TileSet37) {
+        hand[self.own[0]] -= 1;
+        hand[self.own[1]] -= 1;
+    }
 }
 
 impl Display for Pon {

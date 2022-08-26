@@ -1,9 +1,11 @@
 use std::fmt::{Display, Formatter};
 
-use crate::common::tile::Tile;
+use crate::common::Tile;
+use crate::common::TileSet37;
 use crate::common::typedefs::*;
 use crate::common::utils::*;
 use super::packed::{PackedMeld, PackedMeldKind, normalize_daiminkan};
+use super::utils::*;
 
 /// "Big Open Kan" formed by calling 1 with 3 of the same kind in the closed hand (大明槓).
 /// Similar to [Pon](super::Pon), may be called from any other player's discard.
@@ -21,16 +23,32 @@ pub struct Daiminkan {
 }
 
 impl Daiminkan {
-    pub fn from_tiles_dir(own0: Tile, own1: Tile, own2: Tile, called: Tile, dir: Player) -> Option<Self> {
-        if own0.to_normal() != called.to_normal() ||
-            own1.to_normal() != called.to_normal() ||
-            own2.to_normal() != called.to_normal() ||
-            dir.to_u8() == 0 { return None; }
-        let (own0, own1, own2) = sort3(own0, own1, own2);
-        Some(Daiminkan { own: [own0, own1, own2], called, dir })
-    }
     pub const fn num(self) -> u8 { self.called.normal_num() }
     pub const fn suit(self) -> u8 { self.called.suit() }
+
+    /// Constructs from own tiles, the called tile, and the relative pos of the discarding player.
+    pub fn from_tiles_dir(own: [Tile; 3], called: Tile, dir: Player) -> Option<Self> {
+        if own[0].to_normal() != called.to_normal() ||
+            own[1].to_normal() != called.to_normal() ||
+            own[2].to_normal() != called.to_normal() ||
+            dir.to_u8() == 0 { return None; }
+        let (own0, own1, own2) = sort3(own[0], own[1], own[2]);
+        Some(Daiminkan { own: [own0, own1, own2], called, dir })
+    }
+
+    /// Constructs from the closed hand for the called tile and
+    /// the relative pos of the discarding player.
+    pub fn from_hand_dir(hand: &TileSet37, called: Tile, dir: Player) -> Option<Self> {
+        let (num_normal, num_red) = count_for_kan(hand, called);
+        if num_normal + num_red != 3 { return None; }
+        Self::from_tiles_dir(daiminkan_tiles(called, num_red), called, dir)
+    }
+
+    /// Removes all own tiles from the hand (where this was constructed from).
+    pub fn consume_from_hand(self, hand: &mut TileSet37) {
+        hand[self.own[0].to_normal()] = 0;
+        hand[self.own[0].to_red()] = 0;
+    }
 }
 
 impl Display for Daiminkan {
@@ -64,7 +82,7 @@ impl TryFrom<PackedMeld> for Daiminkan {
         if r2 { own2 = own2.to_red(); }
         if r3 { called = called.to_red(); }
         Daiminkan::from_tiles_dir(
-            own0, own1, own2, called, Player::new(raw.dir())).ok_or(())
+            [own0, own1, own2], called, Player::new(raw.dir())).ok_or(())
     }
 }
 
