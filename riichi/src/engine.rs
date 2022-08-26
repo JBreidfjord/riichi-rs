@@ -69,15 +69,32 @@ impl Engine {
         self.win_cache = Default::default();
     }
 
-    // FIXME(summivox): resolve borrowing problem here with `hand`; currently worked around.
-    fn cache_wait_for(&mut self, player: Player, hand: TileSet37) {
-        let wait =
-            self.decomposer.with_tile_set(TileSet34::from(&hand)).iter().collect_vec();
-        self.wait_mask[player.to_usize()] =
-            TileMask34::from_iter(wait.iter().map(|p| p.waiting_tile));
-        // TODO(summivox): `wait_mask` should include kokushi/chiitoi
-        self.wait_cache[player.to_usize()] = wait;
+    /// Calculate and cache waiting patterns and tile set for all players.
+    /// - For the player in action: calculate based on the post-action hand.
+    /// - Others: calculate based on the current hand (from `state`).
+    fn cache_wait_and_mask(&mut self, actor: Player, actor_hand: &TileSet37) {
+        let (wait, mask) = Self::calc_wait_and_mask(&mut self.decomposer, actor_hand);
+        self.wait_cache[actor.to_usize()] = wait;
+        self.wait_mask[actor.to_usize()] = mask;
+        for other_player in other_players_after(actor) {
+            let other_i = other_player.to_usize();
+            let (wait, mask) = Self::calc_wait_and_mask(
+                &mut self.decomposer, &self.state.closed_hands[other_i]);
+            self.wait_cache[other_i] = wait;
+            self.wait_mask[other_i] = mask;
+        }
     }
+
+    // Helper to avoid borrowing conflicts.
+    fn calc_wait_and_mask(decomposer: &mut Decomposer, hand: &TileSet37)
+                          -> (Vec<FullHandWaitingPattern>, TileMask34) {
+        let wait =
+            decomposer.with_tile_set(TileSet34::from(hand)).iter().collect_vec();
+        let wait_mask =
+            TileMask34::from_iter(wait.iter().map(|p| p.waiting_tile));
+        (wait, wait_mask)
+    }
+
 
     pub fn begin_round(&mut self, begin: RoundBegin) -> &mut Self {
         self.clear_cache();
@@ -215,11 +232,7 @@ impl Engine {
                 }
             }
         }
-        self.cache_wait_for(actor, hand);
-        for other_player in other_players_after(actor) {
-            self.cache_wait_for(
-                other_player, self.state.closed_hands[other_player.to_usize()]);
-        }
+        self.cache_wait_and_mask(actor, &hand);
         Ok(())
     }
 
