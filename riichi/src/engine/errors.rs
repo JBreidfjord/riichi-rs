@@ -43,6 +43,9 @@ pub enum ActionError {
 
     #[error("Cannot abort after the first go-around.")]
     NotInitAbortable,
+
+    #[error("Can only declare tsumo-agari (win by self-draw) on the drawn tile.")]
+    MustDeclareTsumoAgariOnDraw,
 }
 
 #[derive(Error, Debug)]

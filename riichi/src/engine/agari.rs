@@ -9,12 +9,17 @@ pub struct AgariFacts {
     pub kind: AgariKind,
 }
 
-pub fn calc_agari(s: &State, winner: Player, waits: &[FullHandWaitingPattern], wait_mask: TileMask34)
-    -> Option<AgariResult> {
+pub fn calc_agari(
+    begin: &RoundBegin,
+    state: &State,
+    winner: Player,
+    waits: &[FullHandWaitingPattern],
+    wait_mask: TileMask34,
+) -> Option<AgariResult> {
 
     let mut facts = AgariFacts::default();
 
-    let win_from = s.action_player;
+    let win_from = state.action_player;
     facts.kind = if win_from == winner { AgariKind::Tsumo } else { AgariKind::Ron };
 
     unimplemented!()

@@ -50,6 +50,23 @@ impl FromIterator<Tile> for TileSet37 {
 }
 
 impl TileSet37 {
+    /// Compress the histogram so that each element takes 3 bits (valid range `0..=4`).
+    /// This results in 4 x 27-bit integers, one for each suit.
+    ///
+    /// Conveniently this is 1 digit per element in octal.
+    pub fn packed(&self) -> [u32; 4] {
+        let mut packed = [0u32; 4];
+        let h = &self.0;
+        for i in (0..34).rev() {
+            let s = i / 9;
+            packed[s] = (packed[s] << 3) | (h[i] as u32);
+        }
+        packed[0] |= (h[34] as u32) << (3 * 4);
+        packed[1] |= (h[35] as u32) << (3 * 4);
+        packed[2] |= (h[36] as u32) << (3 * 4);
+        packed
+    }
+
     pub fn to_sorted_vec(&self) -> Vec<Tile> {
         let mut tiles: Vec<Tile> = vec![];
         tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
@@ -172,6 +189,8 @@ impl FromIterator<Tile> for TileMask34 {
 }
 
 impl TileMask34 {
+    pub fn is_empty(self) -> bool { self.0 == 0 }
+    pub fn any(self) -> bool { self.0 > 0 }
     pub fn has(self, tile: Tile) -> bool {
         (self.0 >> (tile.normal_encoding() as u64)) & 1 == 1
     }

@@ -25,6 +25,7 @@ pub struct Discard {
     /// The discarded tile.
     pub tile: Tile,
     /// If called by another player, that player; otherwise the player who discarded this tile.
+    /// This is explicitly ignored when wrapped in [`Action::Discard`].
     pub called_by: Player,
     /// Whether this tile was discarded as a part of declaring riichi.
     pub declares_riichi: bool,

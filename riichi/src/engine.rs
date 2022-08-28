@@ -1,16 +1,18 @@
 //! Core game logic, i.e. state transitions.
 
 pub mod agari;
+pub mod wait_calc;
 pub mod errors;
 pub mod utils;
 
 use agari::*;
 pub use errors::*;
 use utils::*;
+pub use wait_calc::WaitingInfo;
 
 use itertools::Itertools;
 
-use crate::analysis::{Decomposer, FullHandWaitingPattern};
+use crate::analysis::Decomposer;
 use crate::common::*;
 use crate::model::*;
 use crate::wall::is_valid_wall;
@@ -25,18 +27,16 @@ pub struct Engine {
     reactions: [Option<Reaction>; 4],
     end: Option<RoundEnd>,
 
-    /// Full hand waiting decomposition cache for each player.
-    /// Computed after the action is registered.
-    wait_cache: [Vec<FullHandWaitingPattern>; 4],
-
-    /// Waiting tile set for the corresponding entry in [`Self::wait_cache`].
-    wait_mask: [TileMask34; 4],
-
     /// Pending meld declared by each player, either action or reaction.
     meld_cache: [Option<Meld>; 4],
 
     /// Pending win declared by each player, either action (tsumo) or reaction (ron).
     win_cache: [Option<AgariResult>; 4],
+
+    /// Full (3N + 1) hand waiting decomposition cache for each player.
+    /// - Initialized when jumped to a new state.
+    /// - Updated when a player's hand returns to (3N + 1) form.
+    wait_cache: [WaitingInfo; 4],
 }
 
 impl Engine {
@@ -53,56 +53,36 @@ impl Engine {
             reactions: Default::default(),
             end: None,
 
-            wait_cache: Default::default(),
-            wait_mask: Default::default(),
             meld_cache: Default::default(),
             win_cache: Default::default(),
+            wait_cache: Default::default(),
         }
     }
 
     pub fn state(&self) -> &State { &self.state }
 
-    fn clear_cache(&mut self) {
-        self.wait_cache = Default::default();
-        self.wait_mask = Default::default();
-        self.meld_cache = Default::default();
-        self.win_cache = Default::default();
-    }
-
-    /// Calculate and cache waiting patterns and tile set for all players.
-    /// - For the player in action: calculate based on the post-action hand.
-    /// - Others: calculate based on the current hand (from `state`).
-    fn cache_wait_and_mask(&mut self, actor: Player, actor_hand: &TileSet37) {
-        let (wait, mask) = Self::calc_wait_and_mask(&mut self.decomposer, actor_hand);
-        self.wait_cache[actor.to_usize()] = wait;
-        self.wait_mask[actor.to_usize()] = mask;
-        for other_player in other_players_after(actor) {
-            let other_i = other_player.to_usize();
-            let (wait, mask) = Self::calc_wait_and_mask(
-                &mut self.decomposer, &self.state.closed_hands[other_i]);
-            self.wait_cache[other_i] = wait;
-            self.wait_mask[other_i] = mask;
+    fn init_wait_cache(&mut self) {
+        for player in all_players() {
+            self.wait_cache[player.to_usize()] = WaitingInfo::from_keys(
+                &mut self.decomposer,
+                &self.state.closed_hands[player.to_usize()].packed());
         }
     }
 
-    // Helper to avoid borrowing conflicts.
-    fn calc_wait_and_mask(decomposer: &mut Decomposer, hand: &TileSet37)
-                          -> (Vec<FullHandWaitingPattern>, TileMask34) {
-        let wait =
-            decomposer.with_tile_set(TileSet34::from(hand)).iter().collect_vec();
-        let wait_mask =
-            TileMask34::from_iter(wait.iter().map(|p| p.waiting_tile));
-        (wait, wait_mask)
+    fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
+        self.wait_cache[player.to_usize()] = WaitingInfo::from_keys(
+            &mut self.decomposer, &hand.packed());
     }
 
-
     pub fn begin_round(&mut self, begin: RoundBegin) -> &mut Self {
-        self.clear_cache();
+        self.meld_cache = Default::default();
+        self.win_cache = Default::default();
         self.begin = begin;
         self.state = self.begin.to_initial_state();
         self.action = Default::default();
         self.reactions = Default::default();
         self.end = None;
+        self.init_wait_cache();
         self
     }
 
@@ -110,11 +90,13 @@ impl Engine {
         // sanity check: must have valid begin
         debug_assert!(is_valid_wall(self.begin.wall));
 
-        self.clear_cache();
+        self.meld_cache = Default::default();
+        self.win_cache = Default::default();
         self.state = state;
         self.action = Default::default();
         self.reactions = Default::default();
         self.end = None;
+        self.init_wait_cache();
         self
     }
 
@@ -122,14 +104,16 @@ impl Engine {
         // must have valid state
         assert!(self.state.num_drawn_head >= 52);
 
-        self.clear_cache();
+        self.meld_cache = Default::default();
+        self.win_cache = Default::default();
         self.reactions = Default::default();
-        self.check_action(action)?;
+        let hand = self.check_action(action)?;
+        self.update_wait_cache(self.state.action_player, &hand);
         self.action = Some(action);
         Ok(self)
     }
 
-    fn check_action(&mut self, action: Action) -> Result<(), ActionError> {
+    fn check_action(&mut self, action: Action) -> Result<TileSet37, ActionError> {
         use ActionError::*;
 
         let state = &self.state;
@@ -190,7 +174,8 @@ impl Engine {
 
             Action::Ankan(tile) => {
                 let tile = tile.to_normal();
-                if under_riichi && !is_ankan_ok_under_riichi(&self.wait_cache[actor_i], tile) {
+                if under_riichi && !is_ankan_ok_under_riichi(
+                    &self.wait_cache[actor_i].regular, tile) {
                     return Err(InvalidAnkanUnderRiichi(tile));
                 }
                 if let Some(ankan) = Ankan::from_hand(&hand, tile) {
@@ -221,7 +206,11 @@ impl Engine {
                 }
             }
 
-            Action::TsumoAgari(_tile) => {
+            Action::TsumoAgari(tile) => {
+                if state.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
+                // To simplify handling, we keep the wait cache on the pre-draw (3N + 1) state.
+                hand[tile] -= 1;
+
                 // TODO(summivox): agari
             }
             Action::AbortNineKinds => {
@@ -232,8 +221,7 @@ impl Engine {
                 }
             }
         }
-        self.cache_wait_and_mask(actor, &hand);
-        Ok(())
+        Ok(hand)
     }
 
     pub fn register_reaction(&mut self, reactor: Player, reaction: Reaction)
@@ -470,11 +458,11 @@ impl Engine {
                 // If any discard is
                 // furiten-by-discard == some tile in the waiting set exists in the discard set
                 if !state.furiten[actor_i].by_discard && !state.furiten[actor_i].miss_permanent {
-                    let discard_mask = TileMask34::from_iter(
+                    let discard_set = TileMask34::from_iter(
                         state.discards[actor_i].iter().map(|discard| discard.tile));
-                    let wait_mask = self.wait_mask[actor_i];
+                    let waiting_set = self.wait_cache[actor_i].waiting_set;
 
-                    state.furiten[actor_i].by_discard = discard_mask.0 & wait_mask.0 > 0
+                    state.furiten[actor_i].by_discard = discard_set.0 & waiting_set.0 > 0
                 }
                 // Temporary miss expires after discarding.
                 state.furiten[actor_i].miss_temporary = false;
@@ -524,7 +512,7 @@ impl Engine {
             let furiten = &mut state.furiten[other_player_i];
 
             if furiten.miss_permanent { continue; }
-            if self.wait_mask[other_player_i].has(action.tile().unwrap()) {
+            if self.wait_cache[other_player_i].waiting_set.has(action.tile().unwrap()) {
                 furiten.miss_temporary = true;
                 furiten.miss_permanent = state.riichi[other_player_i].is_active;
             }
@@ -557,7 +545,7 @@ impl Engine {
 
         let round_id = self.begin.round_id;
         // ugly syntax gets around array::map moving the Vec value
-        let waiting = [0, 1, 2, 3].map(|i| !self.wait_cache[i].is_empty() as u8);
+        let waiting = [0, 1, 2, 3].map(|i| self.wait_cache[i].waiting_set.any() as u8);
         match action_result {
             ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
                 // The latter is only a special case of the former, with points delta being the

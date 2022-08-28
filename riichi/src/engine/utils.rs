@@ -26,16 +26,15 @@ impl RoundBegin {
 }
 
 impl TileSet37 {
-    fn terminal_counter(&self, n: u8) -> u8 {
-        0u8 + (self[0] == n) as u8 + (self[8] == n) as u8
-            + (self[9] == n) as u8 + (self[17] == n) as u8
-            + (self[18] == n) as u8 + (self[26] == n) as u8
-            + (self[27] == n) as u8 + (self[28] == n) as u8
-            + (self[29] == n) as u8 + (self[30] == n) as u8
-            + (self[31] == n) as u8 + (self[32] == n) as u8
-            + (self[33] == n) as u8
+    pub fn terminal_kinds(&self) -> u8 {
+        0u8 + (self[0] > 0) as u8 + (self[8] > 0) as u8
+            + (self[9] > 0) as u8 + (self[17] > 0) as u8
+            + (self[18] > 0) as u8 + (self[26] > 0) as u8
+            + (self[27] > 0) as u8 + (self[28] > 0) as u8
+            + (self[29] > 0) as u8 + (self[30] > 0) as u8
+            + (self[31] > 0) as u8 + (self[32] > 0) as u8
+            + (self[33] > 0) as u8
     }
-    pub fn terminal_kinds(&self) -> u8 { self.terminal_counter(1) }
 }
 
 pub fn all_players() -> [Player; 4] {
