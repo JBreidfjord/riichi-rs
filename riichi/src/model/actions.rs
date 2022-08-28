@@ -40,13 +40,17 @@ impl Action {
 
 /// Reaction from an out-of-turn player.
 /// The lack of reaction / "pass" / unknown reaction can be represented by `Option<Reaction>`.
+/// Variants are ordered by their priority (`Chii` is the lowest, `RonAgari` the highest).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Reaction {
-    // NOTE: Variant order matters --- used by `derive(Ord)` to comprare priority.
+    /// Declare a [`crate::Chii`] (チー) on the recent discard with the specified own tiles.
     Chii(Tile, Tile),
+    /// Declare a [`crate::Pon`] (ポン) on the recent discard with the specified own tiles.
     Pon(Tile, Tile),
+    /// Declare a [`crate::Daiminkan`] (大明槓) on the recent discard; own tiles are implicit.
     Daiminkan,
-    // tile is implicit
+    /// Declare win-by-steal (ロン和ガリ) on the recent action, which can be
+    /// [`Action::Discard`], [`Action::Kakan`] (rare), or [`Action::ankan`] (very rare).
     RonAgari,
 }
 
@@ -57,7 +61,7 @@ pub enum Reaction {
 #[repr(u8)]
 pub enum ActionResult {
     #[num_enum(default)]
-    /// The action successfully took place without any reaction.
+    /// The action has successfully taken place without any reaction.
     Pass = 0,
 
     /// A [`crate::Chii`] has been called (チー).
