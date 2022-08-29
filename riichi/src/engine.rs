@@ -10,6 +10,8 @@ pub use errors::*;
 use utils::*;
 pub use wait_calc::WaitingInfo;
 
+use std::cell::{Cell, RefCell};
+
 use itertools::Itertools;
 
 use crate::analysis::Decomposer;
@@ -19,7 +21,7 @@ use crate::wall::is_valid_wall;
 
 pub struct Engine {
     /// Keep a ref to the decomposer.
-    decomposer: Decomposer<'static>,
+    decomposer: RefCell<Decomposer<'static>>,
 
     begin: RoundBegin,
     state: State,
@@ -28,15 +30,15 @@ pub struct Engine {
     end: Option<RoundEnd>,
 
     /// Pending meld declared by each player, either action or reaction.
-    meld_cache: [Option<Meld>; 4],
+    meld_cache: [Cell<Option<Meld>>; 4],
 
     /// Pending win declared by each player, either action (tsumo) or reaction (ron).
-    win_cache: [Option<AgariResult>; 4],
+    win_cache: [Cell<Option<AgariResult>>; 4],
 
     /// Full (3N + 1) hand waiting decomposition cache for each player.
     /// - Initialized when jumped to a new state.
     /// - Updated when a player's hand returns to (3N + 1) form.
-    wait_cache: [WaitingInfo; 4],
+    wait_cache: [RefCell<WaitingInfo>; 4],
 }
 
 impl Engine {
@@ -45,7 +47,7 @@ impl Engine {
 
     pub fn new() -> Self {
         Self {
-            decomposer: Decomposer::new(),
+            decomposer: RefCell::new(Decomposer::new()),
 
             begin: Default::default(),
             state: Default::default(),
@@ -61,17 +63,18 @@ impl Engine {
 
     pub fn state(&self) -> &State { &self.state }
 
-    fn init_wait_cache(&mut self) {
+    fn init_wait_cache(&self) {
+        let mut decomposer = self.decomposer.borrow_mut();
         for player in all_players() {
-            self.wait_cache[player.to_usize()] = WaitingInfo::from_keys(
-                &mut self.decomposer,
-                &self.state.closed_hands[player.to_usize()].packed());
+            self.wait_cache[player.to_usize()].replace(WaitingInfo::from_keys(
+                &mut decomposer,
+                &self.state.closed_hands[player.to_usize()].packed()));
         }
     }
 
-    fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
-        self.wait_cache[player.to_usize()] = WaitingInfo::from_keys(
-            &mut self.decomposer, &hand.packed());
+    fn update_wait_cache(&self, player: Player, hand: &TileSet37) {
+        self.wait_cache[player.to_usize()].replace(WaitingInfo::from_keys(
+            &mut self.decomposer.borrow_mut(), &hand.packed()));
     }
 
     pub fn begin_round(&mut self, begin: RoundBegin) -> &mut Self {
@@ -101,26 +104,25 @@ impl Engine {
     }
 
     pub fn register_action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
-        // must have valid state
+        // sanity check: must have valid state
         assert!(self.state.num_drawn_head >= 52);
 
         self.meld_cache = Default::default();
         self.win_cache = Default::default();
         self.reactions = Default::default();
-        let hand = self.check_action(action)?;
-        self.update_wait_cache(self.state.action_player, &hand);
+        self.check_action(action)?;
         self.action = Some(action);
         Ok(self)
     }
 
-    fn check_action(&mut self, action: Action) -> Result<TileSet37, ActionError> {
+    fn check_action(&self, action: Action) -> Result<(), ActionError> {
         use ActionError::*;
 
         let state = &self.state;
         let actor = state.action_player;
         let actor_i = actor.to_usize();
 
-        // local copy for easier handling
+        // Make a copy of `actor`'s hand; this will be used to determine its
         let mut hand = state.closed_hands[actor.to_usize()];
         if let Some(draw) = state.draw {
             hand[draw] += 1;
@@ -145,6 +147,7 @@ impl Engine {
                 }
                 if hand[discard.tile] == 0 { return Err(TileNotExist(discard.tile)); }
                 hand[discard.tile] -= 1;
+                self.update_wait_cache(actor, &hand);
 
                 // Declaring riichi requires a closed 3N+1 ready (tenpai) hand after discarding.
                 if discard.declares_riichi {
@@ -159,8 +162,7 @@ impl Engine {
                     {
                         return Err(DeclareRiichiWithOpenMeld);
                     }
-                    if self.decomposer.with_tile_set(TileSet34::from(&hand))
-                        .iter().next().is_none() {
+                    if self.wait_cache[actor_i].borrow().waiting_set.is_empty() {
                         return Err(DeclareRiichiWhileNotReady);
                     }
                 }
@@ -175,12 +177,13 @@ impl Engine {
             Action::Ankan(tile) => {
                 let tile = tile.to_normal();
                 if under_riichi && !is_ankan_ok_under_riichi(
-                    &self.wait_cache[actor_i].regular, tile) {
+                    &self.wait_cache[actor_i].borrow().regular, tile) {
                     return Err(InvalidAnkanUnderRiichi(tile));
                 }
                 if let Some(ankan) = Ankan::from_hand(&hand, tile) {
                     ankan.consume_from_hand(&mut hand);
-                    self.meld_cache[actor_i] = Some(Meld::Ankan(ankan));
+                    self.meld_cache[actor_i].set(Some(Meld::Ankan(ankan)));
+                    self.update_wait_cache(actor, &hand);
                 } else {
                     return Err(NotEnoughForAnkan(tile));
                 }
@@ -200,7 +203,8 @@ impl Engine {
                     .map_err(|_| NoPonForKakan(added))?;
                 if let Some(kakan) = Kakan::from_pon_hand(pon, &hand) {
                     kakan.consume_from_hand(&mut hand);
-                    self.meld_cache[actor_i] = Some(Meld::Kakan(kakan));
+                    self.meld_cache[actor_i].set(Some(Meld::Kakan(kakan)));
+                    self.update_wait_cache(actor, &hand);
                 } else {
                     return Err(TileNotExist(added));
                 }
@@ -208,9 +212,6 @@ impl Engine {
 
             Action::TsumoAgari(tile) => {
                 if state.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
-                // To simplify handling, we keep the wait cache on the pre-draw (3N + 1) state.
-                hand[tile] -= 1;
-
                 // TODO(summivox): agari
             }
             Action::AbortNineKinds => {
@@ -221,7 +222,7 @@ impl Engine {
                 }
             }
         }
-        Ok(hand)
+        Ok(())
     }
 
     pub fn register_reaction(&mut self, reactor: Player, reaction: Reaction)
@@ -233,7 +234,7 @@ impl Engine {
         Ok(self)
     }
 
-    fn check_reaction(&mut self, reactor: Player, reaction: Reaction) -> Result<(), ReactionError> {
+    fn check_reaction(&self, reactor: Player, reaction: Reaction) -> Result<(), ReactionError> {
         use ReactionError::*;
 
         let action = self.action.ok_or(NoAction)?;
@@ -254,7 +255,7 @@ impl Engine {
                     let called = discard.tile;
                     if let Some(chii) = Chii::from_tiles(own0, own1, called) {
                         if chii.is_in_hand(hand) {
-                            self.meld_cache[reactor_i] = Some(Meld::Chii(chii));
+                            self.meld_cache[reactor_i].set(Some(Meld::Chii(chii)));
                         } else {
                             return Err(InvalidChii(own0, own1, called));
                         }
@@ -273,7 +274,7 @@ impl Engine {
                     let dir = actor.wrapping_sub(reactor);
                     if let Some(pon) =Pon::from_tiles_dir(own0, own1, called, dir) {
                         if pon.is_in_hand(hand) {
-                            self.meld_cache[reactor_i] = Some(Meld::Pon(pon));
+                            self.meld_cache[reactor_i].set(Some(Meld::Pon(pon)));
                         } else {
                             return Err(InvalidPon(own0, own1, called));
                         }
@@ -291,7 +292,7 @@ impl Engine {
                     let called = discard.tile;
                     let dir = actor.wrapping_sub(reactor);
                     if let Some(daiminkan) = Daiminkan::from_hand_dir(hand, called, dir) {
-                        self.meld_cache[reactor_i] = Some(Meld::Daiminkan(daiminkan));
+                        self.meld_cache[reactor_i].set(Some(Meld::Daiminkan(daiminkan)));
                     } else {
                         return Err(InvalidDaiminkan);
                     }
@@ -389,16 +390,16 @@ impl Engine {
         let actor = state.action_player;
         let actor_i = actor.to_usize();
 
-        state.seq += 1;
-
-        // Commit the draw to the player's closed hand.
-        if let Some(draw) = state.draw {
-            state.closed_hands[actor_i][draw] += 1;
-        };
-
-        // Handle delayed revealing of kan-doras.
-        // Note that this is the correct timing --- end of the turn where the player who called
-        // Kakan/Daiminkan has finished discarding or calling another Kan (Kakan/Ankan this time).
+        // Special case: Deferred revealing of new dora indicators due to Kakan/Daiminkan.
+        // Why this is special:
+        //
+        // - **Timing**: The player who did a Kakan/Daiminkan has finished their turn after drawing
+        //   from the tail of the wall. Revealing now makes sure that the player did not know what
+        //   the new dora indicator is right after making the call.
+        //
+        // - **Information**: This solely relies on the result of the previous turn. Actions and
+        //   reactions during this turn has no effect on this.
+        //
         // TODO(summivox): rules (kan-dora)
         match state.incoming_meld {
             Some(Meld::Kakan(_)) | Some(Meld::Daiminkan(_)) => {
@@ -407,9 +408,23 @@ impl Engine {
             _ => {}
         }
 
+        // After handling the only special case, we can start mutating the current state from
+        // begin of this turn to begin of the next turn.
+
+        state.seq += 1;
+
+        // Commit the draw to the player's closed hand.
+        if let Some(draw) = state.draw {
+            state.closed_hands[actor_i][draw] += 1;
+        };
+
+        // Commit the action.
+        // Note that the round has not ended. This means if there's an reaction, it must be a call
+        // (Chii/Pon/Daiminkan) on this turn's Discard. Therefore we can merge reaction handling
+        // into [`Action::Discard`].
         match action {
             Action::Discard(discard) => {
-                // Find who (if any) called the current player's discard.
+                // If there is indeed a call (according to `action_result`), find who called.
                 let caller =
                     other_players_after(actor).into_iter().filter(|reactor|
                         match self.reactions[reactor.to_usize()] {
@@ -420,17 +435,19 @@ impl Engine {
                         }
                     ).exactly_one().unwrap_or(actor);
 
-                // Discard it.
+                // Commit the discard first.
                 state.closed_hands[actor_i][discard.tile] -= 1;
                 state.discards[actor_i].push(Discard { called_by: caller, ..discard });
 
+                // Handle both existing and new riichi.
                 if state.riichi[actor_i].is_active {
                     // Ippatsu naturally expires after the first discard since declaring riichi.
                     state.riichi[actor_i].is_ippatsu = false;
                 } else if discard.declares_riichi {
+                    // Round has not ended => the new riichi is successful.
                     state.riichi[actor_i] = RiichiFlags {
                         is_active: true,
-                        is_ippatsu: caller == actor,
+                        is_ippatsu: caller == actor,  // no ippatsu if immediately called
                         is_double: is_init_abortable(state),
                     }
                 }
@@ -444,7 +461,7 @@ impl Engine {
                     state.num_drawn_head += 1;
                 } else {
                     // Someone called and will take the next turn instead.
-                    let meld = self.meld_cache[caller.to_usize()].unwrap();
+                    let meld = self.meld_cache[caller.to_usize()].get().unwrap();
                     meld.consume_from_hand(&mut state.closed_hands[caller.to_usize()]);
 
                     state.action_player = caller;
@@ -455,12 +472,11 @@ impl Engine {
                 }
 
                 // Check Furiten status for the discarding player.
-                // If any discard is
                 // furiten-by-discard == some tile in the waiting set exists in the discard set
                 if !state.furiten[actor_i].by_discard && !state.furiten[actor_i].miss_permanent {
                     let discard_set = TileMask34::from_iter(
                         state.discards[actor_i].iter().map(|discard| discard.tile));
-                    let waiting_set = self.wait_cache[actor_i].waiting_set;
+                    let waiting_set = self.wait_cache[actor_i].borrow().waiting_set;
 
                     state.furiten[actor_i].by_discard = discard_set.0 & waiting_set.0 > 0
                 }
@@ -471,7 +487,8 @@ impl Engine {
 
             Action::Ankan(_) | Action::Kakan(_) => {
                 // The current player has made an Ankan/Kakan and is entitled to a bonus turn.
-                let ankan_or_kakan = self.meld_cache[actor_i].unwrap();
+                // The round has not ended => no reaction is possible on this.
+                let ankan_or_kakan = self.meld_cache[actor_i].get().unwrap();
                 ankan_or_kakan.consume_from_hand(&mut state.closed_hands[actor_i]);
 
                 state.action_player = actor;
@@ -512,7 +529,7 @@ impl Engine {
             let furiten = &mut state.furiten[other_player_i];
 
             if furiten.miss_permanent { continue; }
-            if self.wait_cache[other_player_i].waiting_set.has(action.tile().unwrap()) {
+            if self.wait_cache[other_player_i].borrow().waiting_set.has(action.tile().unwrap()) {
                 furiten.miss_temporary = true;
                 furiten.miss_permanent = state.riichi[other_player_i].is_active;
             }
@@ -545,7 +562,7 @@ impl Engine {
 
         let round_id = self.begin.round_id;
         // ugly syntax gets around array::map moving the Vec value
-        let waiting = [0, 1, 2, 3].map(|i| self.wait_cache[i].waiting_set.any() as u8);
+        let waiting = [0, 1, 2, 3].map(|i| self.wait_cache[i].borrow().waiting_set.any() as u8);
         match action_result {
             ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
                 // The latter is only a special case of the former, with points delta being the

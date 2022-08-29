@@ -175,3 +175,26 @@ impl ActionResult {
     }
     pub const fn is_terminal(self) -> bool { self.is_agari() || self.is_abort() }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use assert2::assert;
+    use itertools::Itertools;
+    use super::*;
+
+    #[test]
+    fn reaction_order_by_priority() {
+        use Reaction::*;
+        let reactions = [
+            Chii(Tile::from_str("1s").unwrap(), Tile::from_str("2s").unwrap()),
+            Pon(Tile::from_str("3s").unwrap(), Tile::from_str("3s").unwrap()),
+            Daiminkan,
+            RonAgari,
+        ];
+        for (low, high) in reactions.into_iter().tuple_windows() {
+            assert!(low < high);
+        }
+    }
+}
