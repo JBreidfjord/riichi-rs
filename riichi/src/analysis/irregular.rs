@@ -14,7 +14,7 @@ pub enum IrregularWait {
 }
 
 impl IrregularWait {
-    pub fn to_mask(self) -> TileMask34 {
+    pub fn to_waiting_set(self) -> TileMask34 {
         match self {
             IrregularWait::SevenPairs(t) | IrregularWait::ThirteenOrphans(t)
                 => TileMask34(1u64 << (t.encoding() as u64)),
@@ -45,7 +45,7 @@ fn detect_seven_pairs(keys: [u32; 4]) -> Option<Tile> {
             return Tile::from_encoding(ones.trailing_zeros() as u8 / 3 + (i as u8) * 9);
         }
     }
-    None
+    panic!()
 }
 
 /// - No middle numerals
@@ -84,7 +84,7 @@ fn detect_thirteen_orphans(keys: [u32; 4]) -> Option<IrregularWait> {
 
 fn one_two(x: u32) -> (u32, u32, u32, u32) {
     let over = (x + 0o111111111) & 0o444444444;
-    if over > 0 { return (0, 10, 0, 10); }
+    if over > 0 { return (0, 20, 0, 20); }
     let twos = (x >> 1) & 0o111111111;
     let num_twos = twos.count_ones();
     let ones = x - twos * 2;
@@ -112,7 +112,7 @@ mod tests {
             detect_seven_pairs([0o202000202, 0o000000002, 0o000000000, 0o0100000]),
             None);
         assert_eq!(
-            detect_seven_pairs([0o202030202, 0o000000002, 0o000000000, 0o0000000]),
+            detect_seven_pairs([0o202040202, 0o000000001, 0o000000000, 0o0000000]),
             None);
         assert_eq!(
             detect_seven_pairs([0o202020202, 0o000000002, 0o000000000, 0o0000110]),

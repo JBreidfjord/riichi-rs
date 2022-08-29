@@ -1,11 +1,11 @@
 use itertools::Itertools;
-use crate::analysis::{Decomposer, FullHandWaitingPattern, IrregularWait, detect_irregular_wait};
+use crate::analysis::{Decomposer, RegularWait, IrregularWait, detect_irregular_wait};
 use crate::common::*;
 
 #[derive(Clone, Debug, Default)]
 pub struct WaitingInfo {
     pub waiting_set: TileMask34,
-    pub regular: Vec<FullHandWaitingPattern>,
+    pub regular: Vec<RegularWait>,
     pub irregular: Option<IrregularWait>,
 }
 
@@ -18,7 +18,7 @@ impl WaitingInfo {
         }
         let irregular = detect_irregular_wait(*keys);
         if let Some(irregular) = irregular {
-            waiting_set |= irregular.to_mask();
+            waiting_set |= irregular.to_waiting_set();
         }
         Self { waiting_set, regular, irregular }
     }

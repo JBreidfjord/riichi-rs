@@ -12,7 +12,7 @@ use riichi_decomp_table::{
 
 /// TODO(summivox): doc
 #[derive(Copy, Clone, Debug)]
-pub struct FullHandWaitingPattern {
+pub struct RegularWait {
     // TODO(summivox): reduce these into a "small vec" type --- decomp table could use these too
     raw_groups: u32, // (suited) groups: u8 x 4, with current len;
     pub num_groups: u8,
@@ -24,7 +24,7 @@ pub struct FullHandWaitingPattern {
     pub waiting_tile: Tile,
 }
 
-impl FullHandWaitingPattern {
+impl RegularWait {
     pub fn new(groups: &[HandGroup], pair: Option<Tile>,
                waiting_kind: WaitingKind, pattern_tile: Tile, waiting_tile: Tile) -> Self {
         let raw_groups = groups.iter().enumerate()
@@ -52,7 +52,7 @@ impl FullHandWaitingPattern {
     }
 }
 
-impl PartialEq<Self> for FullHandWaitingPattern {
+impl PartialEq<Self> for RegularWait {
     fn eq(&self, other: &Self) -> bool {
         self.groups().sorted().collect_vec() == other.groups().sorted().collect_vec()
             && self.pair == other.pair
@@ -62,15 +62,15 @@ impl PartialEq<Self> for FullHandWaitingPattern {
     }
 }
 
-impl Eq for FullHandWaitingPattern {}
+impl Eq for RegularWait {}
 
-impl PartialOrd<Self> for FullHandWaitingPattern {
+impl PartialOrd<Self> for RegularWait {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for FullHandWaitingPattern {
+impl Ord for RegularWait {
     fn cmp(&self, other: &Self) -> Ordering {
         let o =
             self.groups().sorted().collect_vec().cmp(&other.groups().sorted().collect_vec());
@@ -85,7 +85,7 @@ impl Ord for FullHandWaitingPattern {
     }
 }
 
-impl Display for FullHandWaitingPattern {
+impl Display for RegularWait {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use WaitingKind::*;
         write!(f, "{}", self.groups().sorted().map(|g| g.to_string()).join(" "))?;
@@ -143,7 +143,7 @@ impl Decomposer<'_> {
     }
 
     /// TODO(summivox): doc
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item=FullHandWaitingPattern> + 'a {
+    pub fn iter<'a>(&'a self) -> impl Iterator<Item=RegularWait> + 'a {
         let suit_x =
             self.c_for_suit
                 .iter()
@@ -175,12 +175,12 @@ impl Decomposer<'_> {
                 let chain =
                     extend_partial_iter(chain, suits_c[2], &self.c_for_suit[suits_c[2] as usize]);
 
-                chain.flat_map(move |partial| FullHandWaitingPattern::complete(partial))
+                chain.flat_map(move |partial| RegularWait::complete(partial))
             })
     }
 }
 
-impl FullHandWaitingPattern {
+impl RegularWait {
     fn from_waiting_pattern(suit: u8, w: WaitingPattern) -> Self {
         Self {
             raw_groups: 0,
@@ -198,7 +198,7 @@ impl FullHandWaitingPattern {
         if (self.has_pair_or_tanki() && c.pair().is_some()) || (suit == 3 && c.has_shuntsu()) {
             return None;
         }
-        Some(FullHandWaitingPattern {
+        Some(RegularWait {
             raw_groups: extend_groups(self.raw_groups, suit, &c),
             num_groups: self.num_groups + c.num_groups,
             pair: extend_pair(self.pair, suit, &c),
@@ -238,11 +238,11 @@ fn new_partial_iter<'a>(
     w_table: &'a WTable,
     suit: u8,
     key: u32,
-) -> impl Iterator<Item=FullHandWaitingPattern> + 'a {
+) -> impl Iterator<Item=RegularWait> + 'a {
     w_iter(w_table, key).flat_map(move |w| {
         c_iter(c_table, w.complete_key)
             .filter_map(move |c|
-                FullHandWaitingPattern::from_waiting_pattern(suit, w).try_extend(suit, &c))
+                RegularWait::from_waiting_pattern(suit, w).try_extend(suit, &c))
     })
 }
 
@@ -256,10 +256,10 @@ fn new_partial_iter<'a>(
 ///    if extended := partial_decomp.extend(complete_grouping))
 /// ```
 fn extend_partial_iter<'a>(
-    partial_iter: impl Iterator<Item=FullHandWaitingPattern> + 'a,
+    partial_iter: impl Iterator<Item=RegularWait> + 'a,
     suit: u8,
     c: &'a [CompleteGrouping],
-) -> impl Iterator<Item=FullHandWaitingPattern> + 'a {
+) -> impl Iterator<Item=RegularWait> + 'a {
     partial_iter.flat_map(move |partial|
         c.iter().filter_map(move |c|
             partial.try_extend(suit, c)))
@@ -320,7 +320,7 @@ mod tests {
         println!();
     }
 
-    fn check_decomp(keys: [u32; 4], expected_decomp: &[FullHandWaitingPattern]) {
+    fn check_decomp(keys: [u32; 4], expected_decomp: &[RegularWait]) {
         let result = Decomposer::new().with_keys(keys).iter().sorted().collect_vec();
         let mut expected = expected_decomp.to_vec();
         expected.sort();
@@ -346,7 +346,7 @@ mod tests {
         // shorthands for building decomp "literals"
         use HandGroup::{Koutsu, Shuntsu};
         use WaitingKind::*;
-        use FullHandWaitingPattern as W;
+        use RegularWait as W;
         let t = |str| Tile::from_str(str).unwrap();
         let k = |str| Koutsu(t(str));
         let s = |str| Shuntsu(t(str));

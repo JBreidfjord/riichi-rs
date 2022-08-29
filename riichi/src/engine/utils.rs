@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use crate::analysis::FullHandWaitingPattern;
+use crate::analysis::RegularWait;
 
 use crate::common::*;
 use crate::model::*;
@@ -76,7 +76,7 @@ pub fn is_forbidden_swap_call(meld: Meld, discard: Tile) -> bool {
 }
 
 /// <https://riichi.wiki/Kan#Kan_during_riichi>
-pub fn is_ankan_ok_under_riichi(decomps: &[FullHandWaitingPattern], ankan: Tile) -> bool {
+pub fn is_ankan_ok_under_riichi(decomps: &[RegularWait], ankan: Tile) -> bool {
     // TODO(summivox): rules (ankan-riichi, okuri-kan, relaxed-ankan-riichi)
     // TODO(summivox): okuri-kan (need to also check the discard)
     // TODO(summivox): relaxed rule (sufficient to not change the set of waiting tiles)

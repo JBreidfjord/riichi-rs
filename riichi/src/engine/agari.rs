@@ -1,5 +1,5 @@
 
-use crate::analysis::FullHandWaitingPattern;
+use crate::analysis::RegularWait;
 use crate::common::*;
 use crate::model::*;
 
@@ -13,7 +13,7 @@ pub fn calc_agari(
     begin: &RoundBegin,
     state: &State,
     winner: Player,
-    waits: &[FullHandWaitingPattern],
+    waits: &[RegularWait],
     wait_mask: TileMask34,
 ) -> Option<AgariResult> {
 
