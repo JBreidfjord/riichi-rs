@@ -8,9 +8,14 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::common::HandGroup;
-use crate::common::TileSet37;
-use crate::common::typedefs::*;
+use crate::{
+    common::{
+        HandGroup,
+        Tile,
+        TileSet37,
+        typedefs::*
+    }
+};
 
 mod chii;
 mod pon;
@@ -48,6 +53,26 @@ impl Meld {
         match self {
             Self::Kakan(_) | Self::Daiminkan(_) | Self::Ankan(_) => true,
             _ => false
+        }
+    }
+
+    pub fn called(&self) -> Option<Tile> {
+        match self {
+            Self::Chii(chii) => Some(chii.called),
+            Self::Pon(pon) => Some(pon.called),
+            Self::Daiminkan(daiminkan) => Some(daiminkan.called),
+            Self::Kakan(kakan) => Some(kakan.pon.called),
+            Self::Ankan(_) => None,
+        }
+    }
+
+    pub fn dir(&self) -> Option<Player> {
+        match self {
+            Self::Chii(_) => Some(Player::new(3)),
+            Self::Pon(pon) => Some(pon.dir),
+            Self::Daiminkan(daiminkan) => Some(daiminkan.dir),
+            Self::Kakan(kakan) => Some(kakan.pon.dir),
+            Self::Ankan(_) => None,
         }
     }
 

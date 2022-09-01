@@ -63,7 +63,7 @@ impl TryFrom<PackedMeld> for Chii {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != PackedMeldKind::Chii.into() { return Err(()); }
+        if raw.kind() != u8::from(PackedMeldKind::Chii) { return Err(()); }
         let mut a = raw.get_tile().ok_or(())?;
         let mut b = a.succ().unwrap();
         let mut c = b.succ().unwrap();

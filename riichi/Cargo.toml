@@ -14,6 +14,10 @@ num-traits = "0.2"
 num_enum = "0.5.7"
 once_cell = "1.13"
 phf = "0.11"  # should agree with phf_codegen
+regex = { version = "1.6.0", optional = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+serde_tuple = { version = "0.5.0", optional = true }
 thiserror = "1.0"
 ux = "0.1.5"
 
@@ -22,12 +26,19 @@ riichi-decomp-table = { path = "../riichi-decomp-table" }
 
 [dev-dependencies]
 assert2 = "0.3"
+assert-json-diff = "2.0"
 bencher = "0.1.5"
 pretty_assertions = "1.2"
 pretty_assertions_sorted = "1.2"
+serde_test = "1.0"  # should be optional (cargo limitation)
 
 
 [build-dependencies]
 phf_codegen = "0.11"  # should agree with phf
 
 riichi-decomp-table = { path = "../riichi-decomp-table" }
+
+
+[features]
+default = ["tenhou-log"]
+tenhou-log = ["dep:regex", "dep:serde", "dep:serde_json", "dep:serde_tuple"]

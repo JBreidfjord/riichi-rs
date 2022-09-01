@@ -20,6 +20,14 @@ pub enum Action {
 }
 
 impl Action {
+    pub fn from_meld(meld: Meld) -> Option<Self> {
+        match meld {
+            Meld::Kakan(kakan) => Some(Action::Kakan(kakan.added)),
+            Meld::Ankan(ankan) => Some(Action::Ankan(ankan.own[0].to_normal())),
+            _ =>  None,
+        }
+    }
+
     pub fn tile(self) -> Option<Tile> {
         match self {
             Action::Discard(discard) => Some(discard.tile),
@@ -52,6 +60,17 @@ pub enum Reaction {
     /// Declare win-by-steal (ロン和ガリ) on the recent action, which can be
     /// [`Action::Discard`], [`Action::Kakan`] (rare), or [`Action::ankan`] (very rare).
     RonAgari,
+}
+
+impl Reaction {
+    pub fn from_meld(meld: Meld) -> Option<Self> {
+        match meld {
+            Meld::Chii(chii) => Some(Self::Chii(chii.own[0], chii.own[1])),
+            Meld::Pon(pon) => Some(Self::Pon(pon.own[0], pon.own[1])),
+            Meld::Daiminkan(_) => Some(Self::Daiminkan),
+            _ => None,
+        }
+    }
 }
 
 /// Conclusion of an action-reaction cycle.

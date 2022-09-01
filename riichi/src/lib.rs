@@ -2,6 +2,7 @@ pub mod analysis;
 pub mod common;
 pub mod engine;
 pub mod model;
+pub mod interop;
 pub mod rules;
 
 pub use common::*;

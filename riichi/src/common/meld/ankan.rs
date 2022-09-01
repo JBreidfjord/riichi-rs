@@ -61,7 +61,7 @@ impl TryFrom<PackedMeld> for Ankan {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != PackedMeldKind::Ankan.into() { return Err(()); }
+        if raw.kind() != u8::from(PackedMeldKind::Ankan) { return Err(()); }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut own2, mut own3) = (t, t, t, t);
         let (r0, r1, r2, r3) = unpack4(normalize_ankan(raw.red()));

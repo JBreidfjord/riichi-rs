@@ -68,7 +68,7 @@ impl TryFrom<PackedMeld> for Pon {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != PackedMeldKind::Pon.into() { return Err(()); }
+        if raw.kind() != u8::from(PackedMeldKind::Pon) { return Err(()); }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut called) = (t, t, t);
         let (r0, r1, r2, _) = unpack4(normalize_pon(raw.red()));

@@ -70,7 +70,7 @@ impl TryFrom<PackedMeld> for Kakan {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != PackedMeldKind::Kakan.into() { return Err(()); }
+        if raw.kind() != u8::from(PackedMeldKind::Kakan) { return Err(()); }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut called, mut added) = (t, t, t, t);
         let (r0, r1, r2, r3) = unpack4(normalize_kakan(raw.red()));
