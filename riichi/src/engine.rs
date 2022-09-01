@@ -4,7 +4,7 @@ mod action;
 mod agari;
 mod step;
 mod reaction;
-mod utils;
+pub mod utils;
 mod wait_calc;
 
 use std::default::Default;

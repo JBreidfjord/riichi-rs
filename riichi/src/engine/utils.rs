@@ -4,16 +4,14 @@ use crate::analysis::RegularWait;
 use crate::common::*;
 use crate::model::*;
 
-impl TileSet37 {
-    pub fn terminal_kinds(&self) -> u8 {
-        0u8 + (self[0] > 0) as u8 + (self[8] > 0) as u8
-            + (self[9] > 0) as u8 + (self[17] > 0) as u8
-            + (self[18] > 0) as u8 + (self[26] > 0) as u8
-            + (self[27] > 0) as u8 + (self[28] > 0) as u8
-            + (self[29] > 0) as u8 + (self[30] > 0) as u8
-            + (self[31] > 0) as u8 + (self[32] > 0) as u8
-            + (self[33] > 0) as u8
-    }
+pub fn terminal_kinds(h: &TileSet37) -> u8 {
+    0u8 + (h[0] > 0) as u8 + (h[8] > 0) as u8
+        + (h[9] > 0) as u8 + (h[17] > 0) as u8
+        + (h[18] > 0) as u8 + (h[26] > 0) as u8
+        + (h[27] > 0) as u8 + (h[28] > 0) as u8
+        + (h[29] > 0) as u8 + (h[30] > 0) as u8
+        + (h[31] > 0) as u8 + (h[32] > 0) as u8
+        + (h[33] > 0) as u8
 }
 
 pub fn all_players() -> [Player; 4] {

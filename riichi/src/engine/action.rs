@@ -157,7 +157,7 @@ pub(crate) fn check_action(
         }
         Action::AbortNineKinds => {
             if !is_init_abortable(state) { return Err(NotInitAbortable); }
-            let n = hand.terminal_kinds();
+            let n = terminal_kinds(&hand);
             if n < 9 {
                 return Err(NotEnoughKindsForNineKinds(n));
             }

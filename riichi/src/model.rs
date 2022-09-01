@@ -33,8 +33,8 @@ pub struct Discard {
     pub is_tsumokiri: bool,
 }
 
-/// Link the init boundary condition to the initial state it represents.
 impl RoundBegin {
+    /// Returns the initial state of a round, with all 4 players' initial hand dealt (13 x 4).
     pub fn to_initial_state(&self) -> State {
         let wall = &self.wall;
         let button = self.round_id.button();

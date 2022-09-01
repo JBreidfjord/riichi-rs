@@ -57,6 +57,7 @@ pub enum Reaction {
 /// Conclusion of an action-reaction cycle.
 /// Unknown state can be represented by `Option<PostReactionState>`, just like `Reaction`.
 /// However, an explicit `Pass` is included to represent "nothing has happened; move on".
+#[allow(unused_qualifications)]
 #[derive(Copy, Clone, Debug, num_enum::Default, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ActionResult {

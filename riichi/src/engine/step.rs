@@ -8,7 +8,7 @@ use super::{RIICHI_POT};
 
 /// Process normal end-of-turn flow (no abort, no win).
 /// Each change to the state is processed in chronological order, gradually morphing the current
-/// state to the next.
+/// state to the next. This avoids copying the entire state.
 pub(crate) fn next_normal(
     begin: &RoundBegin,
     state: &mut State,
