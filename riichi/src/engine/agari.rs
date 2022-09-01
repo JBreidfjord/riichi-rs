@@ -1,7 +1,9 @@
-
-use crate::analysis::RegularWait;
-use crate::common::*;
-use crate::model::*;
+use crate::{
+    analysis::RegularWait,
+    common::*,
+    engine::WaitingInfo,
+    model::*
+};
 
 /// A bundle of intermediate results during the Agari computation.
 #[derive(Copy, Clone, Default)]
@@ -13,8 +15,10 @@ pub fn calc_agari(
     begin: &RoundBegin,
     state: &State,
     winner: Player,
-    waits: &[RegularWait],
+    hand: &TileSet37,
+    waits: &WaitingInfo,
     wait_mask: TileMask34,
+    winning_tile: Tile,
 ) -> Option<AgariResult> {
 
     let mut facts = AgariFacts::default();
