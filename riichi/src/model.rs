@@ -33,6 +33,28 @@ pub struct Discard {
     pub is_tsumokiri: bool,
 }
 
+/// Link the init boundary condition to the initial state it represents.
+impl RoundBegin {
+    pub fn to_initial_state(&self) -> State {
+        let wall = &self.wall;
+        let button = self.round_id.button();
+        State {
+            seq: 0,
+            action_player: button,
+            num_drawn_head: 53,
+            num_drawn_tail: 0,
+            num_dora_indicators: 0,
+            draw: Some(self.wall[52]),
+            incoming_meld: None,
+            closed_hands: wall::deal(wall, button),
+            discards: [vec![], vec![], vec![], vec![]],
+            furiten: Default::default(),
+            riichi: Default::default(),
+            melds: [vec![], vec![], vec![], vec![]],
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
