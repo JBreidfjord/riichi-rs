@@ -1,3 +1,4 @@
+mod end_info;
 mod entry;
 mod meld;
 mod round;

@@ -18,6 +18,10 @@ pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, ActionResult> = phf::phf_ma
   "四槓散了" => ActionResult::AbortFourKan,
 };
 
+pub fn action_result_from_str(str: &str) -> Option<ActionResult> {
+    ABORT_STR_TO_ENUM.get(str).copied()
+}
+
 /// [`ActionResult`] => Tenhou round result string.
 /// Here we _can_ map both [`ActionResult::TsumoAgari`] and [`ActionResult::RonAgari`].
 pub const fn action_result_to_str(action_result: ActionResult) -> &'static str {
