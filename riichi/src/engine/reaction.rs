@@ -155,7 +155,7 @@ pub(crate) fn resolve_reaction(
                 .filter(|&&reaction| reaction == Some(Reaction::RonAgari))
                 .count();
             return if num_rons == 3 {
-                ActionResult::AbortMultiRon
+                ActionResult::AbortTripleRon
             } else {
                 ActionResult::RonAgari
             }

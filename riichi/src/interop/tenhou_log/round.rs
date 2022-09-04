@@ -10,8 +10,6 @@ use crate::{
 };
 use super::{
     entry::*,
-    meld::*,
-    tile::*,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -38,6 +36,8 @@ pub struct TenhouRoundRaw {
     pub outgoing3: Vec<TenhouOutgoing>,
 
     // TODO(summivox): round end / agari
+    #[serde(default)]
+    pub end_info: Option<serde_json::value::Value>,
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -112,24 +112,6 @@ mod tests {
     }
 
     #[test]
-    fn round_id_and_pot_serde() {
-        assert_tokens(
-            &RoundIdAndPot {
-                kyoku: 3,
-                honba: 2,
-                pot: 2,
-            },
-            &[
-                Token::TupleStruct { name: "RoundIdAndPot", len: 3 },
-                Token::U8(3),
-                Token::U8(2),
-                Token::U8(2),
-                Token::TupleStructEnd,
-            ]
-        );
-    }
-
-    #[test]
     fn round_json_example() {
         let round_struct = TenhouRoundRaw {
             round_id_and_pot: RoundIdAndPot { kyoku: 3, honba: 2, pot: 2 },
@@ -176,6 +158,8 @@ mod tests {
                 od("1p"), od("2z"), odd(), od("3z"), odd(), od("1s"),
                 odd(), od("6m"), od("8p"),
             ],
+
+            end_info: None,
         };
         // from: 2022013100gm-00a9-0000-af91b2de.json
         let round_json = serde_json::json!([
@@ -198,12 +182,13 @@ mod tests {
 
           [15, 15, 16, 21, 24, 29, 31, 33, 34, 38, 42, 43, 47],
           [28, 18, 44, 32, 43, 18, 46, 22, 33],
-          [21, 42, 60, 43, 60, 31, 60, 16, 28],
+          [21, 42, 60, 43, 60, 31, 60, 16, 28]
 
-          ["和了", [-500, 4700, -500, -700], [1, 1, 1, "30符1飜300-500点", "断幺九(1飜)"]]
+          // ,["和了", [-500, 4700, -500, -700], [1, 1, 1, "30符1飜300-500点", "断幺九(1飜)"]]
+            , null
         ]);
         let serialized = serde_json::to_value(&round_struct).unwrap();
         // TODO(summivox): agari
-        assert_json_include!(actual: round_json, expected: round_json);
+        assert_json_include!(actual: round_json, expected: serialized);
     }
 }

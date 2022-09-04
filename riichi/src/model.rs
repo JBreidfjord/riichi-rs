@@ -6,11 +6,13 @@ mod actions;
 mod agari;
 mod boundary;
 mod state;
+mod yaku;
 
 pub use actions::*;
 pub use agari::*;
 pub use boundary::*;
 pub use state::*;
+pub use yaku::*;
 
 use crate::common::*;
 

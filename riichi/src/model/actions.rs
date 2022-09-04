@@ -77,7 +77,7 @@ impl Reaction {
 /// Unknown state can be represented by `Option<PostReactionState>`, just like `Reaction`.
 /// However, an explicit `Pass` is included to represent "nothing has happened; move on".
 #[allow(unused_qualifications)]
-#[derive(Copy, Clone, Debug, num_enum::Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, num_enum::Default, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum ActionResult {
     #[num_enum(default)]
@@ -160,14 +160,18 @@ pub enum ActionResult {
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suucha_riichi>
     AbortFourRiichi,
 
-    /// The round has been aborted because too many players (usually 3) called Ron on the same tile.
+    /// The round has been aborted because 2 players called Ron on the same tile.
+    /// This is a rare rule variation of [`Self::AbortTripleRon`].
+    AbortDoubleRon,
+
+    /// The round has been aborted because 3 players called Ron on the same tile.
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
     /// - Pre-empts all others.
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Sanchahou>
-    AbortMultiRon,
+    AbortTripleRon,
 }
 
 impl ActionResult {
@@ -189,7 +193,7 @@ impl ActionResult {
         use ActionResult::*;
         match self {
             AbortNineKinds | AbortWallExhausted | AbortNagashiMangan |
-            AbortFourKan | AbortFourWind | AbortFourRiichi | AbortMultiRon => true,
+            AbortFourKan | AbortFourWind | AbortFourRiichi | AbortTripleRon => true,
             _ => false,
         }
     }

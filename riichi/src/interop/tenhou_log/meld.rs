@@ -3,7 +3,6 @@ use once_cell::sync::OnceCell;
 use regex::Regex;
 
 use crate::common::*;
-use crate::utils::*;
 use super::tile::*;
 
 pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {

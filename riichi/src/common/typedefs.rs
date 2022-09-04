@@ -16,6 +16,14 @@ pub type Player = u2;
 pub fn all_players() -> [Player; 4] {
     [Player::new(0), Player::new(1), Player::new(2), Player::new(3)]
 }
+pub fn all_players_from(player: Player) -> [Player; 4] {
+    [
+        Player::new(0).wrapping_add(player),
+        Player::new(1).wrapping_add(player),
+        Player::new(2).wrapping_add(player),
+        Player::new(3).wrapping_add(player),
+    ]
+}
 pub fn player_succ(player: Player) -> Player { Player::new(1).wrapping_add(player) }
 pub fn player_oppo(player: Player) -> Player { Player::new(2).wrapping_add(player) }
 pub fn player_pred(player: Player) -> Player { Player::new(3).wrapping_add(player) }

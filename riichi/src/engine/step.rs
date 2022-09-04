@@ -204,7 +204,7 @@ pub(crate) fn next_abort(
         }
 
         ActionResult::AbortFourKan | ActionResult::AbortFourWind |
-        ActionResult::AbortFourRiichi | ActionResult::AbortMultiRon => {
+        ActionResult::AbortFourRiichi | ActionResult::AbortTripleRon => {
             // force renchan with honba + 1
             end.renchan = true;
             end.next_round_id = Some(round_id.next_honba(true));

@@ -13,7 +13,7 @@ itertools = "0.10.3"
 num-traits = "0.2"
 num_enum = "0.5.7"
 once_cell = "1.13"
-phf = "0.11"  # should agree with phf_codegen
+phf = { version = "0.11", features = ["macros"] }  # should agree with phf_codegen
 regex = { version = "1.6.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 serde_json = { version = "1.0", optional = true }
