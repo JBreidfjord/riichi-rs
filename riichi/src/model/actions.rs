@@ -76,11 +76,10 @@ impl Reaction {
 /// Conclusion of an action-reaction cycle.
 /// Unknown state can be represented by `Option<PostReactionState>`, just like `Reaction`.
 /// However, an explicit `Pass` is included to represent "nothing has happened; move on".
-#[allow(unused_qualifications)]
-#[derive(Copy, Clone, Debug, num_enum::Default, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq)]
 #[repr(u8)]
 pub enum ActionResult {
-    #[num_enum(default)]
+    #[default]
     /// The action has successfully taken place without any reaction.
     Pass = 0,
 

@@ -86,6 +86,8 @@ pub enum Yaku {
     Tenhou,
     /// 地和
     Chiihou,
+    /// 人和
+    Renhou,
     /// 大三元
     Daisangen,
     /// 四暗刻

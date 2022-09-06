@@ -22,8 +22,8 @@ pub fn calc_agari(
 
     let mut facts = AgariFacts::default();
 
-    let win_from = state.action_player;
-    facts.kind = if win_from == winner { AgariKind::Tsumo } else { AgariKind::Ron };
+    let contributor = state.action_player;
+    facts.kind = if contributor == winner { AgariKind::Tsumo } else { AgariKind::Ron };
 
     unimplemented!()
 }

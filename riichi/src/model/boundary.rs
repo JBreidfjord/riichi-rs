@@ -7,7 +7,7 @@ use super::ActionResult;
 use super::AgariResult;
 use super::PartiallyObservable;
 
-/// Kyoku-Honba (局-本場) pair that identifies a round in a game.
+/// Kyoku-Honba (局-本場) pair that uniquely identifies a round in a game.
 ///
 /// Ref:
 /// - <https://riichi.wiki/Kyoku>

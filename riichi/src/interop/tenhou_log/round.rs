@@ -9,10 +9,13 @@ use crate::{
     model::*,
 };
 use super::{
+    end_info::*,
     entry::*,
+    scoring::*,
 };
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
+#[derive(Clone, Debug, Default, Serialize_tuple, Deserialize_tuple)]
+#[cfg_attr(test, derive(Eq, PartialEq))]  // No need to compare other than in tests.
 pub struct TenhouRoundRaw {
     pub round_id_and_pot: RoundIdAndPot,
     pub points: [GamePoints; 4],
@@ -35,9 +38,7 @@ pub struct TenhouRoundRaw {
     pub incoming3: Vec<TenhouIncoming>,
     pub outgoing3: Vec<TenhouOutgoing>,
 
-    // TODO(summivox): round end / agari
-    #[serde(default)]
-    pub end_info: Option<serde_json::value::Value>,
+    pub end_info: TenhouEndInfo,
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
@@ -159,36 +160,54 @@ mod tests {
                 odd(), od("6m"), od("8p"),
             ],
 
-            end_info: None,
+            end_info: TenhouEndInfo {
+                result: ActionResult::TsumoAgari,
+                overall_delta: [-500, 4700, -500, 700],
+                agari: vec![
+                    TenhouAgariResult {
+                        winner: Player::new(1),
+                        contributor: Player::new(1),
+                        liable_player: Player::new(1),
+                        points_delta_after_pot: [-500, 4700, -500, -700],
+                        scoring: TenhouScoring {
+                            kind: TenhouScoringKind::HanFu { han: 1, fu: 30 },
+                            payout: TenhouPayout::TsumoByNonButton { non_button: 300, button: 500 },
+                        },
+                        details: vec![
+                            YakuOrDora::Yaku(Yaku::Tanyaochuu, 1),
+                        ]
+                    },
+                ]
+            },
         };
         // from: 2022013100gm-00a9-0000-af91b2de.json
         let round_json = serde_json::json!([
-          [3, 2, 2],
+          [3, 2, 2],  // 0
           [45200, 19500, 7300, 26000],
           [38, 18],
           [],
 
-          [11, 11, 14, 17, 26, 27, 31, 34, 35, 38, 44, 45, 46],
+          [11, 11, 14, 17, 26, 27, 31, 34, 35, 38, 44, 45, 46],  // 4
           [21, 23, 43, 26, 41, 12, 21, 39, 46],
           [60, 31, 44, 43, 23, 17, 14, 46, 60],
 
-          [11, 12, 14, 17, 25, 25, 31, 32, 32, 35, 36, 37, 41],
+          [11, 12, 14, 17, 25, 25, 31, 32, 32, 35, 36, 37, 41],  // 7
           [28, 24, 39, 13, "c232425", 13, 38, 36, 37],
           [11, 41, 28, 39, 31, 60, 17, 25],
 
-          [19, 19, 19, 21, 23, 23, 24, 52, 27, 27, 32, 43, 46],
+          [19, 19, 19, 21, 23, 23, 24, 52, 27, 27, 32, 43, 46],  // 10
           [42, 26, 34, 22, 17, 19, 14, 13, 28],
           [43, 42, 46, "r23", 60, "191919a19", 60, 60, 60],
 
-          [15, 15, 16, 21, 24, 29, 31, 33, 34, 38, 42, 43, 47],
+          [15, 15, 16, 21, 24, 29, 31, 33, 34, 38, 42, 43, 47],  // 13
           [28, 18, 44, 32, 43, 18, 46, 22, 33],
-          [21, 42, 60, 43, 60, 31, 60, 16, 28]
+          [21, 42, 60, 43, 60, 31, 60, 16, 28],
 
-          // ,["和了", [-500, 4700, -500, -700], [1, 1, 1, "30符1飜300-500点", "断幺九(1飜)"]]
-            , null
+          ["和了", [-500, 4700, -500, -700], [1, 1, 1, "30符1飜300-500点", "断幺九(1飜)"]]
         ]);
+        let deserialized = serde_json::from_value::<TenhouRoundRaw>(round_json.clone()).unwrap();
         let serialized = serde_json::to_value(&round_struct).unwrap();
-        // TODO(summivox): agari
-        assert_json_include!(actual: round_json, expected: serialized);
+        assert_json_eq!(round_json, serialized);
+        assert_json_eq!(round_struct, deserialized);
     }
 }

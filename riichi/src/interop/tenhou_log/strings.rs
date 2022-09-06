@@ -1,13 +1,12 @@
 //! Mappings between various string representations 
 
+use once_cell::sync::Lazy;
+use regex::Regex;
 use crate::{
     common::*,
     model::*,
 };
 
-/// Tenhou round result string => [`ActionResult`].
-/// Due to [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`] sharing the same string
-/// [`AGARI_STR`], this map only contains reasons of round abortion.
 pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, ActionResult> = phf::phf_map! {
   "流局"     => ActionResult::AbortWallExhausted,
   "流し満貫" => ActionResult::AbortNagashiMangan,
@@ -18,7 +17,10 @@ pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, ActionResult> = phf::phf_ma
   "四槓散了" => ActionResult::AbortFourKan,
 };
 
-pub fn action_result_from_str(str: &str) -> Option<ActionResult> {
+/// Tenhou round result string => [`ActionResult`].
+/// Due to [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`] sharing the same string
+/// [`AGARI_STR`], this map only contains reasons of round abortion.
+pub fn abort_from_str(str: &str) -> Option<ActionResult> {
     ABORT_STR_TO_ENUM.get(str).copied()
 }
 
@@ -41,6 +43,10 @@ pub const fn action_result_to_str(action_result: ActionResult) -> &'static str {
 
 /// Represents either [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`].
 pub const AGARI_STR: &'static str = "和了";
+
+pub const DORA_STR: &'static str = "ドラ";
+pub const AKA_DORA_STR: &'static str = "赤ドラ";
+pub const URA_DORA_STR: &'static str = "裏ドラ";
 
 /// Tenhou Yaku string => [`Yaku`].
 pub static YAKU_STR_TO_ENUM: phf::Map<&'static str, Yaku> = phf::phf_map! {
@@ -97,6 +103,10 @@ pub static YAKU_STR_TO_ENUM: phf::Map<&'static str, Yaku> = phf::phf_map! {
     "四槓子" => Yaku::Suukantsu,
 };
 
+pub fn yaku_from_str(str: &str) -> Option<Yaku> {
+    YAKU_STR_TO_ENUM.get(str).copied()
+}
+
 /// [`Yaku`] to Tenhou Yaku string.
 pub const fn yaku_to_str(yaku: Yaku) -> &'static str {
     match yaku {
@@ -151,5 +161,7 @@ pub const fn yaku_to_str(yaku: Yaku) -> &'static str {
         Yaku::Daisuushi => "大四喜",
         Yaku::Shousuushi => "小四喜",
         Yaku::Suukantsu => "四槓子",
+        _ => "",
     }
 }
+

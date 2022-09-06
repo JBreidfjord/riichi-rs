@@ -1,7 +1,7 @@
 use ux::u2;
 
 /// Points / point differences. Usually increments of 100.
-pub type GamePoints = i32;
+pub type GamePoints = i64;
 
 /// Wind index --- 0, 1, 2, 3 => east, south, west, north
 ///

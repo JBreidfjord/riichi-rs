@@ -1,17 +1,85 @@
-use std::fmt::Formatter;
-use serde::{Deserialize, Deserializer};
-use serde::de::{SeqAccess, Visitor, Error};
-use crate::common::*;
-use crate::model::*;
-use super::strings::*;
+use std::{
+    fmt::{Display, Formatter},
+    str::FromStr,
+};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct EndInfo {
+use itertools::Itertools;
+use once_cell::sync::Lazy;
+use regex::Regex;
+use serde::{de::{Deserialize, Deserializer, SeqAccess, Visitor, Error}, Serialize, Serializer};
+use serde::ser::SerializeSeq;
+use serde_json::Value;
+
+use crate::{
+    common::*,
+    model::*,
+};
+use super::{
+    scoring::*,
+    strings::*,
+};
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(test, derive(Eq, PartialEq))]  // No need to compare other than in tests.
+pub struct TenhouEndInfo {
     pub result: ActionResult,
-    pub agari: Vec<AgariResult>,
+    pub overall_delta: [GamePoints; 4],
+    pub agari: Vec<TenhouAgariResult>,
 }
 
-impl<'de> Deserialize<'de> for EndInfo {
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]  // No need to compare other than in tests.
+pub struct TenhouAgariResult {
+    pub winner: Player,
+    pub contributor: Player,
+    pub liable_player: Player,
+    pub points_delta_after_pot: [GamePoints; 4],
+    pub scoring: TenhouScoring,
+    pub details: Vec<YakuOrDora>,
+}
+
+impl Serialize for TenhouEndInfo {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        match self.result {
+            ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
+                let mut seq = s.serialize_seq(Some(1))?;
+                seq.serialize_element(action_result_to_str(self.result))?;
+                seq.serialize_element(&self.overall_delta)?;
+                seq.end()
+            }
+            ActionResult::RonAgari | ActionResult::TsumoAgari => {
+                let mut seq = s.serialize_seq(Some(1 + 2 * self.agari.len()))?;
+                seq.serialize_element(action_result_to_str(self.result))?;
+                for agari in self.agari.iter() {
+                    seq.serialize_element(&agari.points_delta_after_pot)?;
+                    seq.serialize_element(agari)?;
+                }
+                seq.end()
+            }
+            _ => {
+                let mut seq = s.serialize_seq(Some(1))?;
+                seq.serialize_element(action_result_to_str(self.result))?;
+                seq.end()
+            }
+        }
+    }
+}
+
+impl Serialize for TenhouAgariResult {
+    fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
+        let mut seq = s.serialize_seq(Some(4 + self.details.len()))?;
+        seq.serialize_element(&self.winner.to_u8())?;
+        seq.serialize_element(&self.contributor.to_u8())?;
+        seq.serialize_element(&self.liable_player.to_u8())?;
+        seq.serialize_element(&self.scoring.to_string())?;
+        for yaku_or_dora in self.details.iter() {
+            seq.serialize_element(&yaku_or_dora.to_string())?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for TenhouEndInfo {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
         deserializer.deserialize_seq(EndInfoVisitor)
     }
@@ -20,7 +88,7 @@ impl<'de> Deserialize<'de> for EndInfo {
 struct EndInfoVisitor;
 
 impl<'de> Visitor<'de> for EndInfoVisitor {
-    type Value = EndInfo;
+    type Value = TenhouEndInfo;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         write!(formatter,
@@ -33,31 +101,85 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
         let result_str: String = seq.next_element()?.ok_or_else(|| Error::custom("no result str"))?;
         if result_str != AGARI_STR {
             // This has to be an abort result.
-            return Ok(EndInfo {
-                result: action_result_from_str(&result_str)
-                    .ok_or_else(|| Error::custom("unrecognized result"))?,
-                agari: vec![],
-            })
+            let abort_result = abort_from_str(&result_str)
+                .ok_or_else(|| Error::custom("unrecognized result"))?;
+            match abort_result {
+                ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
+                    // TODO(summivox): if-let-chain
+                    if let Some(delta_raw) = seq.next_element::<Value>()? {
+                        if let Value::Array(delta_arr) = delta_raw {
+                            if delta_arr.len() == 4 {
+                                return Ok(TenhouEndInfo {
+                                    result: abort_result,
+                                    overall_delta: [
+                                        delta_arr[0].as_i64().unwrap_or(0) as GamePoints,
+                                        delta_arr[1].as_i64().unwrap_or(0) as GamePoints,
+                                        delta_arr[2].as_i64().unwrap_or(0) as GamePoints,
+                                        delta_arr[3].as_i64().unwrap_or(0) as GamePoints,
+                                    ],
+                                    agari: vec![],
+                                });
+                            }
+                        }
+                    }
+                    return Err(Error::custom("invalid delta"));
+                }
+                _ => return Ok(TenhouEndInfo {
+                    result: abort_result,
+                    overall_delta: [0; 4],
+                    agari: vec![],
+                }),
+            }
         }
-        let mut agari_results: Vec<AgariResult> = vec![];
+        let mut agari_results: Vec<TenhouAgariResult> = vec![];
         while let (
-            Some(points),
-            Some(details),
+            Some(Value::Array(delta_arr)),
+            Some(Value::Array(details_arr)),
         ) =
         (
-            seq.next_element::<serde_json::Value>()?,
-            seq.next_element::<serde_json::Value>()?
+            seq.next_element::<Value>()?,
+            seq.next_element::<Value>()?
         ) {
-            dbg!(points);
-            dbg!(details);
-            // TODO(summivox): nested deserializers for both points and details.
-            agari_results.push(AgariResult::default())
+            // TODO(summivox): separate visitor for each TenhouAgariResult, (use RawValue?)
+            let mut delta = [0; 4];
+            // TODO(summivox): if-let-chain; error reporting
+            if delta_arr.len() == 4 {
+                for i in 0..4 {
+                    delta[i] = delta_arr[i].as_i64().unwrap_or(0) as GamePoints;
+                }
+            }
+            if details_arr.len() >= 4 {
+                agari_results.push(TenhouAgariResult {
+                    winner: Player::new(details_arr[0].as_i64().unwrap_or(0) as u8),
+                    contributor: Player::new(details_arr[1].as_i64().unwrap_or(0) as u8),
+                    liable_player: Player::new(details_arr[2].as_i64().unwrap_or(0) as u8),
+
+                    points_delta_after_pot: delta,
+
+                    scoring: details_arr[3].as_str()
+                        .ok_or_else(|| Error::custom("invalid score"))?
+                        .parse::<TenhouScoring>()
+                        .map_err(|_| Error::custom("invalid score"))?,
+
+                    details: details_arr[4..].iter().filter_map(|value|
+                        value.as_str().and_then(parse_yaku_or_dora)).collect_vec(),
+                })
+            }
         }
-        Ok(EndInfo {
-            result: agari_results[0].kind.to_action_result(),
+        Ok(TenhouEndInfo {
+            result: if agari_results[0].winner == agari_results[0].contributor {
+                ActionResult::TsumoAgari
+            } else {
+                ActionResult::RonAgari
+            },
+            overall_delta: agari_results.iter().fold(
+                [0, 0, 0, 0],
+                |mut delta, b| {
+                    for i in 0..4 { delta[i] += b.points_delta_after_pot[i]; }
+                    delta
+                }),
             agari: agari_results,
         })
-        // TODO: details
     }
 }
 
@@ -67,20 +189,68 @@ mod tests {
 
     #[test]
     fn abort_example() {
-        let end_info_struct = EndInfo {
+        let end_info_struct = TenhouEndInfo {
             result: ActionResult::AbortFourRiichi,
+            overall_delta: [0; 4],
             agari: vec![],
         };
         let end_info_json = serde_json::json!(["四家立直"]);
-        let deserialized: EndInfo = serde_json::from_value(end_info_json).unwrap();
+        let serialized = serde_json::to_value(&end_info_struct).unwrap();
+        let deserialized: TenhouEndInfo = serde_json::from_value(end_info_json.clone()).unwrap();
+        assert_eq!(end_info_json, serialized);
+        assert_eq!(end_info_struct, deserialized);
+    }
+
+    #[test]
+    fn exhaust_example() {
+        let end_info_struct = TenhouEndInfo {
+            result: ActionResult::AbortNagashiMangan,
+            overall_delta: [-4000, -4000, 12000, -4000],
+            agari: vec![],
+        };
+        let end_info_json = serde_json::json!(["流し満貫", [-4000, -4000, 12000, -4000]]);
+        let serialized = serde_json::to_value(&end_info_struct).unwrap();
+        let deserialized: TenhouEndInfo = serde_json::from_value(end_info_json.clone()).unwrap();
+        assert_eq!(end_info_json, serialized);
         assert_eq!(end_info_struct, deserialized);
     }
 
     #[test]
     fn ron_2_example() {
-        let end_info_struct = EndInfo {
+        let end_info_struct = TenhouEndInfo {
             result: ActionResult::RonAgari,
-            agari: vec![AgariResult::default(), AgariResult::default()],
+            overall_delta: [13000, 0, 2000, -14000],
+            agari: vec![
+                TenhouAgariResult {
+                    winner: Player::new(0),
+                    contributor: Player::new(3),
+                    liable_player: Player::new(0),
+                    points_delta_after_pot: [13000, 0, 0, -12000],
+                    scoring: TenhouScoring {
+                        kind: TenhouScoringKind::Haneman,
+                        payout: TenhouPayout::Ron(12000),
+                    },
+                    details: vec![
+                        YakuOrDora::Yaku(Yaku::Riichi, 1),
+                        YakuOrDora::Dora(3),
+                        YakuOrDora::AkaDora(2),
+                    ],
+                },
+                TenhouAgariResult {
+                    winner: Player::new(2),
+                    contributor: Player::new(3),
+                    liable_player: Player::new(2),
+                    points_delta_after_pot: [0, 0, 2000, -2000],
+                    scoring: TenhouScoring {
+                        kind: TenhouScoringKind::HanFu { han: 2, fu: 30 },
+                        payout: TenhouPayout::Ron(2000),
+                    },
+                    details: vec![
+                        YakuOrDora::Yaku(Yaku::SangenpaiHatsu, 1),
+                        YakuOrDora::Dora(1),
+                    ],
+                },
+            ],
         };
         let end_info_json = serde_json::json!([
             "和了",
@@ -89,7 +259,9 @@ mod tests {
             [0, 0, 2000, -2000],
             [2, 3, 2, "30符2飜2000点", "役牌 發(1飜)", "ドラ(1飜)"]
         ]);
-        let deserialized: EndInfo = serde_json::from_value(end_info_json).unwrap();
+        let serialized = serde_json::to_value(&end_info_struct).unwrap();
+        let deserialized: TenhouEndInfo = serde_json::from_value(end_info_json.clone()).unwrap();
+        assert_eq!(end_info_json, serialized);
         assert_eq!(end_info_struct, deserialized);
     }
 }

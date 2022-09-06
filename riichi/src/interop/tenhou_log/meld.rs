@@ -1,19 +1,18 @@
 
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 use regex::Regex;
 
 use crate::common::*;
 use super::tile::*;
 
 pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
-    static RE: OnceCell<Regex> = OnceCell::new();
-    let re = RE.get_or_init(|| Regex::new(r"(?x)
+    static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"(?x)
       ([cpmk])?(\d\d)  # 1 2 chii/pon/daiminkan/kakan
        ([pmk])?(\d\d)? # 3 4 pon/daiminkan/kakan
         ([pk])?(\d\d)? # 5 6 pon/kakan
         ([ma])?(\d\d)? # 7 8 daiminkan/ankan
     ").unwrap());
-    let groups = re.captures(s)?;
+    let groups = RE.captures(s)?;
     let (dir, mode_str) =
         if let Some(m) = groups.get(1) { (3, m.as_str()) }
         else if let Some(m) = groups.get(3) { (2, m.as_str()) }
@@ -28,26 +27,33 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
     );
     match mode_str {
         "c" => {
+            // (a)bc
             Chii::from_tiles(b?, c?, a?)
                 .map(|chii| Meld::Chii(chii))
         }
         "p" => {
             let dir_p = Player::new(dir);
             match dir {
+                // ab(c)
                 1 => Pon::from_tiles_dir(a?, b?, c?, dir_p),
+                // a(b)c
                 2 => Pon::from_tiles_dir(a?, c?, b?, dir_p),
-                3 => Pon::from_tiles_dir(c?, a?, b?, dir_p),
+                // (a)bc
+                3 => Pon::from_tiles_dir(b?, c?, a?, dir_p),
                 _ => panic!(),
             }.map(|pon| Meld::Pon(pon))
         }
         "k" => {
             let dir_p = Player::new(dir);
             match dir {
+                // ab(c/d)
                 1 => Pon::from_tiles_dir(a?, b?, d?, dir_p)
                     .and_then(|pon| Kakan::from_pon_added(pon, c?)),
-                2 => Pon::from_tiles_dir(a?, c?, d?, dir_p)
+                // a(b/c)d
+                2 => Pon::from_tiles_dir(a?, d?, c?, dir_p)
                     .and_then(|pon| Kakan::from_pon_added(pon, b?)),
-                3 => Pon::from_tiles_dir(b?, c?, d?, dir_p)
+                // (a/b)cd
+                3 => Pon::from_tiles_dir(c?, d?, b?, dir_p)
                     .and_then(|pon| Kakan::from_pon_added(pon, a?)),
                 _ => panic!(),
             }.map(|kakan| Meld::Kakan(kakan))
@@ -55,8 +61,11 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
         "m" => {
             let dir_p = Player::new(dir);
             match dir {
+                // abc(d)
                 1 => Daiminkan::from_tiles_dir([a?, b?, c?], d?, dir_p),
+                // a(b)cd
                 2 => Daiminkan::from_tiles_dir([a?, c?, d?], b?, dir_p),
+                // (a)bcd
                 3 => Daiminkan::from_tiles_dir([b?, c?, d?], a?, dir_p),
                 _ => panic!(),
             }.map(|daiminkan| Meld::Daiminkan(daiminkan))
@@ -69,6 +78,8 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
 }
 
 pub fn to_tenhou_meld(meld: &Meld) -> String {
+    // NOTE: Resorting own tiles is necessary for melds other than Chii due to Tenhou's convention
+    // on red tiles going last.
     match meld {
         Meld::Chii(chii) => {
             let o0 = to_tenhou_tile(chii.own[0]);
@@ -80,6 +91,7 @@ pub fn to_tenhou_meld(meld: &Meld) -> String {
             let o0 = to_tenhou_tile(pon.own[0]);
             let o1 = to_tenhou_tile(pon.own[1]);
             let c = to_tenhou_tile(pon.called);
+            let (o0, o1) = sort2(o0, o1);
             match pon.dir.to_u8() {
                 1 => format!("{}{}p{}", o0, o1, c),
                 2 => format!("{}p{}{}", o0, c, o1),
@@ -92,6 +104,7 @@ pub fn to_tenhou_meld(meld: &Meld) -> String {
             let o1 = to_tenhou_tile(kakan.pon.own[1]);
             let c = to_tenhou_tile(kakan.pon.called);
             let a = to_tenhou_tile(kakan.added);
+            let (o0, o1) = sort2(o0, o1);
             match kakan.pon.dir.to_u8() {
                 1 => format!("{}{}k{}{}", o0, o1, a, c),
                 2 => format!("{}k{}{}{}", o0, a, c, o1),
@@ -104,6 +117,7 @@ pub fn to_tenhou_meld(meld: &Meld) -> String {
             let o1 = to_tenhou_tile(daiminkan.own[1]);
             let o2 = to_tenhou_tile(daiminkan.own[2]);
             let c = to_tenhou_tile(daiminkan.called);
+            let (o0, o1, o2) = sort3(o0, o1, o2);
             match daiminkan.dir.to_u8() {
                 1 => format!("{}{}{}m{}", o0, o1, o2, c),
                 2 => format!("{}m{}{}{}", o0, c, o1, o2),
@@ -112,7 +126,8 @@ pub fn to_tenhou_meld(meld: &Meld) -> String {
             }
         }
         Meld::Ankan(ankan) => {
-            let o = ankan.own.map(to_tenhou_tile);
+            let mut o = ankan.own.map(to_tenhou_tile);
+            o.sort();
             format!("{}{}{}a{}", o[0], o[1], o[2], o[3])
         }
     }
@@ -153,6 +168,12 @@ mod tests {
             ).unwrap())),
             ("p121212", Meld::Pon(Pon::from_tiles_dir(
                 t("2m"), t("2m"), t("2m"),Player::new(3)
+            ).unwrap())),
+            ("p151551", Meld::Pon(Pon::from_tiles_dir(
+                t("0m"), t("5m"), t("5m"),Player::new(3)
+            ).unwrap())),
+            ("p511515", Meld::Pon(Pon::from_tiles_dir(
+                t("5m"), t("5m"), t("0m"),Player::new(3)
             ).unwrap())),
             ("25p5225", Meld::Pon(Pon::from_tiles_dir(
                 t("5p"), t("5p"), t("0p"),Player::new(2)

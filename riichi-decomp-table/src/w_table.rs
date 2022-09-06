@@ -1,4 +1,3 @@
-use num_enum::{TryFromPrimitive, IntoPrimitive};
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::utils::*;
@@ -83,10 +82,13 @@ pub struct WaitingPattern {
     pub pattern_pos: u8,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, TryFromPrimitive, IntoPrimitive)]
+#[derive(
+    Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd,
+    num_enum::TryFromPrimitive, num_enum::IntoPrimitive,
+)]
 #[repr(u8)]
 pub enum WaitingKind {
-    #[num_enum(default)]
+    #[default]
     Tanki = 0,   // e.g. 1222333444555z wait 1z
     Shanpon,     // e.g. 4477s wait 4s/7s
     Kanchan,     // e.g. 13m wait 2m
