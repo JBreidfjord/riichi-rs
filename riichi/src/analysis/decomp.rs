@@ -50,6 +50,21 @@ impl RegularWait {
     pub fn has_pair_or_tanki(&self) -> bool {
         self.pair.is_some() || self.waiting_kind == WaitingKind::Tanki
     }
+
+    pub fn pair_or_tanki(&self) -> Option<Tile> {
+        self.pair.or_else(||
+            (self.waiting_kind == WaitingKind::Tanki).then_some(
+                self.waiting_tile))
+    }
+
+    pub fn is_true_ryanmen(&self) -> bool {
+        match (self.waiting_kind, self.pattern_tile.normal_num()) {
+            (WaitingKind::RyanmenBoth, _) |
+            (WaitingKind::RyanmenHigh, 2..=7) |
+            (WaitingKind::RyanmenLow, 1..=6) => true,
+            _ => false,
+        }
+    }
 }
 
 impl PartialEq<Self> for RegularWait {
@@ -181,8 +196,9 @@ impl Decomposer<'_> {
 }
 
 impl RegularWait {
-    fn from_waiting_pattern(suit: u8, w: WaitingPattern) -> Self {
-        Self {
+    fn from_waiting_pattern(suit: u8, w: WaitingPattern) -> Option<Self> {
+        if suit == 3 && w.waiting_kind.is_shuntsu() { return None }
+        Some(Self {
             raw_groups: 0,
             num_groups: 0,
 
@@ -191,7 +207,7 @@ impl RegularWait {
             pattern_tile: Tile::from_encoding(w.pattern_pos + 9 * suit).unwrap(),
             waiting_tile: Tile::MIN,  // dummy
             waiting_kind: w.waiting_kind,
-        }
+        })
     }
 
     fn try_extend(&self, suit: u8, c: &CompleteGrouping) -> Option<Self> {
@@ -242,7 +258,7 @@ fn new_partial_iter<'a>(
     w_iter(w_table, key).flat_map(move |w| {
         c_iter(c_table, w.complete_key)
             .filter_map(move |c|
-                RegularWait::from_waiting_pattern(suit, w).try_extend(suit, &c))
+                RegularWait::from_waiting_pattern(suit, w)?.try_extend(suit, &c))
     })
 }
 
@@ -342,6 +358,11 @@ mod tests {
     }
 
     #[test]
+    fn debug_1() {
+        print_decomp([2, 0, 0, 0o0110]);
+    }
+
+    #[test]
     fn check_decomp_examples() {
         // shorthands for building decomp "literals"
         use HandGroup::{Koutsu, Shuntsu};
@@ -354,6 +375,7 @@ mod tests {
         // no ten
         check_decomp([3, 2, 1, 0], &[]);
         check_decomp([0, 0, 0, 0o0122000], &[]);
+        check_decomp([0, 0, 0, 0o0011000], &[]);
 
         // 2 x 2 independent
         check_decomp([0o000000333, 0, 0, 0o2200000], &[

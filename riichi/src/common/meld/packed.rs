@@ -39,14 +39,15 @@ impl PackedMeld {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub(crate) enum PackedMeldKind {
-    Chii = 0,
-    Pon = 1,
-    Kakan = 2,
-    Daiminkan = 3,
-    Ankan = 4,
+    #[default]
+    Chii = 1,
+    Pon = 2,
+    Kakan = 3,
+    Daiminkan = 4,
+    Ankan = 5,
 }
 
 impl TryFrom<PackedMeld> for Meld {

@@ -48,6 +48,11 @@ pub enum Meld {
 }
 
 impl Meld {
+    /// [`Ankan`]
+    pub fn is_closed(&self) -> bool {
+        matches!(self, Meld::Ankan(_))
+    }
+
     /// [`Kakan`], [`Daiminkan`], or [`Ankan`]
     pub fn is_kan(&self) -> bool {
         match self {
@@ -125,8 +130,8 @@ mod test {
             "6s".parse().unwrap(),
             "0s".parse().unwrap()).unwrap();
         let meld = Meld::Chii(chii);
-        assert_eq!(Meld::from_packed(0x0155), Some(meld));
-        assert_eq!(meld.packed(), 0x0155);
+        assert_eq!(Meld::from_packed(0x1155), Some(meld));
+        assert_eq!(meld.packed(), 0x1155);
         assert_eq!(chii.to_string(), "C046s");
         assert_eq!(meld.to_string(), "C046s");
     }
@@ -139,9 +144,14 @@ mod test {
             "0p".parse().unwrap(),
             Player::new(2)).unwrap();
         let meld = Meld::Pon(pon);
-        assert_eq!(Meld::from_packed(0x158D), Some(meld));
-        assert_eq!(meld.packed(), 0x158D);
+        assert_eq!(Meld::from_packed(0x258D), Some(meld));
+        assert_eq!(meld.packed(), 0x258D);
         assert_eq!(pon.to_string(), "0P05p");
         assert_eq!(meld.to_string(), "0P05p");
+    }
+
+    #[test]
+    fn null_example() {
+        assert_eq!(Meld::from_packed(0), None);
     }
 }

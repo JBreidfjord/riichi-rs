@@ -97,7 +97,12 @@ pub(crate) fn next_normal(
                 state.action_player = caller;
                 state.incoming_meld = Some(meld);
                 state.melds[caller.to_usize()].push(meld);
-                state.draw = None;
+                if meld.is_kan() {
+                    state.draw = Some(wall::kan_draw(&begin.wall, state.num_drawn_tail as usize));
+                    state.num_drawn_tail += 1;
+                } else {
+                    state.draw = None
+                };
                 // state.num_drawn_* => no-op
             }
 

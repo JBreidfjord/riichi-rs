@@ -1,8 +1,4 @@
 
-use serde::{
-    ser::{Serialize, Serializer},
-    de::{Deserialize, Deserializer, Error, Visitor},
-};
 use serde_tuple::{Serialize_tuple, Deserialize_tuple};
 use crate::{
     common::*,
@@ -67,9 +63,8 @@ impl RoundIdAndPot {
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
-    use assert_json_diff::{assert_json_eq, assert_json_include};
+    use assert_json_diff::assert_json_eq;
     use itertools::Itertools;
-    use serde_test::{Token, assert_tokens};
     use crate::Discard;
     use super::*;
 

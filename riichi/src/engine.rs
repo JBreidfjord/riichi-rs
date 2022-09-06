@@ -17,7 +17,6 @@ use crate::{
 };
 use self::{
     reaction::{check_reaction, resolve_reaction},
-    utils::*,
     agari::*,
     action::check_action,
     step::{next_normal, next_agari, next_abort}
@@ -117,7 +116,10 @@ impl Engine {
         // sanity check: must have valid state
         assert!(self.state.num_drawn_head >= 52);
 
+        self.action = None;
         self.reactions = Default::default();
+        self.cache.meld = Default::default();
+        self.cache.win = Default::default();
         check_action(&self.begin, &self.state, action, &mut self.cache)?;
         self.action = Some(action);
         Ok(self)

@@ -10,6 +10,8 @@ use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
+use super::typedefs::*;
+
 /// Represents one tile (牌).
 ///
 /// Encoded as a 6-bit integer:
@@ -68,9 +70,9 @@ impl Tile {
     pub const fn is_middle(self) -> bool { self.is_numeral() && !self.is_pure_terminal() }
 
 
-    /// Winds 風牌
+    /// Winds 風牌 := {1,2,3,4}z (correspond to {E,S,W,N})
     pub const fn is_wind(self) -> bool { 27 <= self.0 && self.0 <= 30 }
-    /// Dragons 三元牌
+    /// Dragons 三元牌 := {5,6,7}z (correspond to {blue, green, red} dragons).
     pub const fn is_dragon(self) -> bool { 31 <= self.0 && self.0 <= 33 }
     /// Honors := Winds + Dragons ;
     /// 字牌 := 風牌 + 三元牌
@@ -112,6 +114,9 @@ impl Tile {
 
     /// Converts normal 5 to red 5; otherwise no-op.
     pub const fn to_red(self) -> Self { Self(self.red_encoding()) }
+
+    /// Converts to the corresponding wind (ESWN) if this is a wind tile.
+    pub fn wind(self) -> Option<Wind> { self.is_wind().then_some(Wind::new(self.0 - 27)) }
 
     /// Converts tile to an internal ordering key where:
     /// 1m < ... < 4m < 0m < 5m < ... < 9m < 1p < ... < 9p < 1s < ... < 9s < 1z < ... < 7z

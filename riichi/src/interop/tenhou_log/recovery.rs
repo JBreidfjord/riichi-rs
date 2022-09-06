@@ -7,7 +7,6 @@ use crate::{
     model::*,
 };
 use super::{
-    end_info::*,
     entry::*,
     TenhouRoundRaw,
 };

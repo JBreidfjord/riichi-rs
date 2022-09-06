@@ -97,6 +97,16 @@ pub enum WaitingKind {
     RyanmenBoth, // e.g. 34m wait 2m/5m
 }
 
+impl WaitingKind {
+    pub const fn is_shuntsu(self) -> bool {
+        use WaitingKind::*;
+        match self {
+            Kanchan | RyanmenHigh | RyanmenLow | RyanmenBoth => true,
+            _ => false,
+        }
+    }
+}
+
 pub fn w_entry_iter(key: u32, value: u64) -> impl Iterator<Item = WaitingPattern> {
     WaitingPatternIterator { key, value }
 }
