@@ -100,8 +100,12 @@ pub fn is_last_draw(state: &State) -> bool {
     num_draws(state) == wall::MAX_NUM_DRAWS
 }
 
-/// Affects [`ActionResult::AbortNineKinds`] and [`RiichiFlags::is_double`].
-pub fn is_init_abortable(state: &State) -> bool {
+/// First 4 turns of the game without being interrupted by any meld.
+/// Affects:
+/// - [`ActionResult::AbortNineKinds`] (active), [`ActionResult::AbortFourWind`] (passive)
+/// - [`RiichiFlags::is_double`]
+/// - [`Yaku::Tenhou`], [`Yaku::Chiihou`], [`Yaku::Renhou`]
+pub fn is_first_chance(state: &State) -> bool {
     state.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
 }
 
@@ -128,7 +132,7 @@ pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
 /// Checks if [`ActionResult::AbortFourWind`] applies (during end-of-turn resolution).
 pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
     if let Action::Discard(discard) = action {
-        return is_init_abortable(state) &&
+        return is_first_chance(state) &&
             state.seq == 3 &&
             discard.tile.is_wind() &&
             state.discards[0..3].iter().all(|discards|

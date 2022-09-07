@@ -162,7 +162,7 @@ pub(crate) fn check_action(
             // TODO(summivox): agari
         }
         Action::AbortNineKinds => {
-            if !is_init_abortable(state) { return Err(NotInitAbortable); }
+            if !is_first_chance(state) { return Err(NotInitAbortable); }
             let n = terminal_kinds(&hand);
             if n < 9 {
                 return Err(NotEnoughKindsForNineKinds(n));

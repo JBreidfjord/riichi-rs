@@ -65,7 +65,7 @@ pub enum Reaction {
     /// Declare a [`crate::Daiminkan`] (大明槓) on the recent discard; own tiles are implicit.
     Daiminkan,
     /// Declare win-by-steal (ロン和ガリ) on the recent action, which can be
-    /// [`Action::Discard`], [`Action::Kakan`] (rare), or [`Action::ankan`] (very rare).
+    /// [`Action::Discard`], [`Action::Kakan`] (rare), or [`Action::Ankan`] (very rare).
     RonAgari,
 }
 

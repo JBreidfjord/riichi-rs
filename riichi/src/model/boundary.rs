@@ -1,11 +1,15 @@
 //! Boundary conditions of a round (begin and end).
 
-use crate::common::*;
-use crate::common::wall::{make_dummy_wall};
-use crate::rules::Rules;
-use super::ActionResult;
-use super::AgariCandidate;
-use super::PartiallyObservable;
+use crate::{
+    common::*,
+    rules::Rules,
+};
+use super::{
+    ActionResult,
+    AgariCandidate,
+    AgariResult,
+    PartiallyObservable,
+};
 
 /// Kyoku-Honba (局-本場) pair that uniquely identifies a round in a game.
 ///
@@ -106,7 +110,7 @@ impl Default for RoundBegin {
         Self {
             rules: Default::default(),
             round_id: Default::default(),
-            wall: make_dummy_wall(),
+            wall: wall::make_dummy_wall(),
             pot: 0,
             points: [0; 4],
         }
@@ -116,7 +120,7 @@ impl Default for RoundBegin {
 impl PartiallyObservable for RoundBegin {
     fn observe_by(&self, _player: Player) -> Self {
         let mut observed = self.clone();
-        observed.wall = make_dummy_wall();
+        observed.wall = wall::make_dummy_wall();
         observed
     }
 }
@@ -127,7 +131,7 @@ pub struct RoundEnd {
     /// Guaranteed to be "terminal" (see [`ActionResult::is_terminal`]).
     pub round_result: ActionResult,
 
-    /// Same definition as [`RoundBeginState::pot`] but at round end.
+    /// Same definition as [`RoundBegin::pot`] but at round end.
     pub pot: GamePoints,
     /// Points for each player at round end.
     pub points: [GamePoints; 4],
@@ -140,5 +144,5 @@ pub struct RoundEnd {
     pub next_round_id: Option<RoundId>,
 
     /// If a player has won this round (non-exclusive due to multi-ron), how they did so.
-    pub agari_result: [Option<AgariCandidate>; 4],
+    pub agari_result: [Option<AgariResult>; 4],
 }

@@ -39,6 +39,8 @@ impl PackedMeld {
     }
 }
 
+/// Encode the meld kind in 3 bits.
+/// Note that `0` is deliberately reserved so that any valid packing is never `0`.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
 #[repr(u8)]
 pub(crate) enum PackedMeldKind {

@@ -288,7 +288,7 @@ pub fn tiles_from_str(s: &str) -> Vec<Tile> {
     tiles
 }
 
-/// Shortcut for quickly specifying a tile literal through its string shorthand.
+/// Shortcut for creating a tile literal through its string shorthand.
 ///
 /// Example:
 /// ```

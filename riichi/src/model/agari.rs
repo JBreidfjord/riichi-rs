@@ -67,15 +67,15 @@ pub struct AgariCandidate {
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Scoring {
-    pub yakuman_sum: u8,
-    pub yaku_sum: u8,
+    pub yakuman_total_value: u8,
+    pub yaku_total_value: u8,
     pub dora_hits: DoraHits,
     pub fu: u8,
 }
 
 impl Scoring {
     pub fn han(&self) -> u8 {
-        self.yaku_sum + self.dora_hits.sum()
+        self.yaku_total_value + self.dora_hits.sum()
     }
 }
 

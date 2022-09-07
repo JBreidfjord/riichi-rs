@@ -78,7 +78,7 @@ pub(crate) fn next_normal(
                 state.riichi[actor_i] = RiichiFlags {
                     is_active: true,
                     is_ippatsu: caller == actor,  // no ippatsu if immediately called
-                    is_double: is_init_abortable(state),
+                    is_double: is_first_chance(state),
                 }
             }
 

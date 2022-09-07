@@ -39,7 +39,7 @@ pub fn detect_yakus_for_regular(
     detect_first_chance(rules, yaku_builder,
                         input.winner,
                         input.begin.round_id.button(),
-                        input.is_init_abortable,
+                        input.is_first_chance,
                         hand_common.agari_kind);
     detect_hand_only_yakus(rules, yaku_builder,
                            &hand_common.all_tiles,
@@ -105,7 +105,7 @@ pub fn detect_yakus_for_irregular(
     detect_first_chance(rules, yaku_builder,
                         input.winner,
                         input.begin.round_id.button(),
-                        input.is_init_abortable,
+                        input.is_first_chance,
                         hand_common.agari_kind);
     detect_hand_only_yakus(rules, yaku_builder,
                            &hand_common.all_tiles,

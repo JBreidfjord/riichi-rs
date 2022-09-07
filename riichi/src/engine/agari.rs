@@ -31,7 +31,7 @@ pub struct AgariInput<'a> {
 
     pub num_dora_indicators: u8,
     pub num_draws: u8,
-    pub is_init_abortable: bool,
+    pub is_first_chance: bool,
     pub closed_hand: &'a TileSet37,
     pub waiting_info: &'a WaitingInfo,
     pub riichi_flags: RiichiFlags,
@@ -55,7 +55,7 @@ pub fn make_input<'a>(
         action,
         num_dora_indicators: state.num_dora_indicators,
         num_draws: num_draws(state),
-        is_init_abortable: is_init_abortable(state),
+        is_first_chance: is_first_chance(state),
         closed_hand: &state.closed_hands[winner_i],
         waiting_info,
         riichi_flags: state.riichi[winner_i],
@@ -64,13 +64,11 @@ pub fn make_input<'a>(
     }
 }
 
-pub fn calc_best_agari_candidate(
+pub fn agari_candidates(
     rules: &Rules,
     input: &AgariInput,
-) -> Option<(AgariCandidate, GamePoints)> {
+) -> Vec<AgariCandidate> {
     let hand_common = calc_hand_common(rules, input);
-    let mut best_basic_points: GamePoints = 0;
-    let mut best_candidate: Option<AgariCandidate> = None;
 
     let regular_waits = input.waiting_info.regular.iter()
         .filter(|wait| wait.waiting_tile == hand_common.winning_tile)
@@ -83,27 +81,14 @@ pub fn calc_best_agari_candidate(
             IrregularWait::ThirteenOrphansAll => true,
         });
 
-    for (regular_wait, wait_common) in regular_waits {
-        if let Some((candidate, basic_points)) =
-        calc_regular_agari_candidate(rules, input, &hand_common, regular_wait, &wait_common) {
-            if basic_points > best_basic_points {
-                best_basic_points = basic_points;
-                best_candidate = Some(candidate);
-            }
-        }
-    }
-
-    if let Some(irregular) = irregular_wait {
-        if let Some((candidate, basic_points)) =
-        calc_irregular_agari_candidate(rules, input, &hand_common, irregular) {
-            if basic_points > best_basic_points {
-                best_basic_points = basic_points;
-                best_candidate = Some(candidate);
-            }
-        }
-    }
-
-    best_candidate.map(|candidate| (candidate, best_basic_points))
+    let mut candidates = regular_waits
+        .filter_map(|(regular_wait, wait_common)|
+            calc_regular_agari_candidate(rules, input, &hand_common, regular_wait, &wait_common))
+        .collect_vec();
+    candidates.extend(irregular_wait
+        .and_then(|irregular|
+            calc_irregular_agari_candidate(rules, input, &hand_common, irregular)));
+    candidates
 }
 
 fn calc_regular_agari_candidate(
@@ -112,7 +97,7 @@ fn calc_regular_agari_candidate(
     hand_common: &HandCommon,
     regular_wait: &RegularWait,
     wait_common: &RegularWaitCommon,
-) -> Option<(AgariCandidate, GamePoints)> {
+) -> Option<AgariCandidate> {
     let mut yaku_builder = YakuBuilder::new();
     detect_yakus_for_regular(rules, &mut yaku_builder,
                              input, &hand_common, regular_wait, &wait_common);
@@ -125,14 +110,11 @@ fn calc_regular_agari_candidate(
                                hand_common.agari_kind,
                                hand_common.is_closed,
                                wait_common.extra_fu);
-    Some((
-        AgariCandidate {
-            wait: Wait::Regular(*regular_wait),
-            yaku_values,
-            scoring,
-        },
-        scoring.basic_points(),
-    ))
+    Some(AgariCandidate {
+        wait: Wait::Regular(*regular_wait),
+        yaku_values,
+        scoring,
+    })
 }
 
 fn calc_irregular_agari_candidate(
@@ -140,7 +122,7 @@ fn calc_irregular_agari_candidate(
     input: &AgariInput,
     hand_common: &HandCommon,
     irregular: IrregularWait,
-) -> Option<(AgariCandidate, GamePoints)> {
+) -> Option<AgariCandidate> {
     let mut yaku_builder = YakuBuilder::new();
     detect_yakus_for_irregular(rules, &mut yaku_builder,
                                input, &hand_common, irregular);
@@ -153,14 +135,11 @@ fn calc_irregular_agari_candidate(
                                hand_common.agari_kind,
                                hand_common.is_closed,
                                0);
-    Some((
-        AgariCandidate {
-            wait: Wait::Irregular(irregular),
-            yaku_values,
-            scoring,
-        },
-        scoring.basic_points(),
-    ))
+    Some(AgariCandidate {
+        wait: Wait::Irregular(irregular),
+        yaku_values,
+        scoring,
+    })
 }
 
 fn calc_scoring(
@@ -175,15 +154,15 @@ fn calc_scoring(
     let value_sum = yaku_values.values().sum::<i8>();
     if value_sum < 0 {
         Scoring {
-            yakuman_sum: (-value_sum) as u8,
-            yaku_sum: 0,
+            yakuman_total_value: (-value_sum) as u8,
+            yaku_total_value: 0,
             dora_hits,
             fu: 0,
         }
     } else if value_sum > 0 {
         Scoring {
-            yakuman_sum: 0,
-            yaku_sum: value_sum as u8,
+            yakuman_total_value: 0,
+            yaku_total_value: value_sum as u8,
             dora_hits,
             fu: match wait {
                 Wait::Irregular(IrregularWait::SevenPairs(_)) => 25,
@@ -195,10 +174,10 @@ fn calc_scoring(
 
 impl Scoring {
     pub fn basic_points(&self) -> GamePoints {
-        if self.yakuman_sum > 0 {
-            return 8000 * self.yakuman_sum as GamePoints
+        if self.yakuman_total_value > 0 {
+            return 8000 * self.yakuman_total_value as GamePoints
         }
-        match self.yaku_sum {
+        match self.yaku_total_value {
             0 => 0,
             1..=5 => min(2000, fu_han_formula(self.fu, self.han())),  // mangan or less
             6..=7 => 3000,  // haneman (1.5x mangan)
@@ -209,7 +188,7 @@ impl Scoring {
     }
 
     pub fn basic_points_aotenjou(&self) -> GamePoints {
-        fu_han_formula(self.fu, self.yakuman_sum * 13 + self.han())
+        fu_han_formula(self.fu, self.yakuman_total_value * 13 + self.han())
     }
 }
 
@@ -236,3 +215,6 @@ fn calc_regular_fu(
         [is_closed as usize];
     (fu_before_rounding + 9) / 10 * 10
 }
+
+#[cfg(test)]
+mod tests;
