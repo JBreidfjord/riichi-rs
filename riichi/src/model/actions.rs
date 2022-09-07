@@ -44,6 +44,13 @@ impl Action {
             _ => false,
         }
     }
+
+    pub fn is_kan(self) -> bool {
+        match self {
+            Action::Ankan(_)| Action::Kakan(_) => true,
+            _ => false,
+        }
+    }
 }
 
 /// Reaction from an out-of-turn player.

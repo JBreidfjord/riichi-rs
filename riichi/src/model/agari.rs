@@ -1,9 +1,9 @@
 use std::cmp::min;
-use crate::analysis::RegularWait;
+use crate::analysis::Wait;
 use crate::common::*;
-use super::{ActionResult, Yaku};
+use super::{ActionResult, YakuValues};
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgariResult {
     /// Who won?
     pub winner: Player,
@@ -30,18 +30,10 @@ pub struct AgariResult {
     pub melds: Vec<Meld>,
     pub winning_tile: Tile,
 
-    pub details: AgariDetails,
+    pub best_candidate: AgariCandidate,
 }
 
 impl AgariResult {
-    pub fn kind(&self) -> AgariKind {
-        if self.winner == self.contributor {
-            AgariKind::Tsumo
-        } else {
-            AgariKind::Ron
-        }
-    }
-
     pub fn points_delta_after_pot(&self) -> [GamePoints; 4] {
         let mut delta = self.points_delta_before_pot;
         delta[self.winner.to_usize()] += self.pot_gained;
@@ -54,7 +46,7 @@ impl AgariResult {
 pub enum AgariKind {
     #[default]
     Ron = 0,
-    Tsumo,
+    Tsumo = 1,
 }
 
 impl AgariKind {
@@ -66,46 +58,36 @@ impl AgariKind {
     }
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
-pub struct AgariDetails {
-    pub regular_wait: Option<RegularWait>,
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgariCandidate {
+    pub wait: Wait,
     pub scoring: Scoring,
-    pub yaku_value: Vec<(Yaku, i8)>,
+    pub yaku_values: YakuValues,
 }
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Scoring {
     pub yakuman_sum: u8,
     pub yaku_sum: u8,
-    pub num_reds: u8,
-    pub num_dora_hits: u8,
-    pub num_ura_dora_hits: u8,
+    pub dora_hits: DoraHits,
     pub fu: u8,
 }
 
 impl Scoring {
     pub fn han(&self) -> u8 {
-        self.yaku_sum + self.num_reds + self.num_dora_hits + self.num_ura_dora_hits
+        self.yaku_sum + self.dora_hits.sum()
     }
+}
 
-    pub fn basic_points(&self) -> GamePoints {
-        if self.yakuman_sum > 0 {
-            return 8000 * self.yakuman_sum as GamePoints
-        }
-        match self.yaku_sum {
-            0 => 0,
-            1..=5 => min(
-                self.fu as GamePoints * ((1 as GamePoints) << (2 + self.han() as GamePoints)),
-                2000),  // mangan and below
-            6..=7 => 3000,  // haneman (1.5x mangan)
-            8..=10 => 4000,  // baiman (2x mangan)
-            11..=12 => 6000,  // sanbaiman (3x mangan)
-            _ => 8000,  // kazoe-yakuman (4x mangan)
-        }
-    }
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+pub struct DoraHits {
+    pub dora: u8,
+    pub ura_dora: u8,
+    pub aka_dora: u8,
+}
 
-    pub fn basic_points_aotenjou(&self) -> GamePoints {
-        let han = self.yakuman_sum * 13 + self.han();
-        self.fu as GamePoints * ((1 as GamePoints) << (2 + han as GamePoints))
+impl DoraHits {
+    pub fn sum(self) -> u8 {
+        self.dora + self.ura_dora + self.aka_dora
     }
 }

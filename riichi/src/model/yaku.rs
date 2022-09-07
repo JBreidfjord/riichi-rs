@@ -1,4 +1,4 @@
-
+use std::collections::{HashMap, HashSet};
 
 /// All Yaku's (役) known to this package.
 /// This is intended to be used as a unifying key/symbol to uniquely represent each Yaku without
@@ -73,7 +73,7 @@ pub enum Yaku {
     /// 小三元
     Shousangen,
     /// 混老頭
-    Honraotou,
+    Honroutou,
     /// 二盃口
     Ryanpeikou,
     /// 純全帯幺九
@@ -99,7 +99,7 @@ pub enum Yaku {
     /// 緑一色
     Ryuuiisou,
     /// 清老頭
-    Chinraotou,
+    Chinroutou,
     /// 九蓮宝燈
     Chuurenpoutou,
     /// 純正九蓮宝燈
@@ -114,4 +114,63 @@ pub enum Yaku {
     Shousuushi,
     /// 四槓子
     Suukantsu,
+}
+
+pub const fn get_blocked_yaku(yaku: Yaku) -> &'static [Yaku] {
+    use Yaku::*;
+    match yaku {
+        Chinroutou | Honroutou => &[Junchantaiyaochuu, Honchantaiyaochuu],
+        Rinshankaihou | Chankan => &[Haiteiraoyue, Houteiraoyui],
+        _ => &[],
+    }
+}
+
+pub type YakuValues = HashMap<Yaku, i8>;
+
+#[derive(Debug, Default)]
+pub struct YakuBuilder {
+    yaku_values: YakuValues,
+    blocked_yaku: HashSet<Yaku>,
+    has_yakuman: bool,
+}
+
+impl YakuBuilder {
+    pub fn new() -> Self { Self::default() }
+    pub fn add(&mut self, yaku: Yaku, value: i8) {
+        if self.blocked_yaku.contains(&yaku) { return }
+        if self.has_yakuman && value > 0 { return }
+        self.yaku_values.insert(yaku, value);
+        for blocked in get_blocked_yaku(yaku) {
+            self.yaku_values.remove(blocked);
+            self.blocked_yaku.insert(*blocked);
+        }
+        if !self.has_yakuman && value < 0 {
+            self.has_yakuman = true;
+            self.yaku_values.retain(|_, other_value| *other_value < 0);
+        }
+    }
+
+    pub fn build(self) -> YakuValues { self.yaku_values }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_yaku_builder() {
+        use Yaku::*;
+
+        let mut x = YakuBuilder::new();
+        x.add(Chinroutou, -1);
+        x.add(Honchantaiyaochuu, 1);
+        let a = x.build();
+        assert_eq!(a, YakuValues::from([(Chinroutou, -1)]));
+
+        let mut x = YakuBuilder::new();
+        x.add(Honchantaiyaochuu, 1);
+        x.add(Chinroutou, -1);
+        let a = x.build();
+        assert_eq!(a, YakuValues::from([(Chinroutou, -1)]));
+    }
 }

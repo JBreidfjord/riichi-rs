@@ -49,6 +49,8 @@ impl Tile {
         }
     }
 
+    pub fn from_wind(wind: Wind) -> Self { Self(27 + wind.to_u8()) }
+
     pub const fn is_valid(self) -> bool { self.0 <= 36 }
 
     /// Not red 5
@@ -68,7 +70,6 @@ impl Tile {
     /// Middle numerals := {2..=8}{m,p,s} ;
     /// 中張牌 := 数牌 - 老頭牌
     pub const fn is_middle(self) -> bool { self.is_numeral() && !self.is_pure_terminal() }
-
 
     /// Winds 風牌 := {1,2,3,4}z (correspond to {E,S,W,N})
     pub const fn is_wind(self) -> bool { 27 <= self.0 && self.0 <= 30 }
@@ -116,7 +117,7 @@ impl Tile {
     pub const fn to_red(self) -> Self { Self(self.red_encoding()) }
 
     /// Converts to the corresponding wind (ESWN) if this is a wind tile.
-    pub fn wind(self) -> Option<Wind> { self.is_wind().then_some(Wind::new(self.0 - 27)) }
+    pub fn wind(self) -> Option<Wind> { self.is_wind().then(|| Wind::new(self.0 - 27)) }
 
     /// Converts tile to an internal ordering key where:
     /// 1m < ... < 4m < 0m < 5m < ... < 9m < 1p < ... < 9p < 1s < ... < 9s < 1z < ... < 7z
@@ -379,6 +380,20 @@ mod tests {
             let dora = Tile::from_num_suit(num_dora, 3).unwrap();
             let indicated_dora = indicator.indicated_dora();
             check!(dora == indicated_dora);
+        }
+    }
+
+    #[test]
+    fn wind_tile_indicates_correct_wind() {
+        assert_eq!(Tile::from_str("1z").unwrap().wind(), Some(Wind::new(0)));
+        assert_eq!(Tile::from_str("2z").unwrap().wind(), Some(Wind::new(1)));
+        assert_eq!(Tile::from_str("3z").unwrap().wind(), Some(Wind::new(2)));
+        assert_eq!(Tile::from_str("4z").unwrap().wind(), Some(Wind::new(3)));
+        for enc in 0..27 {
+            assert_eq!(Tile::from_encoding(enc).unwrap().wind(), None);
+        }
+        for enc in 31..37 {
+            assert_eq!(Tile::from_encoding(enc).unwrap().wind(), None);
         }
     }
 }

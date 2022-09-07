@@ -21,16 +21,21 @@ pub fn calc_regular_wait_common(
     wait: &RegularWait,
 ) -> RegularWaitCommon {
     let wait_group = calc_waiting_group(wait);
-    let extra_fu = calc_extra_fu(input, hand_common, wait, wait_group);
+    let extra_fu = calc_extra_fu(
+        input.begin.round_id,
+        input.winner,
+        input.melds,
+        hand_common,
+        wait,
+        wait_group,
+    );
     RegularWaitCommon {
         wait_group,
         extra_fu,
     }
 }
 
-fn calc_waiting_group(
-    wait: &RegularWait,
-) -> Option<HandGroup> {
+fn calc_waiting_group(wait: &RegularWait) -> Option<HandGroup> {
     use HandGroup::*;
     use WaitingKind::*;
     let t_pat = wait.pattern_tile;
@@ -44,18 +49,20 @@ fn calc_waiting_group(
 }
 
 fn calc_extra_fu(
-    input: &AgariInput,
+    round_id: RoundId,
+    winner: Player,
+    melds: &[Meld],
     hand_common: &HandCommon,
     wait: &RegularWait,
     wait_group: Option<HandGroup>,
 ) -> u8 {
     // known open groups (melds)
     let meld_fu: u8 =
-        input.melds.iter().map(meld_extra_fu).sum();
+        melds.iter().map(meld_extra_fu).sum();
 
     // known closed groups (melds)
     let group_fu: u8 =
-        wait.groups().map(group_extra_fu).sum();
+        wait.groups().map(group_extra_fu).sum::<u8>() * 2;  // x2 because these are always closed
 
     // the waiting group (non-pair) is considered either open (if ron) or closed (if tsumo)
     let wait_group_fu =
@@ -71,8 +78,8 @@ fn calc_extra_fu(
         if pair.is_dragon() {
             2
         } else if let Some(wind) = pair.wind() {
-            if wind == input.begin.round_id.prevailing_wind() ||
-                wind == input.begin.round_id.self_wind_for_player(input.winner) {
+            if wind == round_id.prevailing_wind() ||
+                wind == round_id.self_wind_for_player(winner) {
                 2  // TODO(summivox): rules (double wind double fu)
             } else { 0 }
         } else { 0 }
@@ -91,10 +98,10 @@ fn group_extra_fu(group: HandGroup) -> u8 {
 fn meld_extra_fu(meld: &Meld) -> u8 {
     match meld {
         Meld::Chii(_) => 0,
-        Meld::Pon(pon) => if pon.called.is_terminal() { 4 } else { 2 }
-        Meld::Kakan(kakan) => if kakan.added.is_terminal() { 16 } else { 8 }
-        Meld::Daiminkan(daiminkan) => if daiminkan.called.is_terminal() { 16 } else { 8 }
-        Meld::Ankan(ankan) => if ankan.own[0].is_terminal() { 32 } else { 16 }
+        Meld::Pon(pon) => 2 * terminal_fu_multiplier(pon.called),
+        Meld::Kakan(kakan) => 8 * terminal_fu_multiplier(kakan.added),
+        Meld::Daiminkan(daiminkan) => 8 * terminal_fu_multiplier(daiminkan.called),
+        Meld::Ankan(ankan) => 16 * terminal_fu_multiplier(ankan.own[0]),
     }
 }
 

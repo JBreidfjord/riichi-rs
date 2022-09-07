@@ -4,7 +4,7 @@ use crate::common::*;
 use crate::common::wall::{make_dummy_wall};
 use crate::rules::Rules;
 use super::ActionResult;
-use super::AgariResult;
+use super::AgariCandidate;
 use super::PartiallyObservable;
 
 /// Kyoku-Honba (局-本場) pair that uniquely identifies a round in a game.
@@ -140,5 +140,5 @@ pub struct RoundEnd {
     pub next_round_id: Option<RoundId>,
 
     /// If a player has won this round (non-exclusive due to multi-ron), how they did so.
-    pub agari_result: [Option<AgariResult>; 4],
+    pub agari_result: [Option<AgariCandidate>; 4],
 }

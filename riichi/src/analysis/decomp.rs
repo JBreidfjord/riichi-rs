@@ -53,15 +53,14 @@ impl RegularWait {
 
     pub fn pair_or_tanki(&self) -> Option<Tile> {
         self.pair.or_else(||
-            (self.waiting_kind == WaitingKind::Tanki).then_some(
-                self.waiting_tile))
+            (self.waiting_kind == WaitingKind::Tanki).then_some(self.waiting_tile))
     }
 
     pub fn is_true_ryanmen(&self) -> bool {
         match (self.waiting_kind, self.pattern_tile.normal_num()) {
-            (WaitingKind::RyanmenBoth, _) |
-            (WaitingKind::RyanmenHigh, 2..=7) |
-            (WaitingKind::RyanmenLow, 1..=6) => true,
+            (WaitingKind::RyanmenLow, 2..=7) |  // (1)23 ..= (6)78 ; excluding (7)89
+            (WaitingKind::RyanmenHigh, 2..=7) |  // 23(4) ..= 78(9) ; excluding 12(3)
+            (WaitingKind::RyanmenBoth, _) => true,
             _ => false,
         }
     }
@@ -267,9 +266,9 @@ fn new_partial_iter<'a>(
 /// In iterator comprehension notation:
 /// ```python
 ///   (extended
-///    for partial_decomp in partial_iter
-///    for complete_grouping in c
-///    if extended := partial_decomp.extend(complete_grouping))
+///    for partial in partial_iter
+///    for complete in c
+///    if extended := partial.extend(complete))
 /// ```
 fn extend_partial_iter<'a>(
     partial_iter: impl Iterator<Item=RegularWait> + 'a,
@@ -277,8 +276,8 @@ fn extend_partial_iter<'a>(
     c: &'a [CompleteGrouping],
 ) -> impl Iterator<Item=RegularWait> + 'a {
     partial_iter.flat_map(move |partial|
-        c.iter().filter_map(move |c|
-            partial.try_extend(suit, c)))
+        c.iter().filter_map(move |complete|
+            partial.try_extend(suit, complete)))
 }
 
 fn extend_groups(groups: u32, suit: u8, c: &CompleteGrouping) -> u32 {

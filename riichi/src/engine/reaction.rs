@@ -13,8 +13,11 @@ pub enum ReactionError {
     #[error("The action is terminal; no reactions possible.")]
     TerminalAction,
 
-    #[error("Cannot declare an open meld under riichi.")]
+    #[error("Cannot declare an open meld under Riichi.")]
     MeldUnderRiichi,
+
+    #[error("Cannot declare an open meld on the last draw")]
+    MeldOnLastDraw,
 
     #[error("Tile {0} does not exist in the closed hand.")]
     TileNotExist(Tile),
@@ -34,7 +37,7 @@ pub enum ReactionError {
     #[error("Cannot Daiminkan.")]
     InvalidDaiminkan,
 
-    #[error("No ron when you are furiten: {0:?}")]
+    #[error("No Ron when you are furiten: {0:?}")]
     Furiten(FuritenFlags),
 }
 
@@ -53,9 +56,11 @@ pub(crate) fn check_reaction(
     let reactor_i = reactor.to_usize();
     let hand = &state.closed_hands[reactor_i];
 
+    // TODO(summivox): cannot chi/pon/daiminkan over houtei
     match reaction {
         Reaction::Chii(own0, own1) => {
             if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if player_succ(actor) != reactor {
                 return Err(CanOnlyChiiPrevPlayer);
             }
@@ -77,6 +82,7 @@ pub(crate) fn check_reaction(
 
         Reaction::Pon(own0, own1) => {
             if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
                 let dir = actor.wrapping_sub(reactor);
@@ -96,6 +102,7 @@ pub(crate) fn check_reaction(
 
         Reaction::Daiminkan => {
             if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
                 let dir = actor.wrapping_sub(reactor);

@@ -20,7 +20,7 @@ use crate::Tile;
 /// Histogram for all 37 kinds of tiles (including red).
 /// Can be directly indexed with [`Tile`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
-pub struct TileSet37([u8; 37]);
+pub struct TileSet37(pub [u8; 37]);
 
 impl Index<Tile> for TileSet37 {
     type Output = u8;
@@ -82,7 +82,7 @@ impl TileSet37 {
 /// Histogram for all 34 kinds of normal tiles (red 5's are treated as normal 5's).
 /// Can be directly indexed with [`Tile`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
-pub struct TileSet34([u8; 34]);
+pub struct TileSet34(pub [u8; 34]);
 
 impl Index<Tile> for TileSet34 {
     type Output = u8;
@@ -193,6 +193,15 @@ impl TileMask34 {
     pub fn any(self) -> bool { self.0 > 0 }
     pub fn has(self, tile: Tile) -> bool {
         (self.0 >> (tile.normal_encoding() as u64)) & 1 == 1
+    }
+    pub fn has_i(self, i: u8) -> bool {
+        (self.0 >> (i as u64)) & 1 == 1
+    }
+    pub fn set(&mut self, tile: Tile) {
+        self.0 |= 1 << (tile.normal_encoding() as u64);
+    }
+    pub fn clear(&mut self, tile: Tile) {
+        self.0 &= !(1 << (tile.normal_encoding() as u64));
     }
 }
 

@@ -5,14 +5,50 @@ use crate::common::*;
 use crate::model::*;
 
 pub fn terminal_kinds(h: &TileSet37) -> u8 {
+    pure_terminal_kinds(h) + honor_kinds(h)
+}
+
+pub fn terminal_count(h: &TileSet37) -> u8 {
+    pure_terminal_count(h) + honor_count(h)
+}
+
+pub fn pure_terminal_kinds(h: &TileSet37) -> u8 {
     0u8 + (h[0] > 0) as u8 + (h[8] > 0) as u8
         + (h[9] > 0) as u8 + (h[17] > 0) as u8
         + (h[18] > 0) as u8 + (h[26] > 0) as u8
-        + (h[27] > 0) as u8 + (h[28] > 0) as u8
+}
+
+pub fn pure_terminal_count(h: &TileSet37) -> u8 {
+    h[0] + h[8] + h[9] + h[17] + h[18] + h[26]
+}
+
+pub fn honor_kinds(h: &TileSet37) -> u8 {
+    0u8 + (h[27] > 0) as u8 + (h[28] > 0) as u8
         + (h[29] > 0) as u8 + (h[30] > 0) as u8
         + (h[31] > 0) as u8 + (h[32] > 0) as u8
         + (h[33] > 0) as u8
 }
+
+pub fn honor_count(h: &TileSet37) -> u8 {
+    h[27] + h[28] + h[29] + h[30] + h[31] + h[32] + h[33]
+}
+
+pub fn green_count(h: &TileSet37) -> u8 {
+    h[19] + h[20] + h[21] + h[23] + h[25] + h[32]
+}
+
+pub fn m_count(h: &TileSet37) -> u8 {
+    (&h.0[0..9]).iter().sum::<u8>() + h[34]
+}
+pub fn p_count(h: &TileSet37) -> u8 {
+    (&h.0[9..18]).iter().sum::<u8>() + h[35]
+}
+pub fn s_count(h: &TileSet37) -> u8 {
+    (&h.0[18..27]).iter().sum::<u8>() + h[36]
+}
+/// Alias of `honor_count`.
+pub fn z_count(h: &TileSet37) -> u8 { honor_count(h) }
+
 
 /// Returns if this discard immediately after calling Chii/Pon constitutes a swap call (喰い替え),
 /// i.e. the discarded tile can form the same group as the meld. This is usually forbidden.
@@ -52,6 +88,16 @@ pub fn is_ankan_ok_under_riichi(decomps: &[RegularWait], ankan: Tile) -> bool {
 
 pub fn num_active_riichi(state: &State) -> usize {
     state.riichi.into_iter().filter(|flags| flags.is_active).count()
+}
+
+pub fn num_draws(state: &State) -> u8 {
+    state.num_drawn_head + state.num_drawn_tail
+}
+
+/// The prerequisite of Haitei and Houtei: no more draws available.
+pub fn is_last_draw(state: &State) -> bool {
+    debug_assert!(num_draws(state) <= wall::MAX_NUM_DRAWS);
+    num_draws(state) == wall::MAX_NUM_DRAWS
 }
 
 /// Affects [`ActionResult::AbortNineKinds`] and [`RiichiFlags::is_double`].

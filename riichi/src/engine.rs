@@ -50,7 +50,7 @@ pub(crate) struct EngineCache {
     meld: [Option<Meld>; 4],
 
     /// Pending win declared by each player, either action (tsumo) or reaction (ron).
-    win: [Option<AgariResult>; 4],
+    win: [Option<AgariCandidate>; 4],
 
     /// Full (3N + 1) hand waiting decomposition cache for each player.
     /// - Initialized when jumped to a new state.

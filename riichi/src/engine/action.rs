@@ -33,6 +33,9 @@ pub enum ActionError {
     #[error("Attempting to declare riichi with a hand not ready after discarding.")]
     DeclareRiichiWhileNotReady,
 
+    #[error("Cannot ankan/kakan on the last draw")]
+    CannotKanOnLastDraw,
+
     #[error("Attempting invalid ankan on {0} under riichi.")]
     InvalidAnkanUnderRiichi(Tile),
 
@@ -117,6 +120,8 @@ pub(crate) fn check_action(
 
         Action::Ankan(tile) => {
             let tile = tile.to_normal();
+
+            if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
             if under_riichi && !is_ankan_ok_under_riichi(
                 &cache.wait[actor_i].regular, tile) {
                 return Err(InvalidAnkanUnderRiichi(tile));
@@ -130,6 +135,7 @@ pub(crate) fn check_action(
             }
         }
         Action::Kakan(added) => {
+            if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
             let &pon = state.melds[actor_i]
                 .iter()
                 .filter_map(|meld| {
