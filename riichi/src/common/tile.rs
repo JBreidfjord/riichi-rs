@@ -26,6 +26,9 @@ use super::typedefs::*;
 /// | 34, 35, 36 |  0m, 0p, 0s | reds          | 赤牌          |
 ///
 /// Note that only red 5's can be represented (not other numbers or honors).
+///
+/// Details of this encoding is significant and implicitly assumed across the crate.
+/// It should never be changed.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 pub struct Tile(u8);
 
@@ -261,7 +264,11 @@ impl Display for Tile {
 }
 
 /// Parse shorthand for a list of tiles.
-/// Example: "11123m8p8p777z" => 10 tiles
+/// Example:
+/// ```
+/// use riichi::common::tile::*;
+/// assert_eq!(tiles_from_str("11123m8p8p777z").len(), 10);
+/// ```
 pub fn tiles_from_str(s: &str) -> Vec<Tile> {
     let mut tiles: Vec<Tile> = vec![];
     let mut nums: Vec<u8> = vec![];
@@ -280,6 +287,22 @@ pub fn tiles_from_str(s: &str) -> Vec<Tile> {
     }
     tiles
 }
+
+/// Shortcut for quickly specifying a tile literal through its string shorthand.
+///
+/// Example:
+/// ```
+/// use riichi::common::tile::*;
+/// assert_eq!(t!("3s"), Tile::from_encoding(20).unwrap());
+/// ```
+#[macro_export]
+macro_rules! t {
+    ($s:literal) => {{
+        use std::str::FromStr;
+        $crate::common::tile::Tile::from_str($s).unwrap()
+    }};
+}
+pub use t;
 
 #[cfg(test)]
 mod tests {
@@ -309,11 +332,8 @@ mod tests {
 
     #[test]
     fn tiles_from_str_examples() {
-        check!(tiles_from_str("1m2p3s4z") == vec![
-            Tile::from_str("1m").unwrap(),
-            Tile::from_str("2p").unwrap(),
-            Tile::from_str("3s").unwrap(),
-            Tile::from_str("4z").unwrap(),
+        assert_eq!(tiles_from_str("1m2p3s4z"), vec![
+            t!("1m"), t!("2p"), t!("3s"), t!("4z"),
         ]);
     }
 
@@ -385,10 +405,10 @@ mod tests {
 
     #[test]
     fn wind_tile_indicates_correct_wind() {
-        assert_eq!(Tile::from_str("1z").unwrap().wind(), Some(Wind::new(0)));
-        assert_eq!(Tile::from_str("2z").unwrap().wind(), Some(Wind::new(1)));
-        assert_eq!(Tile::from_str("3z").unwrap().wind(), Some(Wind::new(2)));
-        assert_eq!(Tile::from_str("4z").unwrap().wind(), Some(Wind::new(3)));
+        assert_eq!(t!("1z").wind(), Some(Wind::new(0)));
+        assert_eq!(t!("2z").wind(), Some(Wind::new(1)));
+        assert_eq!(t!("3z").wind(), Some(Wind::new(2)));
+        assert_eq!(t!("4z").wind(), Some(Wind::new(3)));
         for enc in 0..27 {
             assert_eq!(Tile::from_encoding(enc).unwrap().wind(), None);
         }
