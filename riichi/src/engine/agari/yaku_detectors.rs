@@ -29,16 +29,16 @@ pub fn detect_yakus_for_regular(
                     input.melds);
     detect_rinshan(rules, yaku_builder,
                    hand_common.agari_kind,
-                   input.incoming_meld);
+                   input.incoming_is_kan);
     detect_chankan(rules, yaku_builder,
-                   input.action,
+                   input.action_is_kan,
                    hand_common.agari_kind);
-    detect_last_chance(rules, yaku_builder,
-                       input.num_draws,
-                       hand_common.agari_kind);
+    detect_last_draw(rules, yaku_builder,
+                     hand_common.agari_kind,
+                     input.is_last_draw);
     detect_first_chance(rules, yaku_builder,
                         input.winner,
-                        input.begin.round_id.button(),
+                        input.round_id.button(),
                         input.is_first_chance,
                         hand_common.agari_kind);
     detect_hand_only_yakus(rules, yaku_builder,
@@ -46,11 +46,11 @@ pub fn detect_yakus_for_regular(
                            hand_common.is_closed);
     detect_winds(rules, yaku_builder,
                  &hand_common.all_tiles,
-                 input.begin.round_id,
+                 input.round_id,
                  input.winner);
     detect_chuuren(rules, yaku_builder,
                    &hand_common.all_tiles_packed,
-                   hand_common.winning_tile,
+                   input.winning_tile,
                    hand_common.is_closed);
     detect_ankou(rules, yaku_builder,
                  hand_common.agari_kind,
@@ -95,16 +95,16 @@ pub fn detect_yakus_for_irregular(
                     input.melds);
     detect_rinshan(rules, yaku_builder,
                    hand_common.agari_kind,
-                   input.incoming_meld);
+                   input.incoming_is_kan);
     detect_chankan(rules, yaku_builder,
-                   input.action,
+                   input.action_is_kan,
                    hand_common.agari_kind);
-    detect_last_chance(rules, yaku_builder,
-                       input.num_draws,
-                       hand_common.agari_kind);
+    detect_last_draw(rules, yaku_builder,
+                     hand_common.agari_kind,
+                     input.is_last_draw);
     detect_first_chance(rules, yaku_builder,
                         input.winner,
-                        input.begin.round_id.button(),
+                        input.round_id.button(),
                         input.is_first_chance,
                         hand_common.agari_kind);
     detect_hand_only_yakus(rules, yaku_builder,
@@ -171,35 +171,33 @@ fn detect_rinshan(
     _rules: &Rules,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
-    incoming_meld: Option<Meld>,
+    incoming_is_kan: bool,
 ) {
-    if let Some(meld) = incoming_meld {
-        if meld.is_kan() && agari_kind == AgariKind::Tsumo {
-            yaku_builder.add(Yaku::Rinshankaihou, 1);
-        }
+    if incoming_is_kan && agari_kind == AgariKind::Tsumo {
+        yaku_builder.add(Yaku::Rinshankaihou, 1);
     }
 }
 
 fn detect_chankan(
     _rules: &Rules,
     yaku_builder: &mut YakuBuilder,
-    action: Action,
+    action_is_kan: bool,
     agari_kind: AgariKind,
 ) {
     // NOTE: The kokushi-ankan interaction is handled by `check_reaction`.
-    if agari_kind == AgariKind::Ron && action.is_kan() {
+    if agari_kind == AgariKind::Ron && action_is_kan {
         yaku_builder.add(Yaku::Chankan, 1);
     }
 }
 
-fn detect_last_chance(
+fn detect_last_draw(
     _rules: &Rules,
     yaku_builder: &mut YakuBuilder,
-    num_draws: u8,
     agari_kind: AgariKind,
+    is_last_draw: bool,
 ) {
-    // NOTE: rinshan will override haitei
-    if num_draws == wall::MAX_NUM_DRAWS {
+    // NOTE: rinshan will override haitei through blocked yakus
+    if is_last_draw {
         match agari_kind {
             AgariKind::Tsumo => yaku_builder.add(Yaku::Haiteiraoyue, 1),
             AgariKind::Ron => yaku_builder.add(Yaku::Houteiraoyui, 1),
@@ -300,14 +298,14 @@ fn detect_winds(
         1 if all_tiles[28] >= 3 => yaku_builder.add(Yaku::BakazehaiS, 1),
         2 if all_tiles[29] >= 3 => yaku_builder.add(Yaku::BakazehaiW, 1),
         3 if all_tiles[30] >= 3 => yaku_builder.add(Yaku::BakazehaiN, 1),
-        _ => panic!()
+        _ => {}
     }
     match round_id.self_wind_for_player(winner).to_u8() {
         0 if all_tiles[27] >= 3 => yaku_builder.add(Yaku::JikazehaiE, 1),
         1 if all_tiles[28] >= 3 => yaku_builder.add(Yaku::JikazehaiS, 1),
         2 if all_tiles[29] >= 3 => yaku_builder.add(Yaku::JikazehaiW, 1),
         3 if all_tiles[30] >= 3 => yaku_builder.add(Yaku::JikazehaiN, 1),
-        _ => panic!()
+        _ => {}
     }
 }
 
@@ -344,7 +342,7 @@ fn detect_ankou(
     let mut num_ankou_complete =
         regular_wait.groups().filter(|g| matches!(g, HandGroup::Koutsu(_))).count();
     // closed waiting koutsu also counts
-    // TODO(summivox): if-let-chain
+    // TODO(summivox): rust (if-let-chain)
     if let Some(HandGroup::Koutsu(_)) = wait_group {
         if agari_kind == AgariKind::Tsumo {
             num_ankou_complete += 1;

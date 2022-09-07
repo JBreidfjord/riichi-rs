@@ -22,7 +22,7 @@ pub fn calc_regular_wait_common(
 ) -> RegularWaitCommon {
     let wait_group = calc_waiting_group(wait);
     let extra_fu = calc_extra_fu(
-        input.begin.round_id,
+        input.round_id,
         input.winner,
         input.melds,
         hand_common,

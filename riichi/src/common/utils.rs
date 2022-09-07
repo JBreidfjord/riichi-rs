@@ -1,5 +1,7 @@
 //! Collection of misc utilities...
 
+use std::ops::*;
+
 pub fn sort2<T: Ord>(a: T, b: T) -> (T, T) {
     if a < b { (a, b) } else { (b, a) }
 }

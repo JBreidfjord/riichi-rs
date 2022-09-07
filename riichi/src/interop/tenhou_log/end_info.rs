@@ -102,7 +102,7 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
                 .ok_or_else(|| Error::custom("unrecognized result"))?;
             match abort_result {
                 ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
-                    // TODO(summivox): if-let-chain
+                    // TODO(summivox): rust (if-let-chain)
                     if let Some(delta_raw) = seq.next_element::<Value>()? {
                         if let Value::Array(delta_arr) = delta_raw {
                             if delta_arr.len() == 4 {
@@ -139,7 +139,7 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
         ) {
             // TODO(summivox): separate visitor for each TenhouAgariResult, (use RawValue?)
             let mut delta = [0; 4];
-            // TODO(summivox): if-let-chain; error reporting
+            // TODO(summivox): rust (if-let-chain)
             if delta_arr.len() == 4 {
                 for i in 0..4 {
                     delta[i] = delta_arr[i].as_i64().unwrap_or(0) as GamePoints;

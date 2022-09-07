@@ -8,33 +8,23 @@ pub struct HandCommon {
     pub agari_kind: AgariKind,
     pub all_tiles: TileSet37,
     pub all_tiles_packed: [u32; 4],
-    pub winning_tile: Tile,
     pub is_closed: bool,
-    pub dora_hits: DoraHits,
 }
 
 pub fn calc_hand_common(rules: &Rules, input: &AgariInput) -> HandCommon {
     let agari_kind =
         if input.contributor == input.winner { AgariKind::Tsumo } else { AgariKind::Ron };
-    let winning_tile = input.action.tile().unwrap();  // guaranteed to exist
     let all_tiles = get_all_tiles(
         input.closed_hand,
-        winning_tile,
+        input.winning_tile,
         input.melds);
     let all_tiles_packed = TileSet34::from(&all_tiles).packed();
     let is_closed = input.melds.iter().all(|m| m.is_closed());
-    let dora_hits = count_doras(rules,
-                                &all_tiles,
-                                input.num_dora_indicators,
-                                &input.begin.wall,
-                                input.riichi_flags.is_active);
     HandCommon {
         agari_kind,
         all_tiles,
         all_tiles_packed,
-        winning_tile,
         is_closed,
-        dora_hits,
     }
 }
 

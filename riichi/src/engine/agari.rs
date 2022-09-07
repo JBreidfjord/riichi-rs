@@ -23,44 +23,52 @@ use self::{
 
 #[derive(Debug)]
 pub struct AgariInput<'a> {
-    pub begin: &'a RoundBegin,
+    pub round_id: RoundId,
 
+    // from the winner
     pub winner: Player,
-    pub contributor: Player,
-    pub action: Action,
-
-    pub num_dora_indicators: u8,
-    pub num_draws: u8,
-    pub is_first_chance: bool,
     pub closed_hand: &'a TileSet37,
-    pub waiting_info: &'a WaitingInfo,
     pub riichi_flags: RiichiFlags,
     pub melds: &'a [Meld],
-    pub incoming_meld: Option<Meld>,
+    pub waiting_info: &'a WaitingInfo,
+
+    // from the contributor
+    pub contributor: Player,
+    pub winning_tile: Tile,
+    pub incoming_is_kan: bool,
+    pub action_is_kan: bool,
+
+    // from the table
+    pub is_first_chance: bool,
+    pub is_last_draw: bool,
 }
 
-pub fn make_input<'a>(
-    begin: &'a RoundBegin,
-    winner: Player,
-    contributor: Player,
-    action: Action,
+pub fn make_agari_input<'a>(
+    round_id: RoundId,
     state: &'a State,
     waiting_info: &'a WaitingInfo,
+    action: Action,
+    winner: Player,
+    contributor: Player,
 ) -> AgariInput<'a> {
     let winner_i = winner.to_usize();
     AgariInput {
-        begin,
+        round_id,
+
         winner,
-        contributor,
-        action,
-        num_dora_indicators: state.num_dora_indicators,
-        num_draws: num_draws(state),
-        is_first_chance: is_first_chance(state),
         closed_hand: &state.closed_hands[winner_i],
-        waiting_info,
         riichi_flags: state.riichi[winner_i],
         melds: &state.melds[winner_i],
-        incoming_meld: state.incoming_meld,
+        waiting_info,
+
+        contributor,
+        winning_tile: action.tile().unwrap(),  // assumed not NineKinds
+        // TODO(summivox): rust (is_some_with)
+        incoming_is_kan: state.incoming_meld.filter(|m| m.is_kan()).is_some(),
+        action_is_kan: action.is_kan(),
+
+        is_first_chance: is_first_chance(state),
+        is_last_draw: is_last_draw(state),
     }
 }
 
@@ -71,13 +79,13 @@ pub fn agari_candidates(
     let hand_common = calc_hand_common(rules, input);
 
     let regular_waits = input.waiting_info.regular.iter()
-        .filter(|wait| wait.waiting_tile == hand_common.winning_tile)
+        .filter(|wait| wait.waiting_tile == input.winning_tile)
         .map(|wait| (wait, calc_regular_wait_common(input, &hand_common, wait)));
 
     let irregular_wait = input.waiting_info.irregular.filter(|irregular|
         match irregular {
             IrregularWait::SevenPairs(t) | IrregularWait::ThirteenOrphans(t) =>
-                *t == hand_common.winning_tile,
+                *t == input.winning_tile,
             IrregularWait::ThirteenOrphansAll => true,
         });
 
@@ -106,7 +114,7 @@ fn calc_regular_agari_candidate(
     let scoring = calc_scoring(rules,
                                &yaku_values,
                                Wait::Regular(*regular_wait),
-                               hand_common.dora_hits,
+                               DoraHits::default(),  // ignored for now
                                hand_common.agari_kind,
                                hand_common.is_closed,
                                wait_common.extra_fu);
@@ -131,7 +139,7 @@ fn calc_irregular_agari_candidate(
     let scoring = calc_scoring(rules,
                                &yaku_values,
                                Wait::Irregular( input.waiting_info.irregular.unwrap()),
-                               hand_common.dora_hits,
+                               DoraHits::default(),  // ignored for now
                                hand_common.agari_kind,
                                hand_common.is_closed,
                                0);
@@ -179,7 +187,9 @@ impl Scoring {
         }
         match self.yaku_total_value {
             0 => 0,
-            1..=5 => min(2000, fu_han_formula(self.fu, self.han())),  // mangan or less
+            // TODO(summivox): rust (DivCeil)
+            1..=5 => min(2000,
+                         fu_han_formula_rounded(self.fu, self.han())),  // mangan or less
             6..=7 => 3000,  // haneman (1.5x mangan)
             8..=10 => 4000,  // baiman (2x mangan)
             11..=12 => 6000,  // sanbaiman (3x mangan)
@@ -188,12 +198,15 @@ impl Scoring {
     }
 
     pub fn basic_points_aotenjou(&self) -> GamePoints {
-        fu_han_formula(self.fu, self.yakuman_total_value * 13 + self.han())
+        fu_han_formula_rounded(self.fu, self.yakuman_total_value * 13 + self.han())
     }
 }
 
-fn fu_han_formula(fu: u8, han: u8) -> GamePoints {
+fn fu_han_formula_raw(fu: u8, han: u8) -> GamePoints {
     fu as GamePoints * (1 << (2 + han as GamePoints))
+}
+fn fu_han_formula_rounded(fu: u8, han: u8) -> GamePoints {
+    (fu_han_formula_raw(fu, han) + 99) / 100 * 100
 }
 
 /// See: <https://riichi.wiki/Fu>
@@ -213,6 +226,7 @@ fn calc_regular_fu(
         [match extra_fu { 0 => 0, _ => 1 }]
         [match agari_kind { Ron => 0, Tsumo => 1 }]
         [is_closed as usize];
+    // TODO(summivox): rust (DivCeil)
     (fu_before_rounding + 9) / 10 * 10
 }
 

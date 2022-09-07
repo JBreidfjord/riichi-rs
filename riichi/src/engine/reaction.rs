@@ -175,7 +175,7 @@ pub(crate) fn resolve_reaction(
     if is_aborted_four_kan(state, action, result) {
         return ActionResult::AbortFourKan;
     }
-    if result == ActionResult::Pass && is_wall_exhausted(state) {
+    if result == ActionResult::Pass && is_last_draw(state) {
         return if is_any_player_nagashi_mangan(state) {
             ActionResult::AbortNagashiMangan
         } else {

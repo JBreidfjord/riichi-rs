@@ -96,8 +96,8 @@ pub fn num_draws(state: &State) -> u8 {
 
 /// The prerequisite of Haitei and Houtei: no more draws available.
 pub fn is_last_draw(state: &State) -> bool {
-    debug_assert!(num_draws(state) <= wall::MAX_NUM_DRAWS);
-    num_draws(state) == wall::MAX_NUM_DRAWS
+    debug_assert!(num_draws(state) < wall::MAX_NUM_DRAWS);
+    num_draws(state) == wall::MAX_NUM_DRAWS - 1
 }
 
 /// First 4 turns of the game without being interrupted by any meld.
@@ -107,11 +107,6 @@ pub fn is_last_draw(state: &State) -> bool {
 /// - [`Yaku::Tenhou`], [`Yaku::Chiihou`], [`Yaku::Renhou`]
 pub fn is_first_chance(state: &State) -> bool {
     state.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
-}
-
-/// Checks if [`ActionResult::AbortWallExhausted`] applies (during end-of-turn resolution).
-pub fn is_wall_exhausted(state: &State) -> bool {
-    state.num_drawn_head + state.num_drawn_tail == wall::MAX_NUM_DRAWS
 }
 
 /// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for the
