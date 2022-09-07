@@ -93,6 +93,7 @@ impl PartiallyObservable for State {
 /// Status regarding whether a player is under riichi (リーチ).
 ///
 /// <https://riichi.wiki/Riichi>
+// TODO(summivox): represent with `Option<(bool, bool)>` instead?
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct RiichiFlags {
     /// Player is under active riichi (リーチ).

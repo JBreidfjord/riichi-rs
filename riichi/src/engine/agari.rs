@@ -34,9 +34,9 @@ pub struct AgariInput<'a> {
 
     // from the contributor
     pub contributor: Player,
-    pub winning_tile: Tile,
     pub incoming_is_kan: bool,
     pub action_is_kan: bool,
+    pub winning_tile: Tile,
 
     // from the table
     pub is_first_chance: bool,
@@ -62,10 +62,10 @@ pub fn make_agari_input<'a>(
         waiting_info,
 
         contributor,
-        winning_tile: action.tile().unwrap(),  // assumed not NineKinds
         // TODO(summivox): rust (is_some_with)
         incoming_is_kan: state.incoming_meld.filter(|m| m.is_kan()).is_some(),
         action_is_kan: action.is_kan(),
+        winning_tile: action.tile().unwrap(),  // assumed not NineKinds
 
         is_first_chance: is_first_chance(state),
         is_last_draw: is_last_draw(state),
@@ -80,14 +80,14 @@ pub fn agari_candidates(
 
     let regular_waits = input.waiting_info.regular.iter()
         .filter(|wait|
-            wait.waiting_tile == input.winning_tile)
+            wait.waiting_tile == input.winning_tile.to_normal())
         .map(|wait|
             (wait, calc_regular_wait_common(rules, input, &hand_common, wait)));
 
     let irregular_wait = input.waiting_info.irregular.filter(|irregular|
         match irregular {
             IrregularWait::SevenPairs(t) | IrregularWait::ThirteenOrphans(t) =>
-                *t == input.winning_tile,
+                *t == input.winning_tile.to_normal(),
             IrregularWait::ThirteenOrphansAll => true,
         });
 
