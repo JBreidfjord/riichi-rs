@@ -68,11 +68,11 @@ mod tests {
     use crate::Discard;
     use super::*;
 
-    fn t(s: &str) -> Tile { Tile::from_str(s).unwrap() }
+    fn t(s: &str) -> Tile { t!(s) }
     fn it(s: &str) -> TenhouIncoming { TenhouIncoming::Draw(t(s)) }
     fn ts(s: &str) -> Vec<Tile> { tiles_from_str(s) }
     fn its(s: &str) -> Vec<TenhouIncoming> {
-        ts(s).into_iter().map(|t| TenhouIncoming::Draw(t)).collect_vec()
+        ts(s).into_iter().map(TenhouIncoming::Draw).collect_vec()
     }
     fn od(s: &str) -> TenhouOutgoing {
         TenhouOutgoing::Discard(Discard{

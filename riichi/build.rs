@@ -1,9 +1,9 @@
 use std::env;
 use std::fs::File;
-use std::io::{self, BufWriter, Write};
-use std::path::{Path, PathBuf};
+use std::io::{BufWriter, Write};
+use std::path::{Path};
 
-use riichi_decomp_table::{CTable, WTable, make_c_table, make_w_table};
+use riichi_decomp_table::{make_c_table, make_w_table};
 
 fn main() {
     let c_table = make_c_table();

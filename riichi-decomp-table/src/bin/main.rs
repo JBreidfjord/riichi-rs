@@ -7,7 +7,7 @@ use itertools::Itertools;
 use riichi_decomp_table::*;
 
 pub fn table_to_string(table: &CTable) -> String {
-    const GROUP_STR: [&'static str; 16] = [
+    const GROUP_STR: [&str; 16] = [
         ",10", ",00", ",11", ",01", ",12", ",02", ",13", ",03",
         ",14", ",04", ",15", ",05", ",16", ",06", ",17", ",18",
     ];

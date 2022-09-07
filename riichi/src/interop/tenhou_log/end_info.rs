@@ -103,20 +103,18 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
             match abort_result {
                 ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
                     // TODO(summivox): rust (if-let-chain)
-                    if let Some(delta_raw) = seq.next_element::<Value>()? {
-                        if let Value::Array(delta_arr) = delta_raw {
-                            if delta_arr.len() == 4 {
-                                return Ok(TenhouEndInfo {
-                                    result: abort_result,
-                                    overall_delta: [
-                                        delta_arr[0].as_i64().unwrap_or(0) as GamePoints,
-                                        delta_arr[1].as_i64().unwrap_or(0) as GamePoints,
-                                        delta_arr[2].as_i64().unwrap_or(0) as GamePoints,
-                                        delta_arr[3].as_i64().unwrap_or(0) as GamePoints,
-                                    ],
-                                    agari: vec![],
-                                });
-                            }
+                    if let Some(Value::Array(delta_arr)) = seq.next_element::<Value>()? {
+                        if delta_arr.len() == 4 {
+                            return Ok(TenhouEndInfo {
+                                result: abort_result,
+                                overall_delta: [
+                                    delta_arr[0].as_i64().unwrap_or(0) as GamePoints,
+                                    delta_arr[1].as_i64().unwrap_or(0) as GamePoints,
+                                    delta_arr[2].as_i64().unwrap_or(0) as GamePoints,
+                                    delta_arr[3].as_i64().unwrap_or(0) as GamePoints,
+                                ],
+                                agari: vec![],
+                            });
                         }
                     }
                     return Err(Error::custom("invalid delta"));

@@ -44,7 +44,7 @@
 //! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
 //! - <https://riichi.wiki/Yama>
 
-use crate::{Player, Tile};
+use crate::{Player, Tile, U2Traits};
 use crate::common::tile_set::{TileSet34, TileSet37};
 
 /// The wall of tiles.
@@ -99,11 +99,16 @@ pub const MAX_NUM_DRAWS: u8 = 70;
 /// Draw the initial 13 tiles for each of the 4 players, according to standard rules.
 /// See [module-level docs](self).
 pub fn deal(wall: &Wall, button: Player) -> [TileSet37; 4] {
-    let mut hists = [TileSet37::default(); 4];
+    let mut hists = [
+        TileSet37::default(),
+        TileSet37::default(),
+        TileSet37::default(),
+        TileSet37::default(),
+    ];
     for i in 0..4 {
         for wall_index in DEAL_INDEX[i] {
-            hists[u8::from(button.wrapping_add(Player::new(i as u8))) as usize]
-                [wall[wall_index].encoding() as usize] += 1;
+            let p = button.wrapping_add(Player::new(i as u8));
+            hists[p.to_usize()][wall[wall_index].encoding() as usize] += 1;
         }
     }
     hists

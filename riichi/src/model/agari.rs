@@ -1,4 +1,3 @@
-use std::cmp::min;
 use crate::analysis::Wait;
 use crate::common::*;
 use super::{ActionResult, YakuValues};

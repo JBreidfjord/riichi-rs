@@ -19,7 +19,7 @@ use crate::Tile;
 
 /// Histogram for all 37 kinds of tiles (including red).
 /// Can be directly indexed with [`Tile`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
+#[derive(Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
 pub struct TileSet37(pub [u8; 37]);
 
 impl Index<Tile> for TileSet37 {
@@ -81,7 +81,7 @@ impl TileSet37 {
 
 /// Histogram for all 34 kinds of normal tiles (red 5's are treated as normal 5's).
 /// Can be directly indexed with [`Tile`].
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
+#[derive(Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
 pub struct TileSet34(pub [u8; 34]);
 
 impl Index<Tile> for TileSet34 {

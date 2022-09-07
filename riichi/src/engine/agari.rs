@@ -79,8 +79,10 @@ pub fn agari_candidates(
     let hand_common = calc_hand_common(rules, input);
 
     let regular_waits = input.waiting_info.regular.iter()
-        .filter(|wait| wait.waiting_tile == input.winning_tile)
-        .map(|wait| (wait, calc_regular_wait_common(input, &hand_common, wait)));
+        .filter(|wait|
+            wait.waiting_tile == input.winning_tile)
+        .map(|wait|
+            (wait, calc_regular_wait_common(rules, input, &hand_common, wait)));
 
     let irregular_wait = input.waiting_info.irregular.filter(|irregular|
         match irregular {
@@ -108,7 +110,7 @@ fn calc_regular_agari_candidate(
 ) -> Option<AgariCandidate> {
     let mut yaku_builder = YakuBuilder::new();
     detect_yakus_for_regular(rules, &mut yaku_builder,
-                             input, &hand_common, regular_wait, &wait_common);
+                             input, hand_common, regular_wait, wait_common);
     let yaku_values = yaku_builder.build();
     if yaku_values.is_empty() { return None; }
     let scoring = calc_scoring(rules,
@@ -133,7 +135,7 @@ fn calc_irregular_agari_candidate(
 ) -> Option<AgariCandidate> {
     let mut yaku_builder = YakuBuilder::new();
     detect_yakus_for_irregular(rules, &mut yaku_builder,
-                               input, &hand_common, irregular);
+                               input, hand_common, irregular);
     let yaku_values = yaku_builder.build();
     if yaku_values.is_empty() { return None; }
     let scoring = calc_scoring(rules,

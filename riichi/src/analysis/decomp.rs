@@ -57,12 +57,11 @@ impl RegularWait {
     }
 
     pub fn is_true_ryanmen(&self) -> bool {
-        match (self.waiting_kind, self.pattern_tile.normal_num()) {
+        matches!((self.waiting_kind, self.pattern_tile.normal_num()),
             (WaitingKind::RyanmenLow, 2..=7) |  // (1)23 ..= (6)78 ; excluding (7)89
             (WaitingKind::RyanmenHigh, 2..=7) |  // 23(4) ..= 78(9) ; excluding 12(3)
-            (WaitingKind::RyanmenBoth, _) => true,
-            _ => false,
-        }
+            (WaitingKind::RyanmenBoth, _)
+        )
     }
 }
 
@@ -148,7 +147,7 @@ impl Decomposer<'_> {
             c_iter(self.c_table, keys[2]).collect_vec(),
             c_iter_z(self.c_table, keys[3]).collect_vec(),
         ];
-        return self;
+        self
     }
 
     /// TODO(summivox): doc
@@ -157,7 +156,7 @@ impl Decomposer<'_> {
     }
 
     /// TODO(summivox): doc
-    pub fn iter<'a>(&'a self) -> impl Iterator<Item=RegularWait> + 'a {
+    pub fn iter(&self) -> impl Iterator<Item=RegularWait> + '_ {
         let suit_x =
             self.c_for_suit
                 .iter()
@@ -189,7 +188,7 @@ impl Decomposer<'_> {
                 let chain =
                     extend_partial_iter(chain, suits_c[2], &self.c_for_suit[suits_c[2] as usize]);
 
-                chain.flat_map(move |partial| RegularWait::complete(partial))
+                chain.flat_map(RegularWait::complete)
             })
     }
 }
@@ -214,9 +213,9 @@ impl RegularWait {
             return None;
         }
         Some(RegularWait {
-            raw_groups: extend_groups(self.raw_groups, suit, &c),
+            raw_groups: extend_groups(self.raw_groups, suit, c),
             num_groups: self.num_groups + c.num_groups,
-            pair: extend_pair(self.pair, suit, &c),
+            pair: extend_pair(self.pair, suit, c),
             ..*self
         })
     }
@@ -298,21 +297,21 @@ fn get_w_table() -> &'static WTable {
     W_TABLE.get_or_init(|| make_w_table(get_c_table()))
 }
 
-fn c_iter<'a>(c_table: &'a CTable, key: u32) -> impl Iterator<Item=CompleteGrouping> + 'a {
+fn c_iter(c_table: &CTable, key: u32) -> impl Iterator<Item=CompleteGrouping> + '_ {
     c_table
         .get(&key)
         .into_iter()
         .flat_map(move |&value| c_entry_iter(key, value))
 }
 
-fn w_iter<'a>(w_table: &'a WTable, key: u32) -> impl Iterator<Item=WaitingPattern> + 'a {
+fn w_iter(w_table: &WTable, key: u32) -> impl Iterator<Item=WaitingPattern> + '_ {
     w_table
         .get(&key)
         .into_iter()
         .flat_map(move |&value| w_entry_iter(key, value))
 }
 
-fn c_iter_z<'a>(c_table: &'a CTable, key: u32) -> impl Iterator<Item=CompleteGrouping> + 'a {
+fn c_iter_z(c_table: &CTable, key: u32) -> impl Iterator<Item=CompleteGrouping> + '_ {
     c_iter(c_table, key).filter(|x| !x.has_shuntsu())
 }
 

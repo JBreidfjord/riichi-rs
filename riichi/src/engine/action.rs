@@ -67,8 +67,8 @@ pub(crate) fn check_action(
     let actor = state.action_player;
     let actor_i = actor.to_usize();
 
-    // Make a copy of `actor`'s hand; this will be used to determine its
-    let mut hand = state.closed_hands[actor.to_usize()];
+    // Make a copy of `actor`'s hand
+    let mut hand = state.closed_hands[actor.to_usize()].clone();
     if let Some(draw) = state.draw {
         hand[draw] += 1;
     };

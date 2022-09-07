@@ -58,15 +58,15 @@ impl TryFrom<PackedMeld> for Meld {
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
         match PackedMeldKind::try_from(raw.kind()).map_err(|_| ())? {
             PackedMeldKind::Chii =>
-                Chii::try_from(raw).map(|chii| Meld::Chii(chii)),
+                Chii::try_from(raw).map(Meld::Chii),
             PackedMeldKind::Pon =>
-                Pon::try_from(raw).map(|pon| Meld::Pon(pon)),
+                Pon::try_from(raw).map(Meld::Pon),
             PackedMeldKind::Kakan =>
-                Kakan::try_from(raw).map(|kakan| Meld::Kakan(kakan)),
+                Kakan::try_from(raw).map(Meld::Kakan),
             PackedMeldKind::Daiminkan =>
-                Daiminkan::try_from(raw).map(|daiminkan| Meld::Daiminkan(daiminkan)),
+                Daiminkan::try_from(raw).map(Meld::Daiminkan),
             PackedMeldKind::Ankan =>
-                Ankan::try_from(raw).map(|ankan| Meld::Ankan(ankan)),
+                Ankan::try_from(raw).map(Meld::Ankan),
         }
     }
 }

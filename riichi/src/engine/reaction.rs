@@ -158,7 +158,7 @@ pub(crate) fn resolve_reaction(
         Some(Reaction::RonAgari) => {
             // Triple win => Abort
             // TODO(summivox): rules (double/triple ron)
-            let num_rons = reactions.into_iter()
+            let num_rons = reactions.iter()
                 .filter(|&&reaction| reaction == Some(Reaction::RonAgari))
                 .count();
             return if num_rons == 3 {

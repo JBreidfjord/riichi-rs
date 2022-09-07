@@ -39,17 +39,11 @@ impl Action {
     }
 
     pub fn is_terminal(self) -> bool {
-        match self {
-            Self::TsumoAgari(_) | Self::AbortNineKinds => true,
-            _ => false,
-        }
+        matches!(self, Action::TsumoAgari(_) | Action::AbortNineKinds)
     }
 
     pub fn is_kan(self) -> bool {
-        match self {
-            Action::Ankan(_)| Action::Kakan(_) => true,
-            _ => false,
-        }
+        matches!(self, Action::Ankan(_)| Action::Kakan(_))
     }
 }
 
@@ -183,25 +177,17 @@ pub enum ActionResult {
 impl ActionResult {
     pub const fn is_meld(self) -> bool {
         use ActionResult::*;
-        match self {
-            Chii | Pon | Daiminkan => true,
-            _ => false,
-        }
+        matches!(self, Chii | Pon | Daiminkan)
     }
     pub const fn is_agari(self) -> bool {
         use ActionResult::*;
-        match self {
-            TsumoAgari | RonAgari => true,
-            _ => false,
-        }
+        matches!(self, TsumoAgari | RonAgari)
     }
     pub const fn is_abort(self) -> bool {
         use ActionResult::*;
-        match self {
+        matches!(self,
             AbortNineKinds | AbortWallExhausted | AbortNagashiMangan |
-            AbortFourKan | AbortFourWind | AbortFourRiichi | AbortTripleRon => true,
-            _ => false,
-        }
+            AbortFourKan | AbortFourWind | AbortFourRiichi | AbortTripleRon)
     }
     pub const fn is_terminal(self) -> bool { self.is_agari() || self.is_abort() }
 }

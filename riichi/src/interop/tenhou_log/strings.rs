@@ -39,11 +39,11 @@ pub const fn action_result_to_str(action_result: ActionResult) -> &'static str {
 }
 
 /// Represents either [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`].
-pub const AGARI_STR: &'static str = "和了";
+pub const AGARI_STR: &str = "和了";
 
-pub const DORA_STR: &'static str = "ドラ";
-pub const AKA_DORA_STR: &'static str = "赤ドラ";
-pub const URA_DORA_STR: &'static str = "裏ドラ";
+pub const DORA_STR: &str = "ドラ";
+pub const AKA_DORA_STR: &str = "赤ドラ";
+pub const URA_DORA_STR: &str = "裏ドラ";
 
 /// Tenhou Yaku string => [`Yaku`].
 pub static YAKU_STR_TO_ENUM: phf::Map<&'static str, Yaku> = phf::phf_map! {

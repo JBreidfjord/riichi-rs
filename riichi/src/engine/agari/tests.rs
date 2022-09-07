@@ -49,6 +49,63 @@ impl<'a> AgariInput<'a> {
 }
 
 #[test]
+fn mentsumo_simple_example() {
+    let hand = Hand::new(
+        tiles_from_str("123456678m99p77z"),
+        [],
+    );
+    let agari_input = AgariInput {
+        winning_tile: t!("9p"),
+        ..AgariInput::from_hand(&hand)
+    };
+    let candidates = agari_candidates(&Default::default(), &agari_input);
+    assert!(!candidates.is_empty());
+    for candidate in candidates {
+        assert!(candidate.yaku_values.contains_key(&Yaku::Menzenchintsumohou));
+        println!("{:?}", candidate);
+    }
+}
+
+#[test]
+fn mentsumo_negative_not_menzen() {
+    let hand = Hand::new(
+        tiles_from_str("456m123p12s44z"),
+        [
+            Meld::Chii(Chii::from_tiles(t!("1m"), t!("2m"), t!("3m")).unwrap()),
+        ],
+    );
+    let agari_input = AgariInput {
+        winning_tile: t!("3s"),
+        ..AgariInput::from_hand(&hand)
+    };
+    let candidates = agari_candidates(&Default::default(), &agari_input);
+    assert!(!candidates.is_empty());
+    for candidate in candidates {
+        assert!(!candidate.yaku_values.contains_key(&Yaku::Menzenchintsumohou));
+        println!("{:?}", candidate);
+    }
+}
+
+#[test]
+fn mentsumo_negative_not_tsumo() {
+    let hand = Hand::new(
+        tiles_from_str("123456m123p12s44z"),
+        [],
+    );
+    let agari_input = AgariInput {
+        contributor: Player::new(1),
+        winning_tile: t!("3s"),
+        ..AgariInput::from_hand(&hand)
+    };
+    let candidates = agari_candidates(&Default::default(), &agari_input);
+    assert!(!candidates.is_empty());
+    for candidate in candidates {
+        assert!(!candidate.yaku_values.contains_key(&Yaku::Menzenchintsumohou));
+        println!("{:?}", candidate);
+    }
+}
+
+#[test]
 fn print_example() {
     let hand = Hand::new(
         tiles_from_str("1111234567899m"),

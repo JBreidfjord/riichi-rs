@@ -1,7 +1,5 @@
 //! Collection of misc utilities...
 
-use std::ops::*;
-
 pub fn sort2<T: Ord>(a: T, b: T) -> (T, T) {
     if a < b { (a, b) } else { (b, a) }
 }
@@ -23,7 +21,7 @@ pub const fn unpack4(x: u8) -> (bool, bool, bool, bool) {
 }
 
 pub const fn pack4(a: bool, b: bool, c: bool, d: bool) -> u8 {
-    ((a as u8) << 0) | ((b as u8) << 1) | ((c as u8) << 2) | ((d as u8) << 3)
+    (a as u8) | ((b as u8) << 1) | ((c as u8) << 2) | ((d as u8) << 3)
 }
 
 #[cfg(test)]

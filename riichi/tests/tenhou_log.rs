@@ -1,7 +1,7 @@
 #[cfg(feature = "tenhou-log")]
 mod tenhou_log_tests {
     use std::{
-        path::{Path, PathBuf},
+        path::PathBuf,
         str::FromStr,
     };
 

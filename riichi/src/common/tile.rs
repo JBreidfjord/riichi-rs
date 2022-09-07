@@ -297,7 +297,7 @@ pub fn tiles_from_str(s: &str) -> Vec<Tile> {
 /// ```
 #[macro_export]
 macro_rules! t {
-    ($s:literal) => {{
+    ($s:expr) => {{
         use std::str::FromStr;
         $crate::common::tile::Tile::from_str($s).unwrap()
     }};

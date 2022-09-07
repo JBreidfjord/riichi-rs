@@ -43,7 +43,7 @@ impl<'de> Visitor<'de> for TenhouIncomingVisitor {
 
     fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> where E: Error {
         parse_tenhou_tile(v as u8)
-            .map(|tile| TenhouIncoming::Draw(tile))
+            .map(TenhouIncoming::Draw)
             .ok_or_else(|| E::custom("not tenhou draw tile"))
     }
 
@@ -53,7 +53,7 @@ impl<'de> Visitor<'de> for TenhouIncomingVisitor {
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E> where E: Error {
         parse_tenhou_meld(v)
-            .map(|meld| TenhouIncoming::ChiiPonDaiminkan(meld))
+            .map(TenhouIncoming::ChiiPonDaiminkan)
             .ok_or_else(|| E::custom("not tenhou chii/pon/daiminkan"))
     }
 }
@@ -142,7 +142,7 @@ impl<'de> Visitor<'de> for TenhouOutgoingVisitor {
                 .ok_or_else(|| E::custom("not tenhou riichi tile"))
         } else {
             parse_tenhou_meld(v)
-                .map(|meld| TenhouOutgoing::KakanAnkan(meld))
+                .map(TenhouOutgoing::KakanAnkan)
                 .ok_or_else(|| E::custom("not tenhou kakan/ankan"))
         }
     }

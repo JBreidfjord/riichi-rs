@@ -126,7 +126,7 @@ pub fn parse_yaku_or_dora(s: &str) -> Option<YakuOrDora> {
         _ => if let Some(han) = han {
             yaku_from_str(yaku_str).map(|yaku| YakuOrDora::Yaku(yaku, han))
         } else {
-            yaku_from_str(yaku_str).map(|yaku| YakuOrDora::Yakuman(yaku))
+            yaku_from_str(yaku_str).map(YakuOrDora::Yakuman)
         }
     }
 }

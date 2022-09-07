@@ -143,7 +143,7 @@ pub(crate) mod details {
     }
     pub const fn mid_to_smalls(mid: u16) -> [u8; 4] {
         [
-            ((mid >> 0) & 0xF) as u8,
+            (mid & 0xF) as u8,
             ((mid >> 4) & 0xF) as u8,
             ((mid >> 8) & 0xF) as u8,
             ((mid >> 12) & 0xF) as u8,

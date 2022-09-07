@@ -16,6 +16,7 @@ pub struct RegularWaitCommon {
 }
 
 pub fn calc_regular_wait_common(
+    _rules: &Rules,
     input: &AgariInput,
     hand_common: &HandCommon,
     wait: &RegularWait,

@@ -64,6 +64,7 @@ fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
         for pos in 0..=7 {
             let key_low = check_pattern(key, 0o11, pos, -1);
             let key_high = check_pattern(key, 0o11, pos, 2);
+            // TODO(summivox): rust (if-let-chain)
             if key_low.is_some() && key_high.is_some() {
                 push(key_low.unwrap(), pos, WaitingKind::RyanmenBoth, has_pair);
             } else if let Some(key) = key_low {
@@ -100,10 +101,7 @@ pub enum WaitingKind {
 impl WaitingKind {
     pub const fn is_shuntsu(self) -> bool {
         use WaitingKind::*;
-        match self {
-            Kanchan | RyanmenHigh | RyanmenLow | RyanmenBoth => true,
-            _ => false,
-        }
+        matches!(self, Kanchan | RyanmenHigh | RyanmenLow | RyanmenBoth)
     }
 }
 
@@ -146,7 +144,7 @@ pub(crate) mod details {
     pub fn check_pattern(key: u32, pattern: u8, pos: i8, waiting_offset: i8) -> Option<u32> {
         let new_key = key + ((pattern as u32) << ((pos as u32) * 3));
         let waiting_pos = pos + waiting_offset;
-        if (0 <= waiting_pos && waiting_pos <= 8) &&
+        if (0..=8).contains(&waiting_pos) &&
             !key_is_overflow(new_key) &&
             ((new_key >> ((waiting_pos as u32) * 3)) & 0o7) < 4 {
             Some(new_key)

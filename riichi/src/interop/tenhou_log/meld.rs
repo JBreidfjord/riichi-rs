@@ -29,7 +29,7 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
         "c" => {
             // (a)bc
             Chii::from_tiles(b?, c?, a?)
-                .map(|chii| Meld::Chii(chii))
+                .map(Meld::Chii)
         }
         "p" => {
             let dir_p = Player::new(dir);
@@ -41,7 +41,7 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
                 // (a)bc
                 3 => Pon::from_tiles_dir(b?, c?, a?, dir_p),
                 _ => panic!(),
-            }.map(|pon| Meld::Pon(pon))
+            }.map(Meld::Pon)
         }
         "k" => {
             let dir_p = Player::new(dir);
@@ -56,7 +56,7 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
                 3 => Pon::from_tiles_dir(c?, d?, b?, dir_p)
                     .and_then(|pon| Kakan::from_pon_added(pon, a?)),
                 _ => panic!(),
-            }.map(|kakan| Meld::Kakan(kakan))
+            }.map(Meld::Kakan)
         }
         "m" => {
             let dir_p = Player::new(dir);
@@ -68,10 +68,10 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
                 // (a)bcd
                 3 => Daiminkan::from_tiles_dir([b?, c?, d?], a?, dir_p),
                 _ => panic!(),
-            }.map(|daiminkan| Meld::Daiminkan(daiminkan))
+            }.map(Meld::Daiminkan)
         }
         "a" => {
-            Ankan::from_tiles([a?, b?, c?, d?]).map(|ankan| Meld::Ankan(ankan))
+            Ankan::from_tiles([a?, b?, c?, d?]).map(Meld::Ankan)
         }
         _ => None
     }

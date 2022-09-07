@@ -136,7 +136,7 @@ impl Engine {
         Ok(self)
     }
 
-    pub fn next(&mut self) -> ActionResult {
+    pub fn step(&mut self) -> ActionResult {
         let action = self.action.unwrap();
         let action_result = resolve_reaction(&self.state, action, &self.reactions);
         if action_result.is_abort() {

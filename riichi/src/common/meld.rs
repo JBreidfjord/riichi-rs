@@ -55,10 +55,7 @@ impl Meld {
 
     /// [`Kakan`], [`Daiminkan`], or [`Ankan`]
     pub fn is_kan(&self) -> bool {
-        match self {
-            Self::Kakan(_) | Self::Daiminkan(_) | Self::Ankan(_) => true,
-            _ => false
-        }
+        matches!(self, Meld::Kakan(_) | Meld::Daiminkan(_) | Meld::Ankan(_))
     }
 
     pub fn called(&self) -> Option<Tile> {
