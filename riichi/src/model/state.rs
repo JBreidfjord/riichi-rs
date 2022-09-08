@@ -29,6 +29,7 @@ pub struct State {
 
 /// TODO
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(test, derive(type_layout::TypeLayout))]
 pub struct StateCore {
     /// Sequence number of this action, defined as the total number of closed actions since the
     /// beginning of this round.
@@ -122,3 +123,13 @@ impl FuritenFlags {
     pub const fn any(self) -> bool { self.by_discard || self.miss_temporary || self.miss_permanent }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use type_layout::TypeLayout;
+
+    #[test]
+    fn print_layouts() {
+        println!("{}", StateCore::type_layout());
+    }
+}

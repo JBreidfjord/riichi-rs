@@ -66,11 +66,6 @@ mod test {
     use itertools::Itertools;
 
     #[test]
-    fn print_state_size() {
-        dbg!(std::mem::size_of::<State>());
-    }
-
-    #[test]
     fn reaction_ordering_is_correct() {
         let reactions = [
             Reaction::Chii(Tile::MIN, Tile::MIN.succ().unwrap()),
