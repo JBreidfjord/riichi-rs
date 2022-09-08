@@ -116,7 +116,7 @@ impl Engine {
 
     pub fn register_action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
         // sanity check: must have valid state
-        assert!(self.state.num_drawn_head >= 52);
+        assert!(self.state.core.num_drawn_head >= 52);
 
         self.action = None;
         self.reactions = Default::default();

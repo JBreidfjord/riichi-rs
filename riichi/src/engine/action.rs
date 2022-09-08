@@ -68,16 +68,16 @@ pub(crate) fn check_action(
 
     use ActionError::*;
 
-    let actor = state.action_player;
+    let actor = state.core.action_player;
     let actor_i = actor.to_usize();
 
     // Make a copy of `actor`'s hand
     let mut hand = state.closed_hands[actor.to_usize()].clone();
-    if let Some(draw) = state.draw {
+    if let Some(draw) = state.core.draw {
         hand[draw] += 1;
     };
 
-    let under_riichi = state.riichi[actor_i].is_active;
+    let under_riichi = state.core.riichi[actor_i].is_active;
 
     match action {
         Action::Discard(discard) => {
@@ -86,8 +86,8 @@ pub(crate) fn check_action(
 
             // Discarded tile must be either just drawn, or already in our closed hand.
             if discard.is_tsumokiri {
-                if state.draw != Some(discard.tile) {
-                    return Err(TsumokiriMismatch(discard.tile, state.draw));
+                if state.core.draw != Some(discard.tile) {
+                    return Err(TsumokiriMismatch(discard.tile, state.core.draw));
                 }
             } else {
                 if under_riichi {
@@ -115,7 +115,7 @@ pub(crate) fn check_action(
                 }
             }
 
-            if let Some(meld) = state.incoming_meld {
+            if let Some(meld) = state.core.incoming_meld {
                 if is_forbidden_swap_call(meld, discard.tile) {
                     return Err(NoSwapCalling(discard.tile, meld));
                 }
@@ -162,7 +162,7 @@ pub(crate) fn check_action(
         }
 
         Action::TsumoAgari(tile) => {
-            if state.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
+            if state.core.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
             let agari_input = AgariInput::new(
                 begin.round_id,
                 &state,

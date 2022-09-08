@@ -22,7 +22,7 @@ pub(crate) fn next_normal(
     action_result: ActionResult,
     cache: &EngineCache,
 ) {
-    let actor = state.action_player;
+    let actor = state.core.action_player;
     let actor_i = actor.to_usize();
 
     // Special case: Deferred revealing of new dora indicators due to Kakan/Daiminkan.
@@ -36,9 +36,9 @@ pub(crate) fn next_normal(
     //   reactions during this turn has no effect on this.
     //
     // TODO(summivox): rules (kan-dora)
-    match state.incoming_meld {
+    match state.core.incoming_meld {
         Some(Meld::Kakan(_)) | Some(Meld::Daiminkan(_)) => {
-            state.num_dora_indicators += 1;
+            state.core.num_dora_indicators += 1;
         }
         _ => {}
     }
@@ -46,10 +46,10 @@ pub(crate) fn next_normal(
     // After handling the only special case, we can start mutating the current state from
     // begin of this turn to begin of the next turn.
 
-    state.seq += 1;
+    state.core.seq += 1;
 
     // Commit the draw to the player's closed hand.
-    if let Some(draw) = state.draw {
+    if let Some(draw) = state.core.draw {
         state.closed_hands[actor_i][draw] += 1;
     };
 
@@ -75,12 +75,12 @@ pub(crate) fn next_normal(
             state.discards[actor_i].push(Discard { called_by: caller, ..discard });
 
             // Handle both existing and new riichi.
-            if state.riichi[actor_i].is_active {
+            if state.core.riichi[actor_i].is_active {
                 // Ippatsu naturally expires after the first discard since declaring riichi.
-                state.riichi[actor_i].is_ippatsu = false;
+                state.core.riichi[actor_i].is_ippatsu = false;
             } else if discard.declares_riichi {
                 // Round has not ended => the new riichi is successful.
-                state.riichi[actor_i] = RiichiFlags {
+                state.core.riichi[actor_i] = RiichiFlags {
                     is_active: true,
                     is_ippatsu: caller == actor,  // no ippatsu if immediately called
                     is_double: is_first_chance(state),
@@ -89,39 +89,39 @@ pub(crate) fn next_normal(
 
             if caller == actor {
                 // No one called. Next turn is the next player (surprise!).
-                state.action_player = player_succ(actor);
-                state.incoming_meld = None;
+                state.core.action_player = player_succ(actor);
+                state.core.incoming_meld = None;
                 // state.melds => no-op
-                state.draw = Some(begin.wall[state.num_drawn_head as usize]);
-                state.num_drawn_head += 1;
+                state.core.draw = Some(begin.wall[state.core.num_drawn_head as usize]);
+                state.core.num_drawn_head += 1;
             } else {
                 // Someone called and will take the next turn instead.
                 let meld = cache.meld[caller.to_usize()].unwrap();
                 meld.consume_from_hand(&mut state.closed_hands[caller.to_usize()]);
 
-                state.action_player = caller;
-                state.incoming_meld = Some(meld);
+                state.core.action_player = caller;
+                state.core.incoming_meld = Some(meld);
                 state.melds[caller.to_usize()].push(meld);
                 if meld.is_kan() {
-                    state.draw = Some(wall::kan_draw(&begin.wall, state.num_drawn_tail as usize));
-                    state.num_drawn_tail += 1;
+                    state.core.draw = Some(wall::kan_draw(&begin.wall, state.core.num_drawn_tail as usize));
+                    state.core.num_drawn_tail += 1;
                 } else {
-                    state.draw = None
+                    state.core.draw = None
                 };
                 // state.num_drawn_* => no-op
             }
 
             // Check Furiten status for the discarding player.
             // furiten-by-discard == some tile in the waiting set exists in the discard set
-            if !state.furiten[actor_i].by_discard && !state.furiten[actor_i].miss_permanent {
+            if !state.core.furiten[actor_i].by_discard && !state.core.furiten[actor_i].miss_permanent {
                 let discard_set = TileMask34::from_iter(
                     state.discards[actor_i].iter().map(|discard| discard.tile));
                 let waiting_set = cache.wait[actor_i].waiting_set;
 
-                state.furiten[actor_i].by_discard = discard_set.0 & waiting_set.0 > 0
+                state.core.furiten[actor_i].by_discard = discard_set.0 & waiting_set.0 > 0
             }
             // Temporary miss expires after discarding.
-            state.furiten[actor_i].miss_temporary = false;
+            state.core.furiten[actor_i].miss_temporary = false;
 
         }
 
@@ -131,18 +131,18 @@ pub(crate) fn next_normal(
             let ankan_or_kakan = cache.meld[actor_i].unwrap();
             ankan_or_kakan.consume_from_hand(&mut state.closed_hands[actor_i]);
 
-            state.action_player = actor;
-            state.incoming_meld = Some(ankan_or_kakan);
+            state.core.action_player = actor;
+            state.core.incoming_meld = Some(ankan_or_kakan);
             state.melds[actor_i].push(ankan_or_kakan);
-            state.draw = Some(wall::kan_draw(&begin.wall, state.num_drawn_tail as usize));
-            state.num_drawn_tail += 1;
+            state.core.draw = Some(wall::kan_draw(&begin.wall, state.core.num_drawn_tail as usize));
+            state.core.num_drawn_tail += 1;
 
             // Only for Ankan: reveal the next dora indicator immediately.
             // For Kakan, it will only be revealed at the end of the next turn, in the same way
             // as Daiminkan (see above).
             // TODO(summivox): rules (kan-dora)
             if let Action::Ankan(_) = action {
-                state.num_dora_indicators += 1;
+                state.core.num_dora_indicators += 1;
             }
         }
 
@@ -150,9 +150,9 @@ pub(crate) fn next_normal(
     }
 
     // Any kind of meld will forcefully break any active riichi ippatsu.
-    if state.incoming_meld.is_some() {
+    if state.core.incoming_meld.is_some() {
         for player in all_players() {
-            state.riichi[player.to_usize()].is_ippatsu = false;
+            state.core.riichi[player.to_usize()].is_ippatsu = false;
         }
     }
 
@@ -165,12 +165,12 @@ pub(crate) fn next_normal(
     // TODO(summivox): rules (kokushi-ankan)
     for other_player in other_players_after(actor) {
         let other_player_i = other_player.to_usize();
-        let furiten = &mut state.furiten[other_player_i];
+        let furiten = &mut state.core.furiten[other_player_i];
 
         if furiten.miss_permanent { continue; }
         if cache.wait[other_player_i].waiting_set.has(action.tile().unwrap()) {
             furiten.miss_temporary = true;
-            furiten.miss_permanent = state.riichi[other_player_i].is_active;
+            furiten.miss_permanent = state.core.riichi[other_player_i].is_active;
         }
     }
 }
@@ -187,7 +187,7 @@ pub(crate) fn next_agari(
 
     match action_result {
         ActionResult::TsumoAgari => {
-            let winner = state.action_player;
+            let winner = state.core.action_player;
             let agari_result_one =
                 finalize_agari(begin, state, cache, true, winner, winner);
             delta = agari_result_one.points_delta;
@@ -196,7 +196,7 @@ pub(crate) fn next_agari(
 
         ActionResult::RonAgari => {
             // TODO(summivox): rules (atama-hane)
-            let contributor = state.action_player;
+            let contributor = state.core.action_player;
             let mut take_pot = true;
             for winner in other_players_after(contributor) {
                 if let Some(Reaction::RonAgari) = reactions[winner.to_usize()] {
@@ -245,14 +245,14 @@ fn finalize_agari(
     let winner_i = winner.to_usize();
     let all_tiles = get_all_tiles(
         &state.closed_hands[winner_i],
-        state.draw.unwrap(),
+        state.core.draw.unwrap(),
         &state.melds[winner_i],
     );
     let dora_hits = count_doras(
         &all_tiles,
-        state.num_dora_indicators,
+        state.core.num_dora_indicators,
         &begin.wall,
-        state.riichi[winner_i].is_active,
+        state.core.riichi[winner_i].is_active,
     );
     let candidates = &cache.win[winner.to_usize()];
     let mut best_candidate = candidates.iter().max_by_key(|candidate| {

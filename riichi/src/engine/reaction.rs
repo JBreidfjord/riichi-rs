@@ -65,13 +65,13 @@ pub(crate) fn check_reaction(
 
     if action.is_terminal() { return Err(TerminalAction); }
 
-    let actor = state.action_player;
+    let actor = state.core.action_player;
     let reactor_i = reactor.to_usize();
     let hand = &state.closed_hands[reactor_i];
 
     match reaction {
         Reaction::Chii(own0, own1) => {
-            if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if player_succ(actor) != reactor {
                 return Err(CanOnlyChiiPrevPlayer);
@@ -93,7 +93,7 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::Pon(own0, own1) => {
-            if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
@@ -113,7 +113,7 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::Daiminkan => {
-            if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
@@ -129,7 +129,7 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::RonAgari => {
-            if state.furiten[reactor_i].any() { return Err(Furiten(state.furiten[reactor_i])); }
+            if state.core.furiten[reactor_i].any() { return Err(Furiten(state.core.furiten[reactor_i])); }
             if matches!(action, Action::Ankan(_)) &&
                 !matches!(cache.wait[reactor_i].irregular,
                      Some(IrregularWait::ThirteenOrphans(_)) |
@@ -157,7 +157,7 @@ pub(crate) fn resolve_reaction(
     action: Action,
     reactions: &[Option<Reaction>; 4],
 ) -> ActionResult {
-    let actor = state.action_player;
+    let actor = state.core.action_player;
 
     // Handle in-turn voluntary termination.
     match action {

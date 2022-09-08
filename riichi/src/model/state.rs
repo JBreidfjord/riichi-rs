@@ -11,8 +11,25 @@ use super::PartiallyObservable;
 /// Note that the effects of drawing (if any) is included in the state.
 #[derive(Clone, Debug, Default)]
 pub struct State {
-    /******** SMALL FIELDS ********/
+    pub core: StateCore,
 
+    /// Melds / open hands of each player.
+    pub melds: [Vec<Meld>; 4],
+
+    /// The concealed/closed hand of each player, represented as a [`TileSet37`].
+    /// Note that this does NOT include any newly drawn tile.
+    /// **A player can only observe their own hand.**
+    pub closed_hands: [TileSet37; 4],
+
+    /// The discard stream of each player.
+    /// Tiles that are called by other players are explicitly marked so, not excluded.
+    /// See [`Discard`].
+    pub discards: [Vec<Discard>; 4],
+}
+
+/// TODO
+#[derive(Clone, Debug, Default)]
+pub struct StateCore {
     /// Sequence number of this action, defined as the total number of closed actions since the
     /// beginning of this round.
     pub seq: u8,
@@ -49,41 +66,24 @@ pub struct State {
     /// Note that this is not mutually exclusive with `draw`; kan => both draw and meld.
     pub incoming_meld: Option<Meld>,
 
-    /******** MEDIUM FIELDS ********/
-
     /// Furiten status for each player before action.
     /// **A player can only observe their own status.**
     pub furiten: [FuritenFlags; 4],
 
     /// Riichi status for each player.
     pub riichi: [RiichiFlags; 4],
-
-    /// Melds / open hands of each player.
-    pub melds: [Vec<Meld>; 4],
-
-    /******** LARGE FIELDS ********/
-
-    /// The concealed/closed hand of each player, represented as a [`TileSet37`].
-    /// Note that this does NOT include any newly drawn tile.
-    /// **A player can only observe their own hand.**
-    pub closed_hands: [TileSet37; 4],
-
-    /// The discard stream of each player.
-    /// Tiles that are called by other players are explicitly marked so, not excluded.
-    /// See [`Discard`].
-    pub discards: [Vec<Discard>; 4],
 }
 
 impl PartiallyObservable for State {
     fn observe_by(&self, player: Player) -> Self {
         let mut observed = self.clone();
-        if player != observed.action_player {
-            observed.draw = None;
+        if player != observed.core.action_player {
+            observed.core.draw = None;
         }
         for i in 0..4 {
             if i != player.to_usize() {
                 observed.closed_hands[i] = TileSet37::default();
-                observed.furiten[i] = FuritenFlags::default();
+                observed.core.furiten[i] = FuritenFlags::default();
             }
         }
         observed

@@ -60,13 +60,13 @@ impl<'a> AgariInput<'a> {
 
             winner,
             closed_hand: &state.closed_hands[winner_i],
-            riichi_flags: state.riichi[winner_i],
+            riichi_flags: state.core.riichi[winner_i],
             melds: &state.melds[winner_i],
             waiting_info,
 
             contributor,
             // TODO(summivox): rust (is_some_with)
-            incoming_is_kan: state.incoming_meld.filter(|m| m.is_kan()).is_some(),
+            incoming_is_kan: state.core.incoming_meld.filter(|m| m.is_kan()).is_some(),
             action_is_kan: action.is_kan(),
             winning_tile: action.tile().unwrap(),  // assumed not NineKinds
 

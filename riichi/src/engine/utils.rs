@@ -88,11 +88,11 @@ pub fn is_ankan_ok_under_riichi(decomps: &[RegularWait], ankan: Tile) -> bool {
 /********/
 
 pub fn num_active_riichi(state: &State) -> usize {
-    state.riichi.into_iter().filter(|flags| flags.is_active).count()
+    state.core.riichi.into_iter().filter(|flags| flags.is_active).count()
 }
 
 pub fn num_draws(state: &State) -> u8 {
-    state.num_drawn_head + state.num_drawn_tail
+    state.core.num_drawn_head + state.core.num_drawn_tail
 }
 
 /// The prerequisite of Haitei and Houtei: no more draws available.
@@ -107,7 +107,7 @@ pub fn is_last_draw(state: &State) -> bool {
 /// - [`RiichiFlags::is_double`]
 /// - [`Yaku::Tenhou`], [`Yaku::Chiihou`], [`Yaku::Renhou`]
 pub fn is_first_chance(state: &State) -> bool {
-    state.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
+    state.core.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
 }
 
 /// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for the
@@ -129,7 +129,7 @@ pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
 pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
     if let Action::Discard(discard) = action {
         return is_first_chance(state) &&
-            state.seq == 3 &&
+            state.core.seq == 3 &&
             discard.tile.is_wind() &&
             state.discards[0..3].iter().all(|discards|
                 discards.len() == 1 && discards[0].tile == discard.tile);
@@ -139,7 +139,7 @@ pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
 
 /// Checks if [`ActionResult::AbortFourKan`] applies (during end-of-turn resolution).
 pub fn is_aborted_four_kan(state: &State, action: Action, tentative_result: ActionResult) -> bool {
-    let pp = state.action_player.to_usize();
+    let actor_i = state.core.action_player.to_usize();
 
     if matches!(action, Action::Kakan(_)) ||
         matches!(action, Action::Ankan(_)) ||
@@ -150,7 +150,7 @@ pub fn is_aborted_four_kan(state: &State, action: Action, tentative_result: Acti
                     if meld.is_kan() { Some(player) } else { None })).collect_vec();
 
         if kan_players.len() == 4 ||
-            kan_players.len() == 3 && !kan_players.iter().all(|&player| player == pp) {
+            kan_players.len() == 3 && !kan_players.iter().all(|&player| player == actor_i) {
             return true;
         }
     }
@@ -218,7 +218,7 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
 /// All tiles at win condition = closed hand + the winning tile + all tiles in melds .
 /// A fully closed hand win will be 14 tiles.
 /// Chii/Pon will not change this number, while each Kan introduces 1 more tile.
-/// At the extreme, 4 Kan's will result in 18 tiles (4x4 for each Kan + 2 for the pair). 
+/// At the extreme, 4 Kan's will result in 18 tiles (4x4 for each Kan + 2 for the pair).
 pub fn get_all_tiles(closed_hand: &TileSet37, winning_tile: Tile, melds: &[Meld]) -> TileSet37 {
     let mut all_tiles = closed_hand.clone();
     all_tiles[winning_tile] += 1;
