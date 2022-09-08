@@ -89,6 +89,8 @@ impl Default for EngineCache {
 }
 
 impl Engine {
+    pub fn new() -> Self { Default::default() }
+    
     pub fn state(&self) -> &State { &self.state }
     pub fn end(&self) -> &Option<RoundEnd> { &self.end }
 
@@ -142,17 +144,29 @@ impl Engine {
     }
 
     pub fn step(&mut self) -> ActionResult {
+        let actor = self.state.core.action_player;
         let action = self.action.unwrap();
-        let action_result = resolve_reaction(&self.state, action, &self.reactions);
-        if action_result.is_abort() {
-            self.end = Some(
-                next_abort(&self.begin, &self.state, action_result, &self.cache));
-        } else if action_result.is_agari() {
-            self.end = Some(
-                next_agari(&self.begin, &self.state, &self.reactions, action_result, &self.cache));
-        } else {
-            next_normal(
-                &self.begin, &mut self.state, action, &self.reactions, action_result, &self.cache);
+        let (action_result, reactor_reaction) =
+            resolve_reaction(&self.state, action, &self.reactions);
+        match action_result {
+            ActionResult::Pass | ActionResult::CalledBy(_) => {
+                let next_core = next_normal(
+                    &self.begin, &self.state, action, action_result, &self.cache);
+                self.state.apply_step(&GameStep {
+                    actor,
+                    action,
+                    reactor_reaction,
+                    action_result,
+                    next: Some(next_core),
+                });
+            }
+            ActionResult::Agari(agari_kind) => {
+                self.end = Some(next_agari(
+                    &self.begin, &self.state, action, &self.reactions, agari_kind, &self.cache));
+            }
+            ActionResult::Abort(abort_reason) => {
+                self.end = Some(next_abort(&self.begin, &self.state, abort_reason, &self.cache));
+            }
         }
         action_result
     }

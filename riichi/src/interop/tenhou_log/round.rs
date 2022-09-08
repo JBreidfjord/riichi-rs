@@ -7,7 +7,6 @@ use crate::{
 use super::{
     end_info::*,
     entry::*,
-    scoring::*,
 };
 
 #[derive(Clone, Debug, Default, Serialize_tuple, Deserialize_tuple)]
@@ -41,22 +40,22 @@ pub struct TenhouRoundRaw {
 pub struct RoundIdAndPot {
     pub kyoku: u8,
     pub honba: u8,
-    pub pot: GamePoints,
+    pub pot_count: u8,
 }
 
 impl RoundIdAndPot {
-    pub fn from_parts(round_id: RoundId, pot: GamePoints) -> Self {
+    pub fn from_parts(round_id: RoundId, pot_count: u8) -> Self {
         Self {
             kyoku: round_id.kyoku,
             honba: round_id.honba,
-            pot,
+            pot_count,
         }
     }
     pub fn round_id(self) -> RoundId {
         RoundId { kyoku: self.kyoku, honba: self.honba }
     }
-    pub fn to_parts(self) -> (RoundId, GamePoints) {
-        (self.round_id(), self.pot)
+    pub fn to_parts(self) -> (RoundId, u8) {
+        (self.round_id(), self.pot_count)
     }
 }
 
@@ -65,6 +64,7 @@ mod tests {
     use assert_json_diff::assert_json_eq;
     use itertools::Itertools;
     use crate::model::Discard;
+    use crate::interop::tenhou_log::*;
     use super::*;
 
     fn t(s: &str) -> Tile { t!(s) }
@@ -111,7 +111,7 @@ mod tests {
     #[test]
     fn round_json_example() {
         let round_struct = TenhouRoundRaw {
-            round_id_and_pot: RoundIdAndPot { kyoku: 3, honba: 2, pot: 2 },
+            round_id_and_pot: RoundIdAndPot { kyoku: 3, honba: 2, pot_count: 2 },
             points: [45200, 19500, 7300, 26000],
             dora_indicators: vec![it("8s"), it("8m")],
             ura_dora_indicators: vec![],
@@ -157,7 +157,7 @@ mod tests {
             ],
 
             end_info: TenhouEndInfo {
-                result: ActionResult::TsumoAgari,
+                result: ActionResult::Agari(AgariKind::Tsumo),
                 overall_delta: [-500, 4700, -500, 700],
                 agari: vec![
                     TenhouAgariResult {

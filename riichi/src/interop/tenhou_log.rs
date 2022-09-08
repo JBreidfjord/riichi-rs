@@ -4,7 +4,8 @@ mod meld;
 mod recovery;
 mod round;
 mod scoring;
-mod strings;
+pub mod test_utils;
+pub mod strings;
 mod tile;
 
 use serde::{

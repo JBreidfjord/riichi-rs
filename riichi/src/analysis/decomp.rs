@@ -323,6 +323,13 @@ mod tests {
 
     use pretty_assertions::assert_eq;
 
+    use HandGroup::{Koutsu, Shuntsu};
+    use WaitingKind::*;
+    use RegularWait as W;
+    fn t(str: &str) -> Tile { Tile::from_str(str).unwrap() }
+    fn k(str: &str) -> HandGroup { Koutsu(t(str)) }
+    fn s(str: &str) -> HandGroup { Shuntsu(t(str)) }
+
     fn print_decomp(keys: [u32; 4]) {
         println!(
             "[0o{:09o}, 0o{:09o}, 0o{:09o}, 0o{:07o}]",
@@ -356,20 +363,7 @@ mod tests {
     }
 
     #[test]
-    fn debug_1() {
-        print_decomp([2, 0, 0, 0o0110]);
-    }
-
-    #[test]
     fn check_decomp_examples() {
-        // shorthands for building decomp "literals"
-        use HandGroup::{Koutsu, Shuntsu};
-        use WaitingKind::*;
-        use RegularWait as W;
-        let t = |str| Tile::from_str(str).unwrap();
-        let k = |str| Koutsu(t(str));
-        let s = |str| Shuntsu(t(str));
-
         // no ten
         check_decomp([3, 2, 1, 0], &[]);
         check_decomp([0, 0, 0, 0o0122000], &[]);
@@ -397,6 +391,14 @@ mod tests {
                    Shanpon, t("4z"), t("4z")),
             W::new(&[s("6p")], Some(t("4z")),
                    Shanpon, t("6p"), t("6p")),
+        ]);
+
+        // random shit that failed due to stupid bit-packing reasons
+        check_decomp([0o001130000,0o000000000,0o000011000,0o0000003], &[
+            W::new(&[s("5m"), k("1z")], Some(t("5m")),
+                   RyanmenBoth, t("4s"), t("3s")),
+            W::new(&[s("5m"), k("1z")], Some(t("5m")),
+                   RyanmenBoth, t("4s"), t("6s")),
         ]);
 
         // junsei chuuren poutou 「純正九蓮宝燈」

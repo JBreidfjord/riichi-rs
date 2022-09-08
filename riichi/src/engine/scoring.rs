@@ -53,13 +53,15 @@ pub fn calc_scoring(
 pub fn distribute_points(
     _rules: &Rules,
     round_id: RoundId,
+    take_pot: bool,
     winner: Player,
     contributor: Player,
     basic_points: GamePoints,
 ) -> [GamePoints; 4] {
     let button = round_id.button();
-    let honba = round_id.honba as GamePoints;
-    let k_honba = 100;  // TODO(summivox): rules (basengo)
+    // TODO(summivox): rules (atama-hane), rules (basengo)
+    let honba = if take_pot { round_id.honba as GamePoints } else { 0 };
+    let k_honba = 100;
 
     let mut delta = [0; 4];
     if winner == contributor {
@@ -86,7 +88,7 @@ impl Scoring {
         if self.yakuman_total_value > 0 {
             return 8000 * self.yakuman_total_value as GamePoints
         }
-        match self.yaku_total_value {
+        match self.han() {
             0 => 0,
             // TODO(summivox): rust (DivCeil)
             1..=5 => min(2000,
@@ -144,33 +146,33 @@ mod tests {
         
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 0, honba: 0 },
-                              P1, P1, basic_points),
+                              true, P1, P1, basic_points),
             [-3900, 7900, -2000, -2000]);
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 0, honba: 2 },
-                              P1, P1, basic_points),
+                              true, P1, P1, basic_points),
             [-4100, 8500, -2200, -2200]);
 
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 0, honba: 0 },
-                              P1, P2, basic_points),
+                              true, P1, P2, basic_points),
             [0, 7700, -7700, 0]);
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 0, honba: 1 },
-                              P1, P2, basic_points),
+                              true, P1, P2, basic_points),
             [0, 8000, -8000, 0]);
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 0, honba: 0 },
-                              P1, P0, basic_points),
+                              true, P1, P0, basic_points),
             [-7700, 7700, 0, 0]);
 
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 2, honba: 0 },
-                              P2, P2, basic_points),
+                              true, P2, P2, basic_points),
             [-3900, -3900, 11700, -3900]);
         assert_eq!(
             distribute_points(&rules, RoundId { kyoku: 2, honba: 0 },
-                              P2, P3, basic_points),
+                              true, P2, P3, basic_points),
             [0, 0, 11600, -11600]);
     }
 }

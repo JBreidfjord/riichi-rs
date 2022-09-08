@@ -21,7 +21,9 @@ pub fn detect_yakus_for_regular(
     regular_wait: &RegularWait,
     wait_common: &RegularWaitCommon,
 ) {
-    detect_pinfu(rules, yaku_builder, wait_common.extra_fu);
+    detect_pinfu(rules, yaku_builder,
+                 wait_common.extra_fu,
+                 hand_common.is_closed);
     detect_riichi(rules, yaku_builder,
                   &input.riichi_flags);
     detect_mentsumo(rules, yaku_builder,
@@ -54,6 +56,7 @@ pub fn detect_yakus_for_regular(
                    hand_common.is_closed);
     detect_ankou(rules, yaku_builder,
                  hand_common.agari_kind,
+                 input.melds,
                  regular_wait,
                  wait_common.wait_group);
     detect_kan(rules, yaku_builder,
@@ -116,9 +119,10 @@ fn detect_pinfu(
     _rules: &Rules,
     yaku_builder: &mut YakuBuilder,
     extra_fu: u8,
+    is_closed: bool,
 ) {
     // This is trivial; we keep it here anyway for uniformity.
-    if extra_fu == 0 {
+    if extra_fu == 0 && is_closed {
         yaku_builder.add(Yaku::Pinfu, 1);
     }
 }
@@ -336,11 +340,13 @@ fn detect_ankou(
     _rules: &Rules,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
+    melds: &[Meld],
     regular_wait: &RegularWait,
     wait_group: Option<HandGroup>,
 ) {
     let mut num_ankou_complete =
-        regular_wait.groups().filter(|g| matches!(g, HandGroup::Koutsu(_))).count();
+        regular_wait.groups().filter(|g| matches!(g, HandGroup::Koutsu(_))).count() +
+        melds.iter().filter(|m| m.is_closed()).count();
     // closed waiting koutsu also counts
     // TODO(summivox): rust (if-let-chain)
     if let Some(HandGroup::Koutsu(_)) = wait_group {
@@ -357,7 +363,7 @@ fn detect_ankou(
                 yaku_builder.add(Yaku::Suuankou, -1);
             }
         }
-        3 => yaku_builder.add(Yaku::Sannankou, -1),
+        3 => yaku_builder.add(Yaku::Sannankou, 2),
         _ => {}
     }
 }
@@ -486,13 +492,17 @@ fn detect_chanta(
     wait_group: Option<HandGroup>,
     is_closed: bool,
 ) {
+
     let meld_chanta =
         melds.iter().map(|m| m.to_equivalent_group()).all(is_chanta);
     let closed_chanta =
         regular_wait.groups().all(is_chanta);
     let waiting_chanta =
-        if let Some(g) = wait_group { is_chanta(g) } else { false };
-    if meld_chanta && closed_chanta && waiting_chanta {
+        if let Some(g) = wait_group { is_chanta(g) } else { true };
+    let pair_chanta =
+        if let Some(t) = regular_wait.pair_or_tanki() { t.is_terminal() } else { true };
+
+    if meld_chanta && closed_chanta && waiting_chanta && pair_chanta {
         if honor_count(all_tiles) == 0 {
             yaku_builder.add(Yaku::Junchantaiyaochuu,
                              if is_closed { 3 } else { 2 });
@@ -505,7 +515,7 @@ fn detect_chanta(
 
 fn is_chanta(hand_group: HandGroup) -> bool {
     match hand_group {
-        HandGroup::Koutsu(t) => t.num() == 1 || t.num() == 9,
+        HandGroup::Koutsu(t) => t.is_terminal(),
         HandGroup::Shuntsu(t) => t.num() == 1 || t.num() == 7,
     }
 }

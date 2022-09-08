@@ -4,42 +4,55 @@ use crate::{
     model::*,
 };
 
-pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, ActionResult> = phf::phf_map! {
-  "流局"     => ActionResult::AbortWallExhausted,
-  "流し満貫" => ActionResult::AbortNagashiMangan,
-  "九種九牌" => ActionResult::AbortNineKinds,
-  "三家和了" => ActionResult::AbortTripleRon,
-  "四風連打" => ActionResult::AbortFourWind,
-  "四家立直" => ActionResult::AbortFourRiichi,
-  "四槓散了" => ActionResult::AbortFourKan,
+pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, AbortReason> = phf::phf_map! {
+  "流局"     => AbortReason::WallExhausted,
+  "全員不聴" => AbortReason::WallExhausted,  // legacy code
+  "全員聴牌" => AbortReason::WallExhausted,  // legacy code
+  "流し満貫" => AbortReason::NagashiMangan,
+  "九種九牌" => AbortReason::NineKinds,
+  "三家和了" => AbortReason::TripleRon,
+  "四風連打" => AbortReason::FourWind,
+  "四家立直" => AbortReason::FourRiichi,
+  "四槓散了" => AbortReason::FourKan,
 };
 
 /// Tenhou round result string => [`ActionResult`].
 /// Due to [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`] sharing the same string
 /// [`AGARI_STR`], this map only contains reasons of round abortion.
-pub fn abort_from_str(str: &str) -> Option<ActionResult> {
+pub fn abort_from_str(str: &str) -> Option<AbortReason> {
     ABORT_STR_TO_ENUM.get(str).copied()
+}
+
+pub const fn abort_to_str(abort_reason: AbortReason) -> &'static str {
+    match abort_reason {
+        AbortReason::WallExhausted => "流局",
+        AbortReason::NagashiMangan => "流し満貫",
+        AbortReason::NineKinds => "九種九牌",
+        AbortReason::DoubleRon => "",  // I have not seen this in any public Tenhou logs
+        AbortReason::TripleRon => "三家和了",
+        AbortReason::FourWind => "四風連打",
+        AbortReason::FourRiichi => "四家立直",
+        AbortReason::FourKan => "四槓散了",
+    }
 }
 
 /// [`ActionResult`] => Tenhou round result string.
 /// Here we _can_ map both [`ActionResult::TsumoAgari`] and [`ActionResult::RonAgari`].
 pub const fn action_result_to_str(action_result: ActionResult) -> &'static str {
     match action_result {
-        ActionResult::AbortWallExhausted => "流局",
-        ActionResult::AbortNagashiMangan => "流し満貫",
-        ActionResult::AbortNineKinds => "九種九牌",
-        ActionResult::AbortTripleRon => "三家和了",
-        ActionResult::AbortFourWind => "四風連打",
-        ActionResult::AbortFourRiichi => "四家立直",
-        ActionResult::AbortFourKan => "四槓散了",
-        ActionResult::TsumoAgari => AGARI_STR,
-        ActionResult::RonAgari => AGARI_STR,
+        ActionResult::Abort(abort_reason) => abort_to_str(abort_reason),
+        ActionResult::Agari(_) => AGARI_STR,
         _ => "",
     }
 }
 
-/// Represents either [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`].
+/// Represents either Tsumo-Agari or Ron-Agari.
 pub const AGARI_STR: &str = "和了";
+
+/// [`AbortReason::WallExhausted`], except everyone is waiting (legacy format).
+pub const ALL_WAITING: &str = "全員聴牌";
+/// [`AbortReason::WallExhausted`], except no one is waiting (legacy format).
+pub const NONE_WAITING: &str = "全員不聴";
 
 pub const DORA_STR: &str = "ドラ";
 pub const AKA_DORA_STR: &str = "赤ドラ";

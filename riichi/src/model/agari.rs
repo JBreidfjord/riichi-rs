@@ -32,7 +32,7 @@ impl AgariResult {
     }
 }
 
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq)]
 #[repr(u8)]
 pub enum AgariKind {
     #[default]
@@ -42,10 +42,7 @@ pub enum AgariKind {
 
 impl AgariKind {
     pub fn to_action_result(self) -> ActionResult {
-        match self {
-            AgariKind::Ron => ActionResult::RonAgari,
-            AgariKind::Tsumo => ActionResult::TsumoAgari,
-        }
+        ActionResult::Agari(self)
     }
 }
 

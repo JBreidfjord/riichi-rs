@@ -61,6 +61,10 @@ impl Tile {
     /// Red 5 赤牌
     pub const fn is_red(self) -> bool { 34 <= self.0 && self.0 <= 36 }
 
+    pub const fn has_red(self) -> bool {
+        self.0 == 4 || self.0 == 13 || self.0 == 22 || self.is_red()
+    }
+
     /// Numerals := Characters + Dots + Bamboos ;
     /// 数牌 := 萬子 + 筒子 + 索子
     pub const fn is_numeral(self) -> bool {
@@ -68,7 +72,7 @@ impl Tile {
     }
     /// Pure terminals := {1,9}{m,p,s} 老頭牌
     pub const fn is_pure_terminal(self) -> bool {
-        self.0 <= 26 && (self.0 % 9 == 0 || self.0 % 9 == 8)
+        matches!(self.0, 0 | 8 | 9 | 17 | 18 | 26)
     }
     /// Middle numerals := {2..=8}{m,p,s} ;
     /// 中張牌 := 数牌 - 老頭牌
@@ -80,7 +84,7 @@ impl Tile {
     pub const fn is_dragon(self) -> bool { 31 <= self.0 && self.0 <= 33 }
     /// Honors := Winds + Dragons ;
     /// 字牌 := 風牌 + 三元牌
-    pub const fn is_honor(self) -> bool { 27 <= self.0 && self.0 <= 36 }
+    pub const fn is_honor(self) -> bool { 27 <= self.0 && self.0 <= 33 }
 
     /// Terminals := Pure terminals + Honors ;
     /// 么九牌 := 老頭牌 + 字牌

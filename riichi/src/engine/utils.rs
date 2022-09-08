@@ -97,8 +97,8 @@ pub fn num_draws(state: &State) -> u8 {
 
 /// The prerequisite of Haitei and Houtei: no more draws available.
 pub fn is_last_draw(state: &State) -> bool {
-    debug_assert!(num_draws(state) < wall::MAX_NUM_DRAWS);
-    num_draws(state) == wall::MAX_NUM_DRAWS - 1
+    debug_assert!(num_draws(state) <= wall::MAX_NUM_DRAWS);
+    num_draws(state) == wall::MAX_NUM_DRAWS
 }
 
 /// First 4 turns of the game without being interrupted by any meld.
@@ -122,7 +122,7 @@ pub fn is_nagashi_mangan(state: &State, player: Player) -> bool {
 /// players.
 /// Assuming [`is_wall_exhausted`].
 pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
-    all_players().into_iter().all(|player| is_nagashi_mangan(state, player))
+    all_players().into_iter().any(|player| is_nagashi_mangan(state, player))
 }
 
 /// Checks if [`ActionResult::AbortFourWind`] applies (during end-of-turn resolution).
@@ -131,24 +131,28 @@ pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
         return is_first_chance(state) &&
             state.core.seq == 3 &&
             discard.tile.is_wind() &&
-            state.discards[0..3].iter().all(|discards|
-                discards.len() == 1 && discards[0].tile == discard.tile);
+            other_players_after(state.core.action_player).iter()
+                .map(|actor| &state.discards[actor.to_usize()])
+                .all(|discards|
+                    discards.len() == 1 && discards[0].tile == discard.tile)
     }
     false
 }
 
 /// Checks if [`ActionResult::AbortFourKan`] applies (during end-of-turn resolution).
-pub fn is_aborted_four_kan(state: &State, action: Action, tentative_result: ActionResult) -> bool {
+pub fn is_aborted_four_kan(state: &State, action: Action, reaction: Option<Reaction>) -> bool {
     let actor_i = state.core.action_player.to_usize();
 
     if matches!(action, Action::Kakan(_)) ||
         matches!(action, Action::Ankan(_)) ||
-        tentative_result == ActionResult::Daiminkan {
+        matches!(reaction, Some(Reaction::Daiminkan)) {
+        // Gather the owner of each kan on the table into one list.
         let kan_players =
             state.melds.iter().enumerate().flat_map(|(player, melds_p)|
                 melds_p.iter().filter_map(move |meld|
                     if meld.is_kan() { Some(player) } else { None })).collect_vec();
-
+        // - 3 existing kans + this one => ok if all 4 are from the same player. 
+        // - 4 existing kans + this one => not ok (max number of kans on the table is 4).
         if kan_players.len() == 4 ||
             kan_players.len() == 3 && !kan_players.iter().all(|&player| player == actor_i) {
             return true;
@@ -161,19 +165,6 @@ pub fn is_aborted_four_kan(state: &State, action: Action, tentative_result: Acti
 pub fn is_aborted_four_riichi(state: &State, action: Action) -> bool {
     matches!(action, Action::Discard(Discard{declares_riichi: true, ..})) &&
         num_active_riichi(state) == 3  // not a typo --- the last player only declared => not active yet
-}
-
-/// When the wall has been exhausted, returns the points delta for each player as well as if the
-/// button player stays the same in the next round (renchan 連荘).
-pub fn resolve_wall_exhausted(
-    state: &State, waiting: [u8; 4], button: Player) -> ([GamePoints; 4], bool) {
-    let renchan = waiting[button.to_usize()] > 0;
-    let delta_nagashi = calc_nagashi_mangan_delta(state, button);
-    if delta_nagashi == [0; 4] {
-        (calc_wall_exhausted_delta(waiting), renchan)
-    } else {
-        (delta_nagashi, renchan)
-    }
 }
 
 /// When the wall has been exhausted and no player has achieved
@@ -219,9 +210,14 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
 /// A fully closed hand win will be 14 tiles.
 /// Chii/Pon will not change this number, while each Kan introduces 1 more tile.
 /// At the extreme, 4 Kan's will result in 18 tiles (4x4 for each Kan + 2 for the pair).
-pub fn get_all_tiles(closed_hand: &TileSet37, winning_tile: Tile, melds: &[Meld]) -> TileSet37 {
+pub fn get_all_tiles(
+    agari_kind: AgariKind,
+    closed_hand: &TileSet37,
+    winning_tile: Tile,
+    melds: &[Meld],
+) -> TileSet37 {
     let mut all_tiles = closed_hand.clone();
-    all_tiles[winning_tile] += 1;
+    if agari_kind == AgariKind::Ron { all_tiles[winning_tile] += 1; }
     for meld in melds {
         match meld {
             Meld::Chii(chii) => {
@@ -255,19 +251,22 @@ pub fn count_doras(
     wall: &Wall,
     is_riichi: bool,
 ) -> DoraHits {
+    let all_tiles_normal = TileSet34::from(all_tiles);
     let n = num_dora_indicators as usize;
+    // TODO DEBUG
+    // println!("n={} di={:?} udi={:?}", n, wall::dora_indicators(wall), wall::ura_dora_indicators(wall));
     DoraHits {
         dora:
         (&wall::dora_indicators(wall)[0..n])
             .iter()
-            .map(|t| all_tiles[t.indicated_dora()])
+            .map(|t| all_tiles_normal[t.indicated_dora()])
             .sum(),
 
         ura_dora:
         if is_riichi {
             (&wall::ura_dora_indicators(wall)[0..n])
                 .iter()
-                .map(|t| all_tiles[t.indicated_dora()])
+                .map(|t| all_tiles_normal[t.indicated_dora()])
                 .sum()
         } else { 0 },
 

@@ -4,7 +4,7 @@ use crate::common::TileSet37;
 pub fn count_for_kan(hand: &TileSet37, tile: Tile) -> (usize, usize) {
     let t = tile.to_normal();
     let num_normal = hand[t];
-    let num_red = if t.num() == 5 { hand[t.to_red()] } else { 0 };
+    let num_red = if t.has_red() { hand[t.to_red()] } else { 0 };
     (num_normal as usize, num_red as usize)
 }
 

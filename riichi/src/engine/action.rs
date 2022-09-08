@@ -73,10 +73,6 @@ pub(crate) fn check_action(
 
     // Make a copy of `actor`'s hand
     let mut hand = state.closed_hands[actor.to_usize()].clone();
-    if let Some(draw) = state.core.draw {
-        hand[draw] += 1;
-    };
-
     let under_riichi = state.core.riichi[actor_i].is_active;
 
     match action {
@@ -163,6 +159,15 @@ pub(crate) fn check_action(
 
         Action::TsumoAgari(tile) => {
             if state.core.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
+            // Special case: We do not update the wait cache for Chii/Pon/Daiminkan. This is okay
+            // for Chii/Pon (cannot declare TsumoAgari right away), but not for Daiminkan.
+            // Now that we got caught with our pants down, we have to backfill it.
+            if let Some(Meld::Daiminkan(_)) = state.core.incoming_meld {
+                // Cheat by rewinding to 3N+1 (without rinshan tsumo).
+                hand[state.core.draw.unwrap()] -= 1;
+                cache.update_wait_cache(actor, &hand);
+            }
+
             let agari_input = AgariInput::new(
                 begin.round_id,
                 &state,

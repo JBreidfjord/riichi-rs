@@ -103,7 +103,7 @@ pub const URA_DORA_INDICATOR_INDEX: [usize; 5] = [131, 129, 127, 125, 123];
 pub const KAN_DRAW_INDEX: [usize; 4] = [134, 135, 132, 133];
 
 /// Total number of draws (front + back) cannot exceed this.
-pub const MAX_NUM_DRAWS: u8 = 70;
+pub const MAX_NUM_DRAWS: u8 = 136 - 14;
 
 /// Draw the initial 13 tiles for each of the 4 players, according to standard rules.
 /// See [module-level docs](self).
@@ -167,6 +167,30 @@ pub fn fill_missing_tiles_in_partial_wall(
     let mut missing_iter = missing_tiles.into_iter();
     partial_wall.map(|tile_or_hole|
         tile_or_hole.or_else(|| missing_iter.next()).unwrap())
+}
+
+pub fn print(wall: &Wall) {
+    for x in &wall.iter().chunks(8) {
+        for tile in x {
+            print!("{} ", tile);
+        }
+        println!();
+    }
+
+}
+
+// TODO(summivox): dedupe with tenhou round recovery
+pub fn print_partial(partial_wall: &PartialWall) {
+    for x in &partial_wall.iter().chunks(8) {
+        for y in x {
+            if let Some(tile) = y {
+                print!("{} ", tile);
+            } else {
+                print!("?? ");
+            }
+        }
+        println!();
+    }
 }
 
 #[cfg(test)]

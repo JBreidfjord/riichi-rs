@@ -156,19 +156,23 @@ pub(crate) fn resolve_reaction(
     state: &State,
     action: Action,
     reactions: &[Option<Reaction>; 4],
-) -> ActionResult {
+) -> (ActionResult, Option<(Player, Reaction)>) {
     let actor = state.core.action_player;
 
     // Handle in-turn voluntary termination.
     match action {
-        Action::TsumoAgari(_) => return ActionResult::TsumoAgari,
-        Action::AbortNineKinds => return ActionResult::AbortNineKinds,
+        Action::TsumoAgari(_) => return (ActionResult::Agari(AgariKind::Tsumo), None),
+        Action::AbortNineKinds => return (ActionResult::Abort(AbortReason::NineKinds), None),
         _ => {}
     }
 
-    let highest_priority_reaction = other_players_after(actor).into_iter()
-        .flat_map(|reactor| reactions[reactor.to_usize()]).max();
-    let result = match highest_priority_reaction {
+    // Find the highest priority reaction.
+    let reactor_reaction = other_players_after(actor).into_iter()
+        .flat_map(|reactor|
+            reactions[reactor.to_usize()].map(|reaction| (reactor, reaction)))
+        .max_by_key(|(_reactor, reaction)| *reaction);
+
+    let result = match reactor_reaction {
         // Meld can be preempted by:
         // - four riichi
         // - four kan
@@ -176,37 +180,54 @@ pub(crate) fn resolve_reaction(
         //
         // Meld does not conflict with:
         // - four wind: 4th wind cannot be called
-        Some(Reaction::Chii(_, _)) => ActionResult::Chii,
-        Some(Reaction::Pon(_, _)) => ActionResult::Pon,
-        Some(Reaction::Daiminkan) => ActionResult::Daiminkan,
+        Some((reactor, Reaction::Chii(_, _))) |
+        Some((reactor, Reaction::Pon(_, _))) |
+        Some((reactor, Reaction::Daiminkan)) =>
+            (ActionResult::CalledBy(reactor), reactor_reaction),
 
         // Ron takes precedence over everything else at this point.
-        Some(Reaction::RonAgari) => {
-            // Triple win => Abort
+        Some((_reactor, Reaction::RonAgari)) => {
             // TODO(summivox): rules (double/triple ron)
-            let num_rons = reactions.iter()
-                .filter(|&&reaction| reaction == Some(Reaction::RonAgari))
-                .count();
+            let num_rons = reactions.iter().filter(|&&reaction|
+                reaction == Some(Reaction::RonAgari)).count();
             return if num_rons == 3 {
-                ActionResult::AbortTripleRon
+                (ActionResult::Abort(AbortReason::TripleRon), None)
             } else {
-                ActionResult::RonAgari
+                (ActionResult::Agari(AgariKind::Ron), None)
             }
         }
-        None => ActionResult::Pass
+
+        None => (ActionResult::Pass, None),
     };
 
-    if is_aborted_four_wind(state, action) { return ActionResult::AbortFourWind; }
-    if is_aborted_four_riichi(state, action) { return ActionResult::AbortFourRiichi; }
-    if is_aborted_four_kan(state, action, result) {
-        return ActionResult::AbortFourKan;
+    if is_aborted_four_wind(state, action) {
+        return (ActionResult::Abort(AbortReason::FourWind), None);
     }
-    if result == ActionResult::Pass && is_last_draw(state) {
-        return if is_any_player_nagashi_mangan(state) {
-            ActionResult::AbortNagashiMangan
-        } else {
-            ActionResult::AbortWallExhausted
+    if is_aborted_four_riichi(state, action) {
+        return (ActionResult::Abort(AbortReason::FourRiichi), None);
+    }
+    if is_aborted_four_kan(
+        state, action, reactor_reaction.map(|(_reactor, reaction)| reaction)) {
+        return (ActionResult::Abort(AbortReason::FourKan), None);
+    }
+    if result.0 == ActionResult::Pass && is_last_draw(state) {
+        for player in other_players_after(actor) {
+            if is_nagashi_mangan(state, player) {
+                return (ActionResult::Abort(AbortReason::NagashiMangan), None);
+            }
         }
+        if is_nagashi_mangan(state, actor) {
+            // The last discard has not been committed to the river, but we still need to take it
+            // into consideration!
+            // TODO(summivox): rust (if-let-chain)
+            if let Action::Discard(Discard { tile, .. }) = action {
+                if !tile.is_terminal() {
+                    return (ActionResult::Abort(AbortReason::WallExhausted), None);
+                }
+            }
+            return (ActionResult::Abort(AbortReason::NagashiMangan), None);
+        }
+        return (ActionResult::Abort(AbortReason::WallExhausted), None);
     }
 
     result

@@ -7,6 +7,7 @@
 //!
 //! A [`TileSet37`] can be converted to a [`TileSet34`] with red 5's folded into normal 5's.
 
+use std::fmt::{Display, Formatter};
 use std::ops::{Index, IndexMut};
 
 use derive_more::{
@@ -37,6 +38,24 @@ impl IndexMut<Tile> for TileSet37 {
 
 impl Default for TileSet37 {
     fn default() -> Self { TileSet37([0; 37]) }
+}
+
+impl Display for TileSet37 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for xs in [
+            &self.0[0..9],
+            &self.0[9..18],
+            &self.0[18..27],
+            &self.0[27..34],
+            &self.0[34..37],
+        ] {
+            for x in xs {
+                write!(f, "{}", x)?;
+            }
+            write!(f, ",")?;
+        }
+        Ok(())
+    }
 }
 
 impl FromIterator<Tile> for TileSet37 {
@@ -73,9 +92,9 @@ impl TileSet37 {
             let s = i / 9;
             packed[s] = (packed[s] << 3) | (h[i] as u32);
         }
-        packed[0] |= (h[34] as u32) << (3 * 4);
-        packed[1] |= (h[35] as u32) << (3 * 4);
-        packed[2] |= (h[36] as u32) << (3 * 4);
+        packed[0] += (h[34] as u32) << (3 * 4);
+        packed[1] += (h[35] as u32) << (3 * 4);
+        packed[2] += (h[36] as u32) << (3 * 4);
         packed
     }
 
@@ -107,6 +126,18 @@ impl IndexMut<Tile> for TileSet34 {
 
 impl Default for TileSet34 {
     fn default() -> Self { TileSet34([0u8; 34]) }
+}
+
+impl Display for TileSet34 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for xs in self.0.chunks(9) {
+            for x in xs {
+                write!(f, "{}", x)?;
+            }
+            write!(f, ",")?;
+        }
+        Ok(())
+    }
 }
 
 // Conversion is one-way from 37 to 34 (count of red is lost).
@@ -236,6 +267,18 @@ impl From<TileSet34> for TileMask34 {
             }
         }
         Self(mask)
+    }
+}
+
+impl Display for TileMask34 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        for r in [0..9, 9..18, 18..27, 27..34] {
+            for i in r {
+                write!(f, "{}", (self.0 >> i) & 1)?;
+            }
+            write!(f, ",")?;
+        }
+        Ok(())
     }
 }
 

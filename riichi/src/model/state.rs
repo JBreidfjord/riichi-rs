@@ -3,6 +3,7 @@
 
 // use arrayvec::ArrayVec;  // TODO(summivox): use ArrayVec
 
+use std::fmt::{Display, Formatter};
 use crate::common::*;
 use super::Discard;
 use super::PartiallyObservable;
@@ -11,6 +12,7 @@ use super::PartiallyObservable;
 /// Note that the effects of drawing (if any) is included in the state.
 #[derive(Clone, Debug, Default)]
 pub struct State {
+    /// Core variables; see [`StateCore`].
     pub core: StateCore,
 
     /// Melds / open hands of each player.
@@ -27,8 +29,16 @@ pub struct State {
     pub discards: [Vec<Discard>; 4],
 }
 
-/// TODO
-#[derive(Clone, Debug, Default)]
+/// Essential state variables.
+/// These variables, together with the previous turn's actions and reactions, imply the delta of
+/// all other variables from the previous state to the current.
+///
+/// Expressed in forward form: `state + {action, reactions, next state core} => next state`.
+///
+/// This means that the history of full states can be derived by folding the initial state with
+/// each consecutive `{action, reactions, next state core}` triplet, which is effectively a
+/// more space-efficient representation of the same information.
+#[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(test, derive(type_layout::TypeLayout))]
 pub struct StateCore {
     /// Sequence number of this action, defined as the total number of closed actions since the
@@ -91,6 +101,20 @@ impl PartiallyObservable for State {
     }
 }
 
+impl Display for StateCore {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SL(#{} P{} draw[{}|{}]={} meld={:?} dora={})",
+               self.seq,
+               self.action_player.to_usize(),
+               self.num_drawn_head,
+               self.num_drawn_tail,
+               self.draw.map(|t| t.as_str()).unwrap_or("NA"),
+               self.incoming_meld.map(|x| x.to_string()),
+               self.num_dora_indicators,
+        )
+    }
+}
+
 /// Status regarding whether a player is under riichi (リーチ).
 ///
 /// <https://riichi.wiki/Riichi>
@@ -112,24 +136,39 @@ pub struct RiichiFlags {
     pub is_ippatsu: bool,
 }
 
+/// Status regarding whether a player is under the penalty of Furiten (振聴) and cannot declare Ron,
+/// either temporarily (by discard or missed chance) or permanently (by missed chance under riichi).
+///
+/// <https://riichi.wiki/Furiten>
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct FuritenFlags {
+    /// At least one tile in the player's waiting set had been discarded by the player before.
+    /// This penalty is considered temporary as the player's waiting set might change.
     pub by_discard: bool,
+
+    /// Another player discarded, or made kakan/ankan, on a tile in the player's waiting set, but
+    /// this player did not (including if this player was not able to) declare Ron on it.
+    /// This penalty is temporary, as it will be lifted once this player discards, unless this
+    /// player is also under riichi, which will mark [`miss_permanent`] instead.
     pub miss_temporary: bool,
+
+    /// Same trigger as `miss_temporary` while under riichi.
+    /// This penalty is permanent (for the rest of the round).
     pub miss_permanent: bool,
 }
 
 impl FuritenFlags {
+    /// Returns whether any Furiten penalty is currently active.
     pub const fn any(self) -> bool { self.by_discard || self.miss_temporary || self.miss_permanent }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use type_layout::TypeLayout;
 
     #[test]
-    fn print_layouts() {
+    fn print_layout() {
+        use type_layout::TypeLayout;
         println!("{}", StateCore::type_layout());
     }
 }

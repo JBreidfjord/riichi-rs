@@ -17,13 +17,7 @@ pub struct RecoveredRound {
     pub known_wall: PartialWall,
     pub action_reactions: Vec<ActionReaction>,
     pub final_result: ActionResult,
-}
-
-#[derive(Copy, Clone, Debug)]
-pub struct ActionReaction {
-    pub actor: Player,
-    pub action: Action,
-    pub reactions: [Option<Reaction>; 4],
+    pub multi_ron: [bool; 4],
 }
 
 pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
@@ -32,12 +26,13 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             rules: Default::default(),
             round_id: round.round_id_and_pot.round_id(),
             wall: wall::make_dummy_wall(),  // TODO(summivox): offer reconstruction for this
-            pot: round.round_id_and_pot.pot,
+            pot: round.round_id_and_pot.pot_count as GamePoints * 1000,
             points: round.points,
         },
         known_wall: [None; 136],
         action_reactions: vec![],
         final_result: round.end_info.result,
+        multi_ron: [false; 4],
     };
     // reveal the initial deal
     let deal = [&round.deal0, &round.deal1, &round.deal2, &round.deal3];
@@ -75,6 +70,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
     loop {
         let actor_i = actor.to_usize();
         let mut draw: Option<Tile> = None;
+        let mut daiminkan = false;
         match in_iter[actor_i].next() {
             Some(&TenhouIncoming::Draw(tile)) => {
                 draw = Some(tile);
@@ -90,17 +86,20 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             Some(&TenhouIncoming::ChiiPonDaiminkan(meld)) => {
                 match meld {
                     Meld::Chii(_) | Meld::Pon(_) => {}
-                    Meld::Daiminkan(_) => {}
+                    Meld::Daiminkan(_) => { daiminkan = true }
                     _ => return None,
                 }
             }
             _ => {
                 // The round has ended due to RonAgari or an end-of-turn abort condition.
-                if round.end_info.result == ActionResult::RonAgari {
+                if round.end_info.result == ActionResult::Agari(AgariKind::Ron) {
                     // backfill (multi-)ron reaction(s)
                     if let Some(last) = recovered.action_reactions.last_mut() {
                         for agari in round.end_info.agari.iter() {
-                            last.reactions[agari.winner.to_usize()] = Some(Reaction::RonAgari);
+                            if last.reactor_reaction.is_none() {
+                                last.reactor_reaction = Some((agari.winner, Reaction::RonAgari));
+                            }
+                            recovered.multi_ron[agari.winner.to_usize()] = true;
                         }
                     } else { return None; }
                 }
@@ -108,13 +107,15 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             }
         }
         match out_iter[actor_i].next() {
-            Some(&TenhouOutgoing::DaiminkanDummy) => {
+            Some(&TenhouOutgoing::DaiminkanDummy) | None if daiminkan => {
+                // Reason for `None`: Tenhou will elide a DaiminkanDummy if it's the last one in the
+                // series. We will tolerate this and reuse the same logic.
                 kan = true;
                 continue;
             }
             Some(&TenhouOutgoing::Discard(mut discard)) => {
                 let mut next_actor = player_succ(actor);
-                let mut reactions = [None; 4];
+                let mut reactor_reaction = None;
                 if discard.is_tsumokiri { discard.tile = draw?; }
                 for reactor in other_players_after(actor) {
                     let reactor_i = reactor.to_usize();
@@ -125,13 +126,14 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                         } else { continue; }
                         next_actor = reactor;
                         discard.called_by = reactor;
-                        reactions[reactor_i] = Reaction::from_meld(*meld);
+                        reactor_reaction = Reaction::from_meld(*meld)
+                            .map(|reaction| (reactor, reaction));
                     }
                 }
                 recovered.action_reactions.push(ActionReaction {
                     actor,
                     action: Action::Discard(discard),
-                    reactions,
+                    reactor_reaction,
                 });
                 actor = next_actor;
             }
@@ -139,42 +141,56 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                 recovered.action_reactions.push(ActionReaction {
                     actor,
                     action: Action::from_meld(meld)?,
-                    reactions: [None; 4],
+                    reactor_reaction: None,
                 });
                 kan = true;
             }
             _ => {
                 // The round has ended due to TsumoAgari or NineKinds, both requiring a final
-                // explicit action.
+                // explicit action (and no possible reaction).
                 recovered.action_reactions.push(ActionReaction {
                     actor,
                     action: match recovered.final_result {
-                        ActionResult::TsumoAgari => Action::TsumoAgari(draw?),
-                        ActionResult::AbortNineKinds => Action::AbortNineKinds,
+                        ActionResult::Agari(AgariKind::Tsumo) => Action::TsumoAgari(draw?),
+                        ActionResult::Abort(AbortReason::NineKinds) => Action::AbortNineKinds,
                         _ => return None
                     },
-                    reactions: [None; 4],
+                    reactor_reaction: None,
                 });
                 break
             }
         }
+        /*
+        // TODO DEBUG
+        println!("[{}] = {}",
+                 recovered.action_reactions.len() - 1,
+                 recovered.action_reactions.last().unwrap());
+         */
     }
     // At this point we should have walked through all entries; there shouldn't be any more.
-    assert!(in_iter.iter_mut().all(|it| it.peek() == None));
-    assert!(out_iter.iter_mut().all(|it| it.next() == None));
+    if !in_iter.iter_mut().all(|it| it.peek() == None) {
+        println!("ERROR: likely corrupted file (too many incomings).");
+        return None;
+    }
+    if !out_iter.iter_mut().all(|it| it.next() == None) {
+        println!("ERROR: likely corrupted file (too many outgoings).");
+        return None;
+    }
     Some(recovered)
 }
 
 // Pretty printer for debugging only
 impl Display for RecoveredRound {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "kyoku={}, honba={}, pot={}, points={:?}, result={:?}",
+        writeln!(f, "kyoku={}, honba={}, pot={}, points={:?}, result={:?}, multi_ron={:?}",
                  self.begin.round_id.kyoku,
                  self.begin.round_id.honba,
                  self.begin.pot,
                  self.begin.points,
                  self.final_result,
+                 self.multi_ron,
         )?;
+        // TODO(summivox): dedupe with `wall::print_partial`
         for x in &self.known_wall.iter().chunks(8) {
             for y in x {
                 if let Some(tile) = y {
@@ -185,8 +201,8 @@ impl Display for RecoveredRound {
             }
             writeln!(f)?;
         }
-        for ar in self.action_reactions.iter() {
-            writeln!(f, "{:?}", ar)?;
+        for action_reaction in self.action_reactions.iter() {
+            writeln!(f, "{}", action_reaction)?;
         }
         Ok(())
     }

@@ -22,6 +22,7 @@ pub fn calc_hand_common(_rules: &Rules, input: &AgariInput) -> HandCommon {
     let agari_kind =
         if input.contributor == input.winner { AgariKind::Tsumo } else { AgariKind::Ron };
     let all_tiles = get_all_tiles(
+        agari_kind,
         input.closed_hand,
         input.winning_tile,
         input.melds);

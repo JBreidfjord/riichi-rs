@@ -83,12 +83,14 @@ pub fn c_entry_iter(key: u32, value: u64) -> impl Iterator<Item = CompleteGroupi
     CTableEntryIterator::new(key, value)
 }
 
+#[derive(Debug)]
 struct CTableEntryIterator {
     key: u32,
     value: u64,
 
     num_groups: u8,
     has_pair: bool,
+    once: bool,
 }
 
 impl CTableEntryIterator {
@@ -97,10 +99,10 @@ impl CTableEntryIterator {
         debug_assert!(n % 3 != 1);
         CTableEntryIterator {
             key,
-            // this will make sure the iterator is run at least once to give you the pair
-            value: if n >= 3 { value } else { 0xFFFF },
+            value,
             num_groups: n / 3,
             has_pair: n % 3 == 2,
+            once: false,
         }
     }
 }
@@ -109,7 +111,8 @@ impl Iterator for CTableEntryIterator {
     type Item = CompleteGrouping;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.value == 0 { return None; }
+        if self.once && self.value == 0 { return None; }
+        self.once = true;
 
         let mid = big_top(self.value);
         let raw_pair = if self.has_pair {

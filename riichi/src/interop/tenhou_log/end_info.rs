@@ -38,19 +38,20 @@ pub struct TenhouAgariResult {
 impl Serialize for TenhouEndInfo {
     fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
         match self.result {
-            ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
-                let mut seq = s.serialize_seq(Some(1))?;
-                seq.serialize_element(action_result_to_str(self.result))?;
-                seq.serialize_element(&self.overall_delta)?;
-                seq.end()
-            }
-            ActionResult::RonAgari | ActionResult::TsumoAgari => {
+            ActionResult::Agari(_) => {
                 let mut seq = s.serialize_seq(Some(1 + 2 * self.agari.len()))?;
                 seq.serialize_element(action_result_to_str(self.result))?;
                 for agari in self.agari.iter() {
                     seq.serialize_element(&agari.points_delta_after_pot)?;
                     seq.serialize_element(agari)?;
                 }
+                seq.end()
+            }
+            ActionResult::Abort(AbortReason::WallExhausted) |
+            ActionResult::Abort(AbortReason::NagashiMangan) => {
+                let mut seq = s.serialize_seq(Some(1))?;
+                seq.serialize_element(action_result_to_str(self.result))?;
+                seq.serialize_element(&self.overall_delta)?;
                 seq.end()
             }
             _ => {
@@ -98,15 +99,15 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
         let result_str: String = seq.next_element()?.ok_or_else(|| Error::custom("no result str"))?;
         if result_str != AGARI_STR {
             // This has to be an abort result.
-            let abort_result = abort_from_str(&result_str)
+            let abort_reason = abort_from_str(&result_str)
                 .ok_or_else(|| Error::custom("unrecognized result"))?;
-            match abort_result {
-                ActionResult::AbortWallExhausted | ActionResult::AbortNagashiMangan => {
+            match abort_reason {
+                AbortReason::WallExhausted | AbortReason::NagashiMangan => {
                     // TODO(summivox): rust (if-let-chain)
                     if let Some(Value::Array(delta_arr)) = seq.next_element::<Value>()? {
                         if delta_arr.len() == 4 {
                             return Ok(TenhouEndInfo {
-                                result: abort_result,
+                                result: ActionResult::Abort(abort_reason),
                                 overall_delta: [
                                     delta_arr[0].as_i64().unwrap_or(0) as GamePoints,
                                     delta_arr[1].as_i64().unwrap_or(0) as GamePoints,
@@ -117,10 +118,17 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
                             });
                         }
                     }
+                    if result_str == NONE_WAITING || result_str == ALL_WAITING {
+                        return Ok(TenhouEndInfo {
+                            result: ActionResult::Abort(abort_reason),
+                            overall_delta: [0; 4],
+                            agari: vec![],
+                        });
+                    }
                     return Err(Error::custom("invalid delta"));
                 }
                 _ => return Ok(TenhouEndInfo {
-                    result: abort_result,
+                    result: ActionResult::Abort(abort_reason),
                     overall_delta: [0; 4],
                     agari: vec![],
                 }),
@@ -161,12 +169,13 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
                 })
             }
         }
+        let agari_kind = if agari_results[0].winner == agari_results[0].contributor {
+            AgariKind::Tsumo
+        } else {
+            AgariKind::Ron
+        };
         Ok(TenhouEndInfo {
-            result: if agari_results[0].winner == agari_results[0].contributor {
-                ActionResult::TsumoAgari
-            } else {
-                ActionResult::RonAgari
-            },
+            result: ActionResult::Agari(agari_kind),
             overall_delta: agari_results.iter().fold(
                 [0, 0, 0, 0],
                 |mut delta, b| {
@@ -185,7 +194,7 @@ mod tests {
     #[test]
     fn abort_example() {
         let end_info_struct = TenhouEndInfo {
-            result: ActionResult::AbortFourRiichi,
+            result: ActionResult::Abort(AbortReason::FourRiichi),
             overall_delta: [0; 4],
             agari: vec![],
         };
@@ -199,7 +208,7 @@ mod tests {
     #[test]
     fn exhaust_example() {
         let end_info_struct = TenhouEndInfo {
-            result: ActionResult::AbortNagashiMangan,
+            result: ActionResult::Abort(AbortReason::NagashiMangan),
             overall_delta: [-4000, -4000, 12000, -4000],
             agari: vec![],
         };
@@ -213,7 +222,7 @@ mod tests {
     #[test]
     fn ron_2_example() {
         let end_info_struct = TenhouEndInfo {
-            result: ActionResult::RonAgari,
+            result: ActionResult::Agari(AgariKind::Ron),
             overall_delta: [13000, 0, 2000, -14000],
             agari: vec![
                 TenhouAgariResult {

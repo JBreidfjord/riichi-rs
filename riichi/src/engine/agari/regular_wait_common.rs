@@ -72,17 +72,17 @@ fn calc_extra_fu(
         } else { 0 };
 
     // known waiting kind
-    let wait_fu = if wait.is_true_ryanmen() { 0 } else { 2 };
+    let wait_fu =
+        if wait.is_true_ryanmen() || wait.waiting_kind == WaitingKind::Shanpon { 0 } else { 2 };
 
     // pair of yakuhai (dragons + {self,prevalent} winds)
     let yakuhai_pair_fu = if let Some(pair) = wait.pair_or_tanki() {
         if pair.is_dragon() {
             2
         } else if let Some(wind) = pair.wind() {
-            if wind == round_id.prevailing_wind() ||
-                wind == round_id.self_wind_for_player(winner) {
-                2  // TODO(summivox): rules (double wind double fu)
-            } else { 0 }
+            // TODO(summivox): rules (double wind pair fu)
+            2 * ((wind == round_id.prevailing_wind()) as u8 +
+                 (wind == round_id.self_wind_for_player(winner)) as u8)
         } else { 0 }
     } else { 0 };
 
