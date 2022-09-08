@@ -1,8 +1,10 @@
 use itertools::Itertools;
-use crate::analysis::RegularWait;
 
-use crate::common::*;
-use crate::model::*;
+use crate::{
+    analysis::RegularWait,
+    common::*,
+    model::*,
+};
 
 pub fn terminal_kinds(h: &TileSet37) -> u8 {
     pure_terminal_kinds(h) + honor_kinds(h)
@@ -48,7 +50,6 @@ pub fn s_count(h: &TileSet37) -> u8 {
 }
 /// Alias of `honor_count`.
 pub fn z_count(h: &TileSet37) -> u8 { honor_count(h) }
-
 
 /// Returns if this discard immediately after calling Chii/Pon constitutes a swap call (喰い替え),
 /// i.e. the discarded tile can form the same group as the meld. This is usually forbidden.
@@ -212,4 +213,64 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
         }
     }
     delta
+}
+
+/// All tiles at win condition = closed hand + the winning tile + all tiles in melds .
+/// A fully closed hand win will be 14 tiles.
+/// Chii/Pon will not change this number, while each Kan introduces 1 more tile.
+/// At the extreme, 4 Kan's will result in 18 tiles (4x4 for each Kan + 2 for the pair). 
+pub fn get_all_tiles(closed_hand: &TileSet37, winning_tile: Tile, melds: &[Meld]) -> TileSet37 {
+    let mut all_tiles = closed_hand.clone();
+    all_tiles[winning_tile] += 1;
+    for meld in melds {
+        match meld {
+            Meld::Chii(chii) => {
+                for own in chii.own { all_tiles[own] += 1 }
+                all_tiles[chii.called] += 1;
+            }
+            Meld::Pon(pon) => {
+                for own in pon.own { all_tiles[own] += 1 }
+                all_tiles[pon.called] += 1;
+            }
+            Meld::Kakan(kakan) => {
+                for own in kakan.pon.own { all_tiles[own] += 1 }
+                all_tiles[kakan.pon.called] += 1;
+                all_tiles[kakan.added] += 1;
+            }
+            Meld::Daiminkan(daiminkan) => {
+                for own in daiminkan.own { all_tiles[own] += 1 }
+                all_tiles[daiminkan.called] += 1;
+            }
+            Meld::Ankan(ankan) => {
+                for own in ankan.own { all_tiles[own] += 1; }
+            }
+        }
+    }
+    all_tiles
+}
+
+pub fn count_doras(
+    all_tiles: &TileSet37,
+    num_dora_indicators: u8,
+    wall: &Wall,
+    is_riichi: bool,
+) -> DoraHits {
+    let n = num_dora_indicators as usize;
+    DoraHits {
+        dora:
+        (&wall::dora_indicators(wall)[0..n])
+            .iter()
+            .map(|t| all_tiles[t.indicated_dora()])
+            .sum(),
+
+        ura_dora:
+        if is_riichi {
+            (&wall::ura_dora_indicators(wall)[0..n])
+                .iter()
+                .map(|t| all_tiles[t.indicated_dora()])
+                .sum()
+        } else { 0 },
+
+        aka_dora: all_tiles[34] + all_tiles[35] + all_tiles[36],
+    }
 }

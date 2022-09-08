@@ -6,7 +6,6 @@ use crate::{
 };
 use super::{
     ActionResult,
-    AgariCandidate,
     AgariResult,
     PartiallyObservable,
 };

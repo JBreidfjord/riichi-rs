@@ -16,27 +16,19 @@ pub struct AgariResult {
     /// If none applies, this should be set to `winner`.
     pub liable_player: Player,
 
-    pub points_delta_before_pot: [GamePoints; 4],
+    /// The net effect on each player's points due to this win.
+    ///
+    /// This includes the pot collected by the winner / one of the multi-ron winners, and the bonus
+    /// points from Honba.
+    pub points_delta: [GamePoints; 4],
 
-    /// Actual pot collected by the winner.
-    /// Note that in a multi-ron scenario, only one player will get the pot.
-    /// During (ron) declaration, it's unknown who will collect the pot. In this case, we assume 0
-    /// pot collected, and only backfill this field during (multi-ron) resolution.
-    /// TODO(summivox): rules (atama-hane)
-    pub pot_gained: GamePoints,
-
-    pub hand: TileSet37,
-    pub melds: Vec<Meld>,
-    pub winning_tile: Tile,
-
-    pub best_candidate: AgariCandidate,
+    /// Details of the win (the highest-point interpretation).
+    pub details: AgariCandidate,
 }
 
 impl AgariResult {
-    pub fn points_delta_after_pot(&self) -> [GamePoints; 4] {
-        let mut delta = self.points_delta_before_pot;
-        delta[self.winner.to_usize()] += self.pot_gained;
-        delta
+    pub fn kind(&self) -> AgariKind {
+        if self.winner == self.contributor { AgariKind::Tsumo } else { AgariKind::Ron }
     }
 }
 

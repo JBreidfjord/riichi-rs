@@ -1,10 +1,15 @@
 use itertools::Itertools;
 
-use crate::common::*;
-use crate::model::*;
-use super::EngineCache;
-use super::utils::*;
-use super::{RIICHI_POT};
+use crate::{
+    common::*,
+    engine::distribute_points,
+    model::*
+};
+use super::{
+    utils::*,
+    EngineCache,
+    RIICHI_POT
+};
 
 /// Process normal end-of-turn flow (no abort, no win).
 /// Each change to the state is processed in chronological order, gradually morphing the current
@@ -170,16 +175,106 @@ pub(crate) fn next_normal(
     }
 }
 
-pub(crate) fn next_agari(action_result: ActionResult) -> RoundEnd {
-    // TODO(summivox): agari
+pub(crate) fn next_agari(
+    begin: &RoundBegin,
+    state: &State,
+    reactions: &[Option<Reaction>; 4],
+    action_result: ActionResult,
+    cache: &EngineCache,
+) -> RoundEnd {
+    let mut agari_result: [Option<AgariResult>; 4] = [None, None, None, None];
+    let mut delta = [0; 4];
+
+    match action_result {
+        ActionResult::TsumoAgari => {
+            let winner = state.action_player;
+            let agari_result_one =
+                finalize_agari(begin, state, cache, true, winner, winner);
+            delta = agari_result_one.points_delta;
+            agari_result[winner.to_usize()] = Some(agari_result_one);
+        }
+
+        ActionResult::RonAgari => {
+            // TODO(summivox): rules (atama-hane)
+            let contributor = state.action_player;
+            let mut take_pot = true;
+            for winner in other_players_after(contributor) {
+                if let Some(Reaction::RonAgari) = reactions[winner.to_usize()] {
+                    let agari_result_one =
+                        finalize_agari(begin, state, cache, take_pot, winner, contributor);
+                    for i in 0..4 { delta[i] += agari_result_one.points_delta[i]; }
+                    agari_result[winner.to_usize()] = Some(agari_result_one);
+                    take_pot = false;
+                }
+            }
+        }
+
+        _ => panic!()
+    }
+
+    let mut points = begin.points;
+    for i in 0..4 { points[i] += delta[i]; }
+    let renchan = agari_result[begin.round_id.button().to_usize()].is_some();
+
+    // TODO(summivox): entire game termination (for now assume game will keep going on)
+    let next_round_id = if renchan {
+        Some(begin.round_id.next_honba(true))
+    } else {
+        Some(begin.round_id.next_kyoku())
+    };
+
     RoundEnd {
         round_result: action_result,
         pot: 0,
-        points: [0; 4],
-        points_delta: [0; 4],
-        renchan: false,
-        next_round_id: None,
-        agari_result: Default::default(),
+        points,
+        points_delta: delta,
+        renchan,
+        next_round_id,
+        agari_result,
+    }
+}
+
+fn finalize_agari(
+    begin: &RoundBegin,
+    state: &State,
+    cache: &EngineCache,
+    take_pot: bool,
+    winner: Player,
+    contributor: Player,
+) -> AgariResult {
+    let winner_i = winner.to_usize();
+    let all_tiles = get_all_tiles(
+        &state.closed_hands[winner_i],
+        state.draw.unwrap(),
+        &state.melds[winner_i],
+    );
+    let dora_hits = count_doras(
+        &all_tiles,
+        state.num_dora_indicators,
+        &begin.wall,
+        state.riichi[winner_i].is_active,
+    );
+    let candidates = &cache.win[winner.to_usize()];
+    let mut best_candidate = candidates.iter().max_by_key(|candidate| {
+        (Scoring { dora_hits, ..candidate.scoring }).basic_points()
+    }).unwrap().clone();
+    best_candidate.scoring.dora_hits = dora_hits;
+    let mut delta = distribute_points(
+        &begin.rules,
+        begin.round_id,
+        winner,
+        winner,
+        best_candidate.scoring.basic_points(),
+    );
+    if take_pot {
+        delta[winner_i] += begin.pot + RIICHI_POT * num_active_riichi(state) as GamePoints;
+    }
+    AgariResult {
+        winner,
+        contributor,
+        liable_player: winner,
+        points_delta: delta,
+        details: best_candidate,
     }
 }
 

@@ -70,7 +70,7 @@ impl Meld {
 
     pub fn dir(&self) -> Option<Player> {
         match self {
-            Self::Chii(_) => Some(Player::new(3)),
+            Self::Chii(_) => Some(P3),
             Self::Pon(pon) => Some(pon.dir),
             Self::Daiminkan(daiminkan) => Some(daiminkan.dir),
             Self::Kakan(kakan) => Some(kakan.pon.dir),
@@ -139,7 +139,7 @@ mod test {
             "5p".parse().unwrap(),
             "0p".parse().unwrap(),
             "0p".parse().unwrap(),
-            Player::new(2)).unwrap();
+            P2).unwrap();
         let meld = Meld::Pon(pon);
         assert_eq!(Meld::from_packed(0x258D), Some(meld));
         assert_eq!(meld.packed(), 0x258D);

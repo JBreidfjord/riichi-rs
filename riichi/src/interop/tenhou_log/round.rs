@@ -62,7 +62,6 @@ impl RoundIdAndPot {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use assert_json_diff::assert_json_eq;
     use itertools::Itertools;
     use crate::Discard;
@@ -98,6 +97,8 @@ mod tests {
             is_tsumokiri: false,
         })
     }
+
+    #[allow(unused)]
     fn orr() -> TenhouOutgoing {
         TenhouOutgoing::Discard(Discard{
             tile: Default::default(),
@@ -160,9 +161,9 @@ mod tests {
                 overall_delta: [-500, 4700, -500, 700],
                 agari: vec![
                     TenhouAgariResult {
-                        winner: Player::new(1),
-                        contributor: Player::new(1),
-                        liable_player: Player::new(1),
+                        winner: P1,
+                        contributor: P1,
+                        liable_player: P1,
                         points_delta_after_pot: [-500, 4700, -500, -700],
                         scoring: TenhouScoring {
                             kind: TenhouScoringKind::HanFu { han: 1, fu: 30 },

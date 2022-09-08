@@ -161,22 +161,22 @@ mod tests {
             ).unwrap())),
 
             ("1212p12", Meld::Pon(Pon::from_tiles_dir(
-                t("2m"), t("2m"), t("2m"),Player::new(1)
+                t("2m"), t("2m"), t("2m"), P1
             ).unwrap())),
             ("12p1212", Meld::Pon(Pon::from_tiles_dir(
-                t("2m"), t("2m"), t("2m"),Player::new(2)
+                t("2m"), t("2m"), t("2m"), P2
             ).unwrap())),
             ("p121212", Meld::Pon(Pon::from_tiles_dir(
-                t("2m"), t("2m"), t("2m"),Player::new(3)
+                t("2m"), t("2m"), t("2m"), P3
             ).unwrap())),
             ("p151551", Meld::Pon(Pon::from_tiles_dir(
-                t("0m"), t("5m"), t("5m"),Player::new(3)
+                t("0m"), t("5m"), t("5m"), P3
             ).unwrap())),
             ("p511515", Meld::Pon(Pon::from_tiles_dir(
-                t("5m"), t("5m"), t("0m"),Player::new(3)
+                t("5m"), t("5m"), t("0m"), P3
             ).unwrap())),
             ("25p5225", Meld::Pon(Pon::from_tiles_dir(
-                t("5p"), t("5p"), t("0p"),Player::new(2)
+                t("5p"), t("5p"), t("0p"), P2
             ).unwrap())),
 
             ("242424a24", Meld::Ankan(Ankan::from_tiles(

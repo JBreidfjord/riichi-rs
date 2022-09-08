@@ -13,25 +13,30 @@ pub type Wind = u2;
 /// This is forced to 2-bit modulo arithmetic.
 pub type Player = u2;
 
+pub const P0: Player = Player::new(0);
+pub const P1: Player = Player::new(1);
+pub const P2: Player = Player::new(2);
+pub const P3: Player = Player::new(3);
+
 pub fn all_players() -> [Player; 4] {
-    [Player::new(0), Player::new(1), Player::new(2), Player::new(3)]
+    [P0, P1, P2, P3]
 }
 pub fn all_players_from(player: Player) -> [Player; 4] {
     [
-        Player::new(0).wrapping_add(player),
-        Player::new(1).wrapping_add(player),
-        Player::new(2).wrapping_add(player),
-        Player::new(3).wrapping_add(player),
+        P0.wrapping_add(player),
+        P1.wrapping_add(player),
+        P2.wrapping_add(player),
+        P3.wrapping_add(player),
     ]
 }
-pub fn player_succ(player: Player) -> Player { Player::new(1).wrapping_add(player) }
-pub fn player_oppo(player: Player) -> Player { Player::new(2).wrapping_add(player) }
-pub fn player_pred(player: Player) -> Player { Player::new(3).wrapping_add(player) }
+pub fn player_succ(player: Player) -> Player { P1.wrapping_add(player) }
+pub fn player_oppo(player: Player) -> Player { P2.wrapping_add(player) }
+pub fn player_pred(player: Player) -> Player { P3.wrapping_add(player) }
 pub fn other_players_after(player: Player) -> [Player; 3] {
     [
-        Player::new(1).wrapping_add(player),
-        Player::new(2).wrapping_add(player),
-        Player::new(3).wrapping_add(player),
+        P1.wrapping_add(player),
+        P2.wrapping_add(player),
+        P3.wrapping_add(player),
     ]
 }
 

@@ -44,8 +44,13 @@
 //! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
 //! - <https://riichi.wiki/Yama>
 
-use crate::{Player, Tile, U2Traits};
-use crate::common::tile_set::{TileSet34, TileSet37};
+use crate::{
+    common::{
+        tile::*,
+        tile_set::*,
+        typedefs::*,
+    },
+};
 
 /// The wall of tiles.
 /// See [module-level docs](self).
@@ -152,7 +157,7 @@ mod tests {
     #[test]
     fn sorted_wall_deals_correctly() {
         let wall = make_sorted_wall([1, 1, 1]);
-        assert_eq!(deal(&wall, Player::new(1)), [
+        assert_eq!(deal(&wall, P1), [
             TileSet37::new([
                 0, 0, 0, 4, 0, 0, 0, 4, 0,
                 0, 0, 4, 1, 0, 0, 0, 0, 0,

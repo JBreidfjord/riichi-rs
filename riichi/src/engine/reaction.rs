@@ -1,9 +1,15 @@
 use thiserror::Error;
 
-use crate::common::*;
-use crate::model::*;
-use super::EngineCache;
-use super::utils::*;
+use crate::{
+    common::*,
+    model::*,
+};
+use crate::analysis::IrregularWait;
+use super::{
+    agari::*,
+    EngineCache,
+    utils::*,
+};
 
 #[derive(Error, Debug)]
 pub enum ReactionError {
@@ -39,9 +45,16 @@ pub enum ReactionError {
 
     #[error("No Ron when you are furiten: {0:?}")]
     Furiten(FuritenFlags),
+
+    #[error("Cannot Ron (not waiting or no Yaku).")]
+    CannotRonAgari,
+
+    #[error("Cannot Ron over Ankan (kokushi excepted).")]
+    CannotRonAgariOverAnkan,
 }
 
 pub(crate) fn check_reaction(
+    begin: &RoundBegin,
     state: &State,
     action: Action,
     reactor: Player,
@@ -56,7 +69,6 @@ pub(crate) fn check_reaction(
     let reactor_i = reactor.to_usize();
     let hand = &state.closed_hands[reactor_i];
 
-    // TODO(summivox): cannot chi/pon/daiminkan over houtei
     match reaction {
         Reaction::Chii(own0, own1) => {
             if state.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
@@ -117,10 +129,24 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::RonAgari => {
-            // TODO(summivox): all kinds of fun stuff here:
-            // furiten(done), agari, chankan, kokushi-ankan, ...
-            // Also the "agari summary" should be cached.
             if state.furiten[reactor_i].any() { return Err(Furiten(state.furiten[reactor_i])); }
+            if matches!(action, Action::Ankan(_)) &&
+                !matches!(cache.wait[reactor_i].irregular,
+                     Some(IrregularWait::ThirteenOrphans(_)) |
+                     Some(IrregularWait::ThirteenOrphansAll)) {
+                return Err(CannotRonAgariOverAnkan);
+            }
+            let agari_input = AgariInput::new(
+                begin.round_id,
+                state,
+                &cache.wait[reactor_i],
+                action,
+                reactor,
+                actor,
+            );
+            let candidates = agari_candidates(&begin.rules, &agari_input);
+            if candidates.is_empty() { return Err(CannotRonAgari); }
+            cache.win[reactor_i] = candidates;
         }
     }
     Ok(())

@@ -2,6 +2,7 @@ use itertools::Itertools;
 use thiserror::Error;
 
 use crate::common::*;
+use crate::engine::agari::{agari_candidates, AgariInput};
 use crate::model::*;
 use super::EngineCache;
 use super::{RIICHI_POT};
@@ -51,8 +52,11 @@ pub enum ActionError {
     #[error("Cannot abort after the first go-around.")]
     NotInitAbortable,
 
-    #[error("Can only declare tsumo-agari (win by self-draw) on the drawn tile.")]
+    #[error("Can only declare Tsumo-Agari (win by self-draw) on the drawn tile.")]
     MustDeclareTsumoAgariOnDraw,
+
+    #[error("Cannot declare Tsumo-Agari (not waiting or no yaku).")]
+    CannotTsumoAgari,
 }
 
 pub(crate) fn check_action(
@@ -159,7 +163,17 @@ pub(crate) fn check_action(
 
         Action::TsumoAgari(tile) => {
             if state.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
-            // TODO(summivox): agari
+            let agari_input = AgariInput::new(
+                begin.round_id,
+                &state,
+                &cache.wait[actor_i],
+                action,
+                actor,
+                actor,
+            );
+            let candidates = agari_candidates(&begin.rules, &agari_input);
+            if candidates.is_empty() { return Err(CannotTsumoAgari); }
+            cache.win[actor_i] = candidates;
         }
         Action::AbortNineKinds => {
             if !is_first_chance(state) { return Err(NotInitAbortable); }

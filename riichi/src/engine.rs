@@ -4,6 +4,7 @@ mod action;
 mod agari;
 mod step;
 mod reaction;
+mod scoring;
 pub mod utils;
 mod wait_calc;
 
@@ -17,14 +18,14 @@ use crate::{
 };
 use self::{
     reaction::{check_reaction, resolve_reaction},
-    agari::*,
     action::check_action,
     step::{next_normal, next_agari, next_abort}
 };
 pub use self::{
     action::ActionError,
     reaction::ReactionError,
-    wait_calc::WaitingInfo
+    scoring::*,
+    wait_calc::WaitingInfo,
 };
 
 // TODO(summivox): rules (riichi sticks)
@@ -49,8 +50,9 @@ pub(crate) struct EngineCache {
     /// Pending meld declared by each player, either action or reaction.
     meld: [Option<Meld>; 4],
 
-    /// Pending win declared by each player, either action (tsumo) or reaction (ron).
-    win: [Option<AgariCandidate>; 4],
+    /// Pending wins declared by each player, either action (tsumo) or reaction (ron).
+    /// Note that _all_ win candidates are cached; optimization for points is deferred.
+    win: [Vec<AgariCandidate>; 4],
 
     /// Full (3N + 1) hand waiting decomposition cache for each player.
     /// - Initialized when jumped to a new state.
@@ -89,6 +91,7 @@ impl Default for EngineCache {
 
 impl Engine {
     pub fn state(&self) -> &State { &self.state }
+    pub fn end(&self) -> &Option<RoundEnd> { &self.end }
 
     pub fn begin_round(&mut self, begin: RoundBegin) -> &mut Self {
         self.begin = begin;
@@ -127,11 +130,14 @@ impl Engine {
 
     pub fn register_reaction(&mut self, reactor: Player, reaction: Reaction)
         -> Result<&mut Self, ReactionError> {
-        assert!(self.action.is_some());
-
         self.reactions[reactor.to_usize()] = None;
         check_reaction(
-            &self.state, self.action.unwrap(), reactor, reaction, &mut self.cache)?;
+            &self.begin,
+            &self.state,
+            self.action.unwrap(),
+            reactor,
+            reaction,
+            &mut self.cache)?;
         self.reactions[reactor.to_usize()] = Some(reaction);
         Ok(self)
     }
@@ -140,9 +146,11 @@ impl Engine {
         let action = self.action.unwrap();
         let action_result = resolve_reaction(&self.state, action, &self.reactions);
         if action_result.is_abort() {
-            self.end = Some(next_abort(&self.begin, &self.state, action_result, &self.cache));
+            self.end = Some(
+                next_abort(&self.begin, &self.state, action_result, &self.cache));
         } else if action_result.is_agari() {
-            self.end = Some(next_agari(action_result));
+            self.end = Some(
+                next_agari(&self.begin, &self.state, &self.reactions, action_result, &self.cache));
         } else {
             next_normal(
                 &self.begin, &mut self.state, action, &self.reactions, action_result, &self.cache);

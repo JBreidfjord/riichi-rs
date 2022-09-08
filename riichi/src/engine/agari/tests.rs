@@ -95,7 +95,7 @@ fn mentsumo_negative_not_tsumo() {
         [],
     );
     let agari_input = AgariInput {
-        contributor: Player::new(1),
+        contributor: P1,
         winning_tile: t!("3s"),
         ..AgariInput::from_hand(&hand)
     };
@@ -114,7 +114,7 @@ fn riichi_simple_example() {
         [],
     );
     let agari_input = AgariInput {
-        contributor: Player::new(1),
+        contributor: P1,
         winning_tile: t!("9p"),
         riichi_flags: RiichiFlags { is_active: true, is_double: false, is_ippatsu: true },
         ..AgariInput::from_hand(&hand)
@@ -136,7 +136,7 @@ fn pinfu_simple_example() {
         [],
     );
     let agari_input = AgariInput {
-        contributor: Player::new(1),
+        contributor: P1,
         winning_tile: t!("4s"),
         ..AgariInput::from_hand(&hand)
     };
@@ -156,7 +156,7 @@ fn pinfu_negative_penchan() {
         [],
     );
     let agari_input = AgariInput {
-        contributor: Player::new(1),
+        contributor: P1,
         winning_tile: t!("3s"),
         ..AgariInput::from_hand(&hand)
     };
@@ -175,7 +175,7 @@ fn pinfu_negative_prevalent_wind_pair() {
         [],
     );
     let agari_input = AgariInput {
-        contributor: Player::new(1),
+        contributor: P1,
         winning_tile: t!("1s"),
         ..AgariInput::from_hand(&hand)
     };
@@ -194,8 +194,8 @@ fn pinfu_negative_self_wind_pair() {
         [],
     );
     let agari_input = AgariInput {
-        winner: Player::new(3),
-        contributor: Player::new(1),
+        winner: P3,
+        contributor: P1,
         winning_tile: t!("1s"),
         ..AgariInput::from_hand(&hand)
     };
@@ -325,7 +325,7 @@ fn haitei_negative_rinshan() {
         tiles_from_str("456678m99p77z"),
         [
             Meld::Daiminkan(Daiminkan::from_tiles_dir(
-                [t!("1m"), t!("1m"), t!("1m")], t!("1m"), Player::new(1),
+                [t!("1m"), t!("1m"), t!("1m")], t!("1m"), P1,
             ).unwrap()),
         ],
     );
@@ -351,7 +351,7 @@ fn houtei_example() {
         [],
     );
     let agari_input = AgariInput {
-        contributor: Player::new(1),
+        contributor: P1,
         winning_tile: t!("9p"),
         is_last_draw: true,
         ..AgariInput::from_hand(&hand)
@@ -547,8 +547,8 @@ fn jun_chuuren_example() {
         [],
     );
     let agari_input = AgariInput {
-        winner: Player::new(0),
-        contributor: Player::new(1),
+        winner: P0,
+        contributor: P1,
         winning_tile: t!("9m"),
         action_is_kan: true,
         ..AgariInput::from_hand(&hand)

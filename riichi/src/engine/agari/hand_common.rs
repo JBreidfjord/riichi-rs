@@ -1,6 +1,13 @@
 
-use crate::{common::*, model::*, Rules};
-use super::{AgariKind, AgariInput};
+use crate::{
+    common::*,
+    engine::utils::get_all_tiles,
+    Rules,
+};
+use super::{
+    AgariKind,
+    AgariInput,
+};
 
 /// A bundle of intermediate results during the Agari computation.
 #[derive(Clone, Debug, Default)]
@@ -25,62 +32,5 @@ pub fn calc_hand_common(_rules: &Rules, input: &AgariInput) -> HandCommon {
         all_tiles,
         all_tiles_packed,
         is_closed,
-    }
-}
-
-fn get_all_tiles(closed_hand: &TileSet37, winning_tile: Tile, melds: &[Meld]) -> TileSet37 {
-    let mut all_tiles = closed_hand.clone();
-    all_tiles[winning_tile] += 1;
-    for meld in melds {
-        match meld {
-            Meld::Chii(chii) => {
-                for own in chii.own { all_tiles[own] += 1 }
-                all_tiles[chii.called] += 1;
-            }
-            Meld::Pon(pon) => {
-                for own in pon.own { all_tiles[own] += 1 }
-                all_tiles[pon.called] += 1;
-            }
-            Meld::Kakan(kakan) => {
-                for own in kakan.pon.own { all_tiles[own] += 1 }
-                all_tiles[kakan.pon.called] += 1;
-                all_tiles[kakan.added] += 1;
-            }
-            Meld::Daiminkan(daiminkan) => {
-                for own in daiminkan.own { all_tiles[own] += 1 }
-                all_tiles[daiminkan.called] += 1;
-            }
-            Meld::Ankan(ankan) => {
-                for own in ankan.own { all_tiles[own] += 1; }
-            }
-        }
-    }
-    all_tiles
-}
-
-pub fn count_doras(
-    _rules: &Rules,
-    all_hand: &TileSet37,
-    num_dora_indicators: u8,
-    wall: &Wall,
-    is_riichi: bool,
-) -> DoraHits {
-    let n = num_dora_indicators as usize;
-    DoraHits {
-        dora:
-        (&wall::dora_indicators(wall)[0..n])
-            .iter()
-            .map(|t| all_hand[t.indicated_dora()])
-            .sum(),
-
-        ura_dora:
-        if is_riichi {
-            (&wall::ura_dora_indicators(wall)[0..n])
-                .iter()
-                .map(|t| all_hand[t.indicated_dora()])
-                .sum()
-        } else { 0 },
-
-        aka_dora: all_hand[34] + all_hand[35] + all_hand[36],
     }
 }

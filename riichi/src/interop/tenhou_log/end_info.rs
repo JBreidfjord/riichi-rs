@@ -217,9 +217,9 @@ mod tests {
             overall_delta: [13000, 0, 2000, -14000],
             agari: vec![
                 TenhouAgariResult {
-                    winner: Player::new(0),
-                    contributor: Player::new(3),
-                    liable_player: Player::new(0),
+                    winner: P0,
+                    contributor: P3,
+                    liable_player: P0,
                     points_delta_after_pot: [13000, 0, 0, -12000],
                     scoring: TenhouScoring {
                         kind: TenhouScoringKind::Haneman,
@@ -232,9 +232,9 @@ mod tests {
                     ],
                 },
                 TenhouAgariResult {
-                    winner: Player::new(2),
-                    contributor: Player::new(3),
-                    liable_player: Player::new(2),
+                    winner: P2,
+                    contributor: P3,
+                    liable_player: P2,
                     points_delta_after_pot: [0, 0, 2000, -2000],
                     scoring: TenhouScoring {
                         kind: TenhouScoringKind::HanFu { han: 2, fu: 30 },
