@@ -5,7 +5,11 @@ pub mod model;
 pub mod interop;
 pub mod rules;
 
-pub use common::*;
-pub use model::*;
-pub use engine::Engine;
-pub use rules::Rules;
+pub mod prelude {
+    pub use super::{
+        common::*,
+        model::*,
+        engine::Engine,
+        rules::Rules,
+    };
+}

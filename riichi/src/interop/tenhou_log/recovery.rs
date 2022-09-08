@@ -14,7 +14,7 @@ use super::{
 #[derive(Clone, Debug)]
 pub struct RecoveredRound {
     pub begin: RoundBegin,
-    pub known_wall: [Option<Tile>; 136],
+    pub known_wall: PartialWall,
     pub action_reactions: Vec<ActionReaction>,
     pub final_result: ActionResult,
 }
@@ -168,7 +168,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
 // Pretty printer for debugging only
 impl Display for RecoveredRound {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "kyoku={}, honba={}, pot={}, points={:?} result={:?}",
+        writeln!(f, "kyoku={}, honba={}, pot={}, points={:?}, result={:?}",
                  self.begin.round_id.kyoku,
                  self.begin.round_id.honba,
                  self.begin.pot,

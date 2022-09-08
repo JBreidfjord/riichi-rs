@@ -15,7 +15,7 @@ use derive_more::{
     BitAndAssign, BitOrAssign, BitXorAssign,
 };
 
-use crate::Tile;
+use super::Tile;
 
 /// Histogram for all 37 kinds of tiles (including red).
 /// Can be directly indexed with [`Tile`].
@@ -36,7 +36,7 @@ impl IndexMut<Tile> for TileSet37 {
 }
 
 impl Default for TileSet37 {
-    fn default() -> Self { TileSet37([0u8; 37]) }
+    fn default() -> Self { TileSet37([0; 37]) }
 }
 
 impl FromIterator<Tile> for TileSet37 {
@@ -50,6 +50,18 @@ impl FromIterator<Tile> for TileSet37 {
 }
 
 impl TileSet37 {
+    pub const fn empty_set() -> Self { TileSet37([0; 37]) }
+    pub const fn complete_set(num_reds: [u8; 3]) -> Self {
+        let mut a = [4; 37];
+        a[34] = num_reds[0];
+        a[35] = num_reds[1];
+        a[36] = num_reds[2];
+        a[4] = 4 - num_reds[0];
+        a[13] = 4 - num_reds[1];
+        a[22] = 4 - num_reds[2];
+        TileSet37(a)
+    }
+
     /// Compress the histogram so that each element takes 3 bits (valid range `0..=4`).
     /// This results in 4 x 27-bit integers, one for each suit.
     ///
@@ -67,15 +79,11 @@ impl TileSet37 {
         packed
     }
 
-    pub fn to_sorted_vec(&self) -> Vec<Tile> {
-        let mut tiles: Vec<Tile> = vec![];
-        tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
-        for (encoding, count) in self.0.into_iter().enumerate() {
-            for _ in 0..count {
-                tiles.push(Tile::from_encoding(encoding as u8).unwrap());
-            }
-        }
-        tiles
+    pub fn iter_tiles(&self) -> impl Iterator<Item=Tile> {
+        self.0.into_iter().enumerate().flat_map(|(encoding, count)|
+            itertools::repeat_n(
+                Tile::from_encoding(encoding as u8).unwrap(),
+                count as usize))
     }
 }
 
@@ -123,6 +131,9 @@ impl FromIterator<Tile> for TileSet34 {
 }
 
 impl TileSet34 {
+    pub const fn empty_set() -> Self { TileSet34([0; 34]) }
+    pub const fn complete_set() -> Self { TileSet34([4; 34]) }
+
     pub fn from_packed(packed: [u32; 4]) -> Self {
         let mut ts34 = Self::default();
         let mut i = 0;
@@ -157,15 +168,11 @@ impl TileSet34 {
         packed
     }
 
-    pub fn to_sorted_vec(&self) -> Vec<Tile> {
-        let mut tiles: Vec<Tile> = vec![];
-        tiles.reserve_exact(self.0.into_iter().sum::<u8>() as usize);
-        for (encoding, count) in self.0.into_iter().enumerate() {
-            for _ in 0..count {
-                tiles.push(Tile::from_encoding(encoding as u8).unwrap());
-            }
-        }
-        tiles
+    pub fn iter_tiles(&self) -> impl Iterator<Item=Tile> {
+        self.0.into_iter().enumerate().flat_map(|(encoding, count)|
+            itertools::repeat_n(
+                Tile::from_encoding(encoding as u8).unwrap(),
+                count as usize))
     }
 }
 
@@ -236,7 +243,7 @@ impl From<TileSet34> for TileMask34 {
 mod tests {
     use super::*;
     use std::str::FromStr;
-    use crate::tiles_from_str;
+    use crate::common::tiles_from_str;
 
     #[test]
     fn histogram_can_be_indexed_with_tile() {

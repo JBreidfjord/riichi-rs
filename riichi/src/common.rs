@@ -14,4 +14,4 @@ pub use tile::*;
 pub use tile_set::*;
 pub use typedefs::*;
 pub use utils::*;
-pub use wall::Wall;
+pub use wall::{PartialWall, Wall};

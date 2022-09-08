@@ -44,6 +44,7 @@
 //! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
 //! - <https://riichi.wiki/Yama>
 
+use itertools::Itertools;
 use crate::{
     common::{
         tile::*,
@@ -55,6 +56,9 @@ use crate::{
 /// The wall of tiles.
 /// See [module-level docs](self).
 pub type Wall = [Tile; 136];
+
+/// Wall with some tiles unknown.
+pub type PartialWall = [Option<Tile>; 136];
 
 /// Constructor for an obviously invalid wall. Useful for mutating it later.
 pub const fn make_dummy_wall() -> Wall { [Tile::MIN; 136] }
@@ -136,6 +140,34 @@ pub fn kan_draw(wall: &Wall, i: usize) -> Tile {
     wall[KAN_DRAW_INDEX[i]]
 }
 
+/// Deduces the set of unknown tiles from the given partially-known wall, and the known total number
+/// of red tiles.
+/// 
+/// Panics when the partially-known wall is inconsistent with the assumed complete set of tiles. 
+pub fn get_missing_tiles_in_partial_wall(partial_wall: &PartialWall, num_reds: [u8; 3]) -> Vec<Tile> {
+    let mut missing = TileSet37::complete_set(num_reds);
+    for tile_or_hole in partial_wall {
+        if let &Some(tile) = tile_or_hole {
+            if missing[tile] == 0 {
+                panic!("More {} in the partial wall than expected.", tile)
+            }
+            missing[tile] -= 1;
+        }
+    }
+    missing.iter_tiles().collect_vec()
+}
+
+/// Combine the partially-known wall and (reordered) unknown tiles to form a fully-known wall.
+/// 
+/// Panics when there are not enough tiles in `missing_tiles` to fill the "holes" in `partial_wall`.
+/// 
+/// Does not check validity of the resulting wall.
+pub fn fill_missing_tiles_in_partial_wall(
+    partial_wall: &PartialWall, missing_tiles: impl IntoIterator<Item=Tile>) -> Wall {
+    let mut missing_iter = missing_tiles.into_iter();
+    partial_wall.map(|tile_or_hole|
+        tile_or_hole.or_else(|| missing_iter.next()).unwrap())
+}
 
 #[cfg(test)]
 mod tests {

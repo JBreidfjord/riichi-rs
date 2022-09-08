@@ -12,7 +12,7 @@ use crate::{
         WaitingInfo,
     },
     model::*,
-    Rules,
+    rules::Rules,
 };
 use super::{
     scoring::*,

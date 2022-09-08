@@ -4,7 +4,7 @@ use crate::{
     common::*,
     engine::utils::*,
     model::*,
-    Rules
+    rules::Rules
 };
 use crate::analysis::IrregularWait;
 use super::{

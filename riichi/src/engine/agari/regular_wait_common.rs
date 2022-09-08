@@ -5,7 +5,7 @@ use riichi_decomp_table::WaitingKind;
 use crate::{
     common::*,
     model::*,
-    Rules,
+    rules::Rules,
 };
 use super::{AgariKind, AgariInput, HandCommon, RegularWait};
 

@@ -149,7 +149,7 @@ pub(crate) fn next_normal(
         Action::TsumoAgari(_) | Action::AbortNineKinds => panic!()
     }
 
-    // Any kind of meld will forcefully break riichi ippatsu.
+    // Any kind of meld will forcefully break any active riichi ippatsu.
     if state.incoming_meld.is_some() {
         for player in all_players() {
             state.riichi[player.to_usize()].is_ippatsu = false;

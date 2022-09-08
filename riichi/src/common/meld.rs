@@ -151,4 +151,14 @@ mod test {
     fn null_example() {
         assert_eq!(Meld::from_packed(0), None);
     }
+
+    #[test]
+    fn sizeof() {
+        println!("Meld={} (align={}), Option<Meld>={} (align={})",
+                 std::mem::size_of::<Meld>(),
+                 std::mem::align_of::<Meld>(),
+                 std::mem::size_of::<Option<Meld>>(),
+                 std::mem::align_of::<Option<Meld>>(),
+        );
+    }
 }

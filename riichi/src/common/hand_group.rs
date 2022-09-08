@@ -7,7 +7,7 @@
 //! - <https://ja.wikipedia.org/wiki/%E9%9D%A2%E5%AD%90_(%E9%BA%BB%E9%9B%80)>
 
 use std::fmt::{Display, Formatter};
-use crate::Tile;
+use super::tile::Tile;
 
 /// A group of 3 tiles within a player's _closed_ hand, a.k.a. Mentsu 面子.
 /// Can be either:

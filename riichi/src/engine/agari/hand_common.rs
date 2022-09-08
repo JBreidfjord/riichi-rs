@@ -2,7 +2,7 @@
 use crate::{
     common::*,
     engine::utils::get_all_tiles,
-    Rules,
+    rules::Rules,
 };
 use super::{
     AgariKind,

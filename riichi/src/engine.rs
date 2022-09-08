@@ -14,7 +14,6 @@ use crate::{
     analysis::Decomposer,
     common::*,
     model::*,
-    wall::is_valid_wall
 };
 use self::{
     reaction::{check_reaction, resolve_reaction},
@@ -105,7 +104,7 @@ impl Engine {
 
     pub fn jump_to_state(&mut self, state: State) -> &mut Self {
         // sanity check: must have valid begin
-        debug_assert!(is_valid_wall(self.begin.wall));
+        debug_assert!(wall::is_valid_wall(self.begin.wall));
 
         self.state = state;
         self.action = Default::default();

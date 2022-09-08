@@ -1,12 +1,19 @@
 use std::fmt::{Display, Formatter};
 
-use crate::common::Tile;
-use crate::common::TileSet37;
-use crate::common::typedefs::*;
-use crate::common::utils::*;
-use crate::count_for_kan;
-use super::packed::{PackedMeld, PackedMeldKind, normalize_kakan};
-use super::Pon;
+use crate::{
+    common::{
+        Tile,
+        TileSet37,
+        typedefs::*,
+        utils::*
+    }
+};
+use super::{
+    packed::{PackedMeld, PackedMeldKind, normalize_kakan},
+    pon::Pon,
+    utils::*,
+};
+
 
 /// A Kan formed by existing [Pon](super::Pon) + the 1 last identical tile from closed hand
 /// (加槓 / 小明槓). This can be formed when the owner of the [Pon](super::Pon) is in action.

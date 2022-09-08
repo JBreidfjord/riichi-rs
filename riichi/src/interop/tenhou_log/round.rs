@@ -64,7 +64,7 @@ impl RoundIdAndPot {
 mod tests {
     use assert_json_diff::assert_json_eq;
     use itertools::Itertools;
-    use crate::Discard;
+    use crate::model::Discard;
     use super::*;
 
     fn t(s: &str) -> Tile { t!(s) }
