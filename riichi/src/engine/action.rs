@@ -157,7 +157,7 @@ pub(crate) fn check_action(
                     }
                     None
                 })
-                .ok_or_else(|| NoPonForKakan(added))?;
+                .ok_or(NoPonForKakan(added))?;
             if let Some(kakan) = Kakan::from_pon_hand(*pon, &hand) {
                 kakan.consume_from_hand(&mut hand);  // 3N+2 - 1 = 3N+1
                 cache.meld[actor_i] = Some(Meld::Kakan(kakan));
@@ -185,7 +185,7 @@ pub(crate) fn check_action(
 
             let agari_input = AgariInput::new(
                 begin.round_id,
-                &state,
+                state,
                 &cache.wait[actor_i],
                 action,
                 actor,

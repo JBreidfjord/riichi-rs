@@ -61,7 +61,7 @@ impl TenhouRule {
             [m, p, s]
         } else if let Some(a) = self.num_reds_each {
             [a, a, a]
-        } else if self.raw_rule_str.find("赤").is_some() {
+        } else if self.raw_rule_str.contains("赤") {
             [1, 1, 1]
         } else {
             [0, 0, 0]
@@ -69,13 +69,13 @@ impl TenhouRule {
     }
 
     pub fn allows_kuitan(&self) -> bool {
-        self.raw_rule_str.find("喰").is_some()
+        self.raw_rule_str.contains("喰")
     }
 
     pub fn num_kyokus(&self) -> Option<u8> {
-        if self.raw_rule_str.find("東").is_some() {
+        if self.raw_rule_str.contains("東") {
             Some(4)
-        } else if self.raw_rule_str.find("南").is_some() {
+        } else if self.raw_rule_str.contains("南") {
             Some(8)
         } else {
             None

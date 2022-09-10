@@ -95,6 +95,7 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
         )
     }
 
+    //noinspection ALL
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error> where A: SeqAccess<'de> {
         let result_str: String = seq.next_element()?.ok_or_else(|| Error::custom("no result str"))?;
         if result_str != AGARI_STR {
