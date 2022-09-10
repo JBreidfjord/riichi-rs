@@ -1,3 +1,4 @@
+use log::log_enabled;
 use crate::{
     analysis::IrregularWait,
     common::*,
@@ -86,24 +87,19 @@ pub(crate) fn next_normal(
             // Check Furiten status for the discarding player.
             // furiten-by-discard == some tile in the waiting set exists in the discard set
             if !state.core.furiten[actor_i].miss_permanent {
-                let discard_set = TileMask34::from_iter(
-                    state.discards[actor_i].iter().map(|discard| discard.tile));
+                let discard_set = state.discard_sets[actor_i];
                 let waiting_set = cache.wait[actor_i].waiting_set;
+                debug_assert_eq!(discard_set, TileMask34::from_iter(
+                    state.discards[actor_i].iter().map(|discard| discard.tile)));
 
                 next.furiten[actor_i].by_discard = discard_set.0 & waiting_set.0 > 0;
 
-                // TODO DEBUG
-                /*
-                if discard_set.0 & waiting_set.0 > 0 {
-                    println!("P{} discard furiten", actor_i);
-                    println!("discard:{}", discard_set);
-                    println!("waiting:{}", waiting_set);
-                    for w in cache.wait[actor_i].regular.iter() {
-                        println!("{}", w);
-                    }
-                    println!("-------");
+                if log_enabled!(log::Level::Trace) && (discard_set.0 & waiting_set.0 > 0) {
+                    log::trace!("P{} is in discard furiten.", actor_i);
+                    log::trace!("P{} discard: {}", actor_i, discard_set);
+                    log::trace!("P{} waiting: {}", actor_i, waiting_set);
+                    log::trace!("P{} waiting details: {}", actor_i, cache.wait[actor_i]);
                 }
-                 */
             }
             // Temporary miss expires after discarding.
             next.furiten[actor_i].miss_temporary = false;
@@ -200,9 +196,10 @@ pub(crate) fn next_agari(
             let winner = state.core.action_player;
             let winning_tile = state.core.draw.unwrap();
             let agari_result_one = finalize_agari(
-                begin, state, cache, agari_kind,
+                begin, state, cache,
+                winner, winner, winning_tile,
                 true, 0,
-                winner, winner, winning_tile);
+            );
             delta = agari_result_one.points_delta;
             agari_result[winner.to_usize()] = Some(agari_result_one);
         }
@@ -215,9 +212,10 @@ pub(crate) fn next_agari(
             for winner in other_players_after(contributor) {
                 if let Some(Reaction::RonAgari) = reactions[winner.to_usize()] {
                     let agari_result_one = finalize_agari(
-                        begin, state, cache, agari_kind,
+                        begin, state, cache,
+                        winner, contributor, winning_tile,
                         take_pot, extra_dora_indicator,
-                        winner, contributor, winning_tile);
+                    );
                     for i in 0..4 { delta[i] += agari_result_one.points_delta[i]; }
                     agari_result[winner.to_usize()] = Some(agari_result_one);
                     take_pot = false;
@@ -252,16 +250,14 @@ fn finalize_agari(
     begin: &RoundBegin,
     state: &State,
     cache: &EngineCache,
-    agari_kind: AgariKind,
-    take_pot: bool,
-    extra_dora_indicator: u8,
     winner: Player,
     contributor: Player,
     winning_tile: Tile,
+    take_pot: bool,
+    extra_dora_indicator: u8,
 ) -> AgariResult {
     let winner_i = winner.to_usize();
     let all_tiles = get_all_tiles(
-        agari_kind,
         &state.closed_hands[winner_i],
         winning_tile,
         &state.melds[winner_i],

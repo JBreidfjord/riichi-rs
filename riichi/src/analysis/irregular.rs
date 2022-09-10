@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::iter::zip;
 use crate::common::*;
 
@@ -20,6 +21,17 @@ impl IrregularWait {
                 => TileMask34(1u64 << (t.encoding() as u64)),
             IrregularWait::ThirteenOrphansAll
                 => TileMask34(0b1111111_100000001_100000001_100000001),
+        }
+    }
+}
+
+// This is necessary to show the waiting tile nicely.
+impl Display for IrregularWait {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IrregularWait::SevenPairs(t) => write!(f, "SevenPairs({})", t),
+            IrregularWait::ThirteenOrphans(t) => write!(f, "ThirteenOrphans({})", t),
+            IrregularWait::ThirteenOrphansAll => write!(f, "ThirteenOrphansAll"),
         }
     }
 }

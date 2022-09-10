@@ -20,7 +20,7 @@ pub enum ReactionError {
     TerminalAction,
 
     #[error("Cannot declare an open meld under Riichi.")]
-    MeldUnderRiichi,
+    OpenMeldUnderRiichi,
 
     #[error("Cannot declare an open meld on the last draw")]
     MeldOnLastDraw,
@@ -71,13 +71,14 @@ pub(crate) fn check_reaction(
 
     match reaction {
         Reaction::Chii(own0, own1) => {
-            if state.core.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if player_succ(actor) != reactor {
                 return Err(CanOnlyChiiPrevPlayer);
             }
-            if let Action::Discard (discard) = action {
+            if let Action::Discard(discard) = action {
                 let called = discard.tile;
+                // TODO(summivox): rust (if-let-chain)
                 if let Some(chii) = Chii::from_tiles(own0, own1, called) {
                     if chii.is_in_hand(hand) {
                         cache.meld[reactor_i] = Some(Meld::Chii(chii));
@@ -93,11 +94,12 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::Pon(own0, own1) => {
-            if state.core.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
                 let dir = actor.wrapping_sub(reactor);
+                // TODO(summivox): rust (if-let-chain)
                 if let Some(pon) = Pon::from_tiles_dir(own0, own1, called, dir) {
                     if pon.is_in_hand(hand) {
                         cache.meld[reactor_i] = Some(Meld::Pon(pon));
@@ -113,7 +115,7 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::Daiminkan => {
-            if state.core.riichi[reactor_i].is_active { return Err(MeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
@@ -129,7 +131,9 @@ pub(crate) fn check_reaction(
         }
 
         Reaction::RonAgari => {
-            if state.core.furiten[reactor_i].any() { return Err(Furiten(state.core.furiten[reactor_i])); }
+            if state.core.furiten[reactor_i].any() {
+                return Err(Furiten(state.core.furiten[reactor_i]));
+            }
             if matches!(action, Action::Ankan(_)) &&
                 !matches!(cache.wait[reactor_i].irregular,
                      Some(IrregularWait::ThirteenOrphans(_)) |
@@ -206,6 +210,7 @@ pub(crate) fn resolve_reaction(
     if is_aborted_four_riichi(state, action) {
         return (ActionResult::Abort(AbortReason::FourRiichi), None);
     }
+    // TODO(summivox): rules (4-kan judgment point)
     if is_aborted_four_kan(
         state, action, reactor_reaction.map(|(_reactor, reaction)| reaction)) {
         return (ActionResult::Abort(AbortReason::FourKan), None);

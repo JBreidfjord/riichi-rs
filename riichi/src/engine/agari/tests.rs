@@ -10,7 +10,6 @@ struct Hand {
 impl Hand {
     pub fn new(
         closed_hand: impl IntoIterator<Item=Tile>,
-        tsumo: Option<Tile>,
         melds: impl IntoIterator<Item=Meld>,
     ) -> Hand {
         let mut closed_hand = TileSet37::from_iter(closed_hand);
@@ -19,10 +18,6 @@ impl Hand {
             &mut Decomposer::new(),
             &closed_hand.packed(),
         );
-        // for tsumo-agari only
-        if let Some(tile) = tsumo {
-            closed_hand[tile] += 1;
-        }
         for w in waiting_info.regular.iter() {
             println!("{}", w);
         }
@@ -62,7 +57,6 @@ impl<'a> AgariInput<'a> {
 fn mentsumo_example() {
     let hand = Hand::new(
         tiles_from_str("123456678m99p77z"),
-            Some(t!("9p")),
         [],
     );
     let agari_input = AgariInput {
@@ -81,7 +75,6 @@ fn mentsumo_example() {
 fn mentsumo_negative_not_menzen() {
     let hand = Hand::new(
         tiles_from_str("456m123p12s44z"),
-        Some(t!("3s")),
         [
             Meld::Chii(Chii::from_tiles(t!("1m"), t!("2m"), t!("3m")).unwrap()),
         ],
@@ -102,7 +95,6 @@ fn mentsumo_negative_not_menzen() {
 fn mentsumo_negative_not_tsumo() {
     let hand = Hand::new(
         tiles_from_str("123456m123p12s44z"),
-        None,
         [],
     );
     let agari_input = AgariInput {
@@ -122,7 +114,6 @@ fn mentsumo_negative_not_tsumo() {
 fn riichi_simple_example() {
     let hand = Hand::new(
         tiles_from_str("123456678m99p77z"),
-        None,
         [],
     );
     let agari_input = AgariInput {
@@ -145,7 +136,6 @@ fn riichi_simple_example() {
 fn pinfu_simple_example() {
     let hand = Hand::new(
         tiles_from_str("123456m123p23s44z"),
-            None,
         [],
     );
     let agari_input = AgariInput {
@@ -166,7 +156,6 @@ fn pinfu_simple_example() {
 fn pinfu_negative_penchan() {
     let hand = Hand::new(
         tiles_from_str("123456m123p12s44z"),
-            None,
         [],
     );
     let agari_input = AgariInput {
@@ -186,7 +175,6 @@ fn pinfu_negative_penchan() {
 fn pinfu_negative_prevalent_wind_pair() {
     let hand = Hand::new(
         tiles_from_str("123456m123p23s11z"),
-            None,
         [],
     );
     let agari_input = AgariInput {
@@ -206,7 +194,6 @@ fn pinfu_negative_prevalent_wind_pair() {
 fn pinfu_negative_self_wind_pair() {
     let hand = Hand::new(
         tiles_from_str("123456m123p23s44z"),
-            None,
         [],
     );
     let agari_input = AgariInput {
@@ -227,7 +214,6 @@ fn pinfu_negative_self_wind_pair() {
 fn pinfu_negative_two_side_tanki() {
     let hand = Hand::new(
         tiles_from_str("456m123s3456678p"),
-        Some(t!("3p")),
         [],
     );
     let agari_input = AgariInput {
@@ -246,7 +232,6 @@ fn pinfu_negative_two_side_tanki() {
 fn pinfu_positive_two_side_tanki_alt_decomp() {
     let hand = Hand::new(
         tiles_from_str("456m123s3456678p"),
-        Some(t!("6p")),
         [],
     );
     let agari_input = AgariInput {
@@ -265,7 +250,6 @@ fn pinfu_positive_two_side_tanki_alt_decomp() {
 fn iipeikou_example() {
     let hand = Hand::new(
         tiles_from_str("33445m99s999p777z"),
-        Some(t!("5m")),
         [],
     );
     let agari_input = AgariInput {
@@ -284,7 +268,6 @@ fn iipeikou_example() {
 fn iipeikou_negative_open() {
     let hand = Hand::new(
         tiles_from_str("34m99s999p777z"),
-        Some(t!("5m")),
         [
             Meld::Chii(Chii::from_tiles(t!("3m"), t!("4m"), t!("5m")).unwrap()),
         ],
@@ -305,7 +288,6 @@ fn iipeikou_negative_open() {
 fn iipeikou_downgrade() {
     let hand = Hand::new(
         tiles_from_str("33445m99s999p777z"),
-        Some(t!("2m")),
         [],
     );
     let agari_input = AgariInput {
@@ -324,7 +306,6 @@ fn iipeikou_downgrade() {
 fn haitei_example() {
     let hand = Hand::new(
         tiles_from_str("123456678m99p77z"),
-        Some(t!("9p")),
         [],
     );
     let agari_input = AgariInput {
@@ -345,7 +326,6 @@ fn haitei_example() {
 fn haitei_negative_rinshan() {
     let hand = Hand::new(
         tiles_from_str("456678m99p77z"),
-        Some(t!("9p")),
         [
             Meld::Daiminkan(Daiminkan::from_tiles_dir(
                 [t!("1m"), t!("1m"), t!("1m")], t!("1m"), P1,
@@ -371,7 +351,6 @@ fn haitei_negative_rinshan() {
 fn houtei_example() {
     let hand = Hand::new(
         tiles_from_str("123456678m99p77z"),
-        None,
         [],
     );
     let agari_input = AgariInput {
@@ -393,7 +372,6 @@ fn houtei_example() {
 fn tanyao_example() {
     let hand = Hand::new(
         tiles_from_str("234456678m55p66s"),
-        Some(t!("0p")),
         [],
     );
     let agari_input = AgariInput {
@@ -412,7 +390,6 @@ fn tanyao_example() {
 fn tanyao_open_example() {
     let hand = Hand::new(
         tiles_from_str("456678m55p66s"),
-        Some(t!("0p")),
         [
             Meld::Chii(Chii::from_tiles(t!("2m"), t!("3m"), t!("4m")).unwrap()),
         ],
@@ -433,7 +410,6 @@ fn tanyao_open_example() {
 fn tanyao_negative() {
     let hand = Hand::new(
         tiles_from_str("234456678m55p66z"),
-        Some(t!("0p")),
         [],
     );
     let agari_input = AgariInput {
@@ -462,7 +438,6 @@ fn tanyao_negative() {
 fn chiitoi_example() {
     let hand = Hand::new(
         tiles_from_str("114477m225588p3s"),
-        Some(t!("3s")),
         [],
     );
     let agari_input = AgariInput {
@@ -481,7 +456,6 @@ fn chiitoi_example() {
 fn chiitoi_with_honroutou() {
     let hand = Hand::new(
         tiles_from_str("1199m1199p1199s7z"),
-        Some(t!("7z")),
         [],
     );
     let agari_input = AgariInput {
@@ -501,7 +475,6 @@ fn chiitoi_with_honroutou() {
 fn chiitoi_upgrade_ryanpeikou() {
     let hand = Hand::new(
         tiles_from_str("112233m4455667s"),
-        Some(t!("7s")),
         [],
     );
     let agari_input = AgariInput {
@@ -520,7 +493,6 @@ fn chiitoi_upgrade_ryanpeikou() {
 fn chiitoi_negative_open() {
     let hand = Hand::new(
         tiles_from_str("4455667s"),
-        Some(t!("7s")),
         [
             Meld::Chii(Chii::from_tiles(t!("3m"), t!("4m"), t!("5m")).unwrap()),
             Meld::Chii(Chii::from_tiles(t!("3m"), t!("4m"), t!("5m")).unwrap()),
@@ -557,7 +529,6 @@ fn chiitoi_negative_open() {
 fn chuuren_example() {
     let hand = Hand::new(
         tiles_from_str("1111234567899m"),
-        Some(t!("9m")),
         [],
     );
     let agari_input = AgariInput {
@@ -576,7 +547,6 @@ fn chuuren_example() {
 fn jun_chuuren_example() {
     let hand = Hand::new(
         tiles_from_str("1112345678999m"),
-        Some(t!("9m")),
         [],
     );
     let agari_input = AgariInput {
@@ -598,7 +568,6 @@ fn jun_chuuren_example() {
 fn chuuren_downgrade() {
     let hand = Hand::new(
         tiles_from_str("1111234567899m"),
-        Some(t!("6m")),
         [],
     );
     let agari_input = AgariInput {

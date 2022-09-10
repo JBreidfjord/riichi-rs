@@ -1,7 +1,63 @@
-//! State-Action representation of the game.
+//! State-Action-Reaction representation of the game.
 //!
 //! This module mainly provides data model definitions and some straightforward helpers.
 //! Game logic belongs to [`crate::engine`].
+//!
+//! ## The original state machine diagram
+//!
+//! ```asciiart
+//!      ┌───────┐                            ┌─────┐
+//!      │ Deal  │                            │ END │
+//!      │(Start)│                            └─────┘
+//!      └─┬─────┘                               ▲
+//!        │                            #3       │Yes
+//!        │                            ┌────────┴─────────┐
+//!        │    ┌───────────────────────┤ Forced abortion? │◄────────────────────┐
+//!        │    │                       └──────────────────┘                     │
+//!        ▼    ▼             #1                                   #2            │
+//!      ┌────────┐ Draw=Y    ┌────────────┐           ┌─────────────┐ Nothing   │
+//!      │DrawHead├──────────►│            │           │             ├───────────┘
+//!      └────────┘ Meld=N    │            │  Discard  │             │
+//!      #3                   │            ├──────────►│             │
+//!                           │            │  Riichi   │             │
+//!                           │  In-turn   │           │ Resolved    │
+//!                           │  player's  │           │ declaration │
+//!      ┌────────┐ Draw=Y    │  decision  │           │ from        │ Daiminkan
+//!   ┌─►│DrawTail├──────────►│            │           │ out-of-turn ├───────────┐
+//!   │  └────────┘ Meld=Y    │  (Action)  │           │ players     │           │
+//!   │  #4                   │            │           │             │           │
+//!   │                       │            │           │ (Reaction)  │           │
+//!   │                       │            │  Kakan    │             │           │
+//!   │  ┌────────┐ Draw=N    │            ├──────────►│             │ Chii      │
+//!   │  │Chii/Pon├──────────►│            │  Ankan    │             ├─────────┐ │
+//!   │  └────────┘ Meld=Y    └──────┬─────┘           └──────┬──────┘ Pon     │ │
+//!   │  #4   ▲             NineKinds│Tsumo                   │Ron             │ │
+//!   │       │                      ▼                        ▼                │ │
+//!   │       │                   ┌─────┐                  ┌─────┐             │ │
+//!   │       │                   │ END │                  │ END │             │ │
+//!   │       │                   └─────┘                  └─────┘             │ │
+//!   │       │                                                                │ │
+//!   │       └────────────────────────────────────────────────────────────────┘ │
+//!   │                                                                          │
+//!   └──────────────────────────────────────────────────────────────────────────┘
+//! ```
+//!
+//! There are multiple states within one logical turn of a round of game.
+//!
+//! 1. The player in turn is ready to make an action, after incoming draw and/or meld.
+//!    This action might be terminal (abortion by nine kinds, or win by self draw).
+//!
+//! 2. Each other player may independently declare an reaction: Chii, Pon, Daiminkan, or Ron.
+//!    The resolved reaction type determines the next state.
+//!
+//! 3. In case the resolved reaction type is no-op, additionally we need to check for involuntary
+//!    end conditions of this round.
+//!
+//! 4. All done, then the next player gains draw and/or meld depending on what has happened so far,
+//!    marking the beginning of the next turn.
+//!
+//!
+
 mod action;
 mod action_result;
 mod agari;
@@ -90,44 +146,53 @@ impl RoundBegin {
     pub fn to_initial_state(&self) -> State {
         let wall = &self.wall;
         let button = self.round_id.button();
-        let first_draw = self.wall[52];
-        let mut closed_hands = wall::deal(wall, button);
-        closed_hands[button.to_usize()][first_draw] += 1;
         State {
             core: StateCore {
                 seq: 0,
                 action_player: button,
-                num_drawn_head: 53,
+                num_drawn_head: 53,  // 13 x 4 + 1
                 num_drawn_tail: 0,
                 num_dora_indicators: 1,
-                draw: Some(first_draw),
+                draw: Some(self.wall[52]),
                 incoming_meld: None,
                 furiten: Default::default(),
                 riichi: Default::default(),
             },
-            closed_hands,
-            discards: [vec![], vec![], vec![], vec![]],
-            melds: [vec![], vec![], vec![], vec![]],
+            closed_hands: wall::deal(wall, button),
+            melds: Default::default(),
+            discards: Default::default(),
+            discard_sets: Default::default(),
         }
     }
 }
 
 impl State {
+    // Reason this is in `model` instead of `engine`: This defines the relationship between
+    // `State` and `StateCore` fields and is a rather straightforward transformation based on the
+    // assumptions of each state variable.
     pub fn apply_step(&mut self, game_step: &GameStep) {
         if let Some(next) = game_step.next {
             let actor = game_step.actor;
             let actor_i = actor.to_usize();
             let next_actor = next.action_player;
             let next_actor_i = next_actor.to_usize();
+            assert_eq!(self.core.action_player, actor);
 
-            // action: affects hand, discards
+            // Merge the self draw of this turn into the closed hand (it had been kept separate).
+            if let Some(draw) = self.core.draw {
+                self.closed_hands[actor_i][draw] += 1;
+
+                log::debug!("P{}:Draw({}) => hand={}", 
+                    next_actor_i, draw, self.closed_hands[next_actor_i]);
+            }
+
+            // Move the discard of this turn from the closed hand to the discard section.
             match game_step.action {
                 Action::Discard(mut discard) => {
                     discard.called_by = actor;
                     self.closed_hands[actor_i][discard.tile] -= 1;
 
-                    // TODO DEBUG
-                    // println!("P{}:{} => {}", actor_i, discard, self.closed_hands[actor_i]);
+                    log::debug!("P{}:{} => hand={}", actor_i, discard, self.closed_hands[actor_i]);
 
                     if let Some((reactor, reaction)) = game_step.reactor_reaction {
                         assert_eq!(reactor, next_actor);
@@ -135,34 +200,27 @@ impl State {
                         discard.called_by = reactor;
                     }
                     self.discards[actor_i].push(discard);
+                    self.discard_sets[actor_i].set(discard.tile);
                 }
                 Action::Kakan(_) | Action::Ankan(_) => {}  // No-op, but valid.
                 _ => panic!("inconsistent")
             }
 
-            // draw: affects hand
-            if let Some(draw) = next.draw {
-                self.closed_hands[next_actor_i][draw] += 1;
-
-                // TODO DEBUG
-                // println!("P{}:Draw({}) => {}", next_actor_i, draw, self.closed_hands[next_actor_i]);
-            }
-
-            // meld: affects hand, melds
+            // Move the meld of this turn from the closed hand to the meld section.
+            // Same handling for both Kakan/Ankan (action) and Chii/Pon/Daiminkan (reaction).
             if let Some(meld) = next.incoming_meld {
-                // This covers _all_ ways of meld --- both action and reaction.
                 meld.consume_from_hand(&mut self.closed_hands[next_actor_i]);
 
-                // TODO DEBUG
-                // println!("P{}:{} => {}", next_actor_i, meld, self.closed_hands[next_actor_i]);
+                log::debug!("P{}:{} => hand={}", next_actor_i, meld, self.closed_hands[next_actor_i]);
 
                 if let Meld::Kakan(kakan) = meld {
-                    // Special case: Kakan will replace the existing Pon
+                    // Kakan will replace the existing Pon.
                     let (pon_i, _) = self.melds[next_actor_i].iter()
                         .find_position(|&&meld| meld == Meld::Pon(kakan.pon))
                         .unwrap();
                     self.melds[next_actor_i][pon_i] = meld;
                 } else {
+                    // Chii/Pon/Daiminkan/Ankan all introduce a new meld.
                     self.melds[next_actor_i].push(meld);
                 }
             }

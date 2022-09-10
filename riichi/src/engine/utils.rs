@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use log::log_enabled;
 
 use crate::{
     analysis::RegularWait,
@@ -206,18 +207,22 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
     delta
 }
 
+/// Each player with active riichi must pay into the pot.
+pub fn calc_pot_delta(state_core: &StateCore) -> [GamePoints; 4] {
+    state_core.riichi.map(|r| if r.is_active { -super::RIICHI_POT } else { 0 })
+}
+
 /// All tiles at win condition = closed hand + the winning tile + all tiles in melds .
 /// A fully closed hand win will be 14 tiles.
 /// Chii/Pon will not change this number, while each Kan introduces 1 more tile.
 /// At the extreme, 4 Kan's will result in 18 tiles (4x4 for each Kan + 2 for the pair).
 pub fn get_all_tiles(
-    agari_kind: AgariKind,
     closed_hand: &TileSet37,
     winning_tile: Tile,
     melds: &[Meld],
 ) -> TileSet37 {
     let mut all_tiles = closed_hand.clone();
-    if agari_kind == AgariKind::Ron { all_tiles[winning_tile] += 1; }
+    all_tiles[winning_tile] += 1;
     for meld in melds {
         match meld {
             Meld::Chii(chii) => {
@@ -253,8 +258,14 @@ pub fn count_doras(
 ) -> DoraHits {
     let all_tiles_normal = TileSet34::from(all_tiles);
     let n = num_dora_indicators as usize;
-    // TODO DEBUG
-    // println!("n={} di={:?} udi={:?}", n, wall::dora_indicators(wall), wall::ura_dora_indicators(wall));
+    if log_enabled!(log::Level::Debug) {
+        log::debug!("count doras: n={} di={} udi={}, all_tiles={}",
+            n,
+            wall::dora_indicators(wall).iter().map(|t| t.as_str()).join(","),
+            wall::ura_dora_indicators(wall).iter().map(|t| t.as_str()).join(","),
+            all_tiles,
+        );
+    }
     DoraHits {
         dora:
         (&wall::dora_indicators(wall)[0..n])

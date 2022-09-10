@@ -10,6 +10,8 @@ mod wait_calc;
 
 use std::default::Default;
 
+use log::log_enabled;
+
 use crate::{
     analysis::Decomposer,
     common::*,
@@ -81,6 +83,12 @@ impl EngineCache {
     fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
         self.wait[player.to_usize()] = WaitingInfo::from_keys(
             &mut self.decomposer, &hand.packed());
+
+        if log_enabled!(log::Level::Trace) {
+            // This is very noisy --- called every turn. Please turn on with care.
+            log::debug!("updated waiting cache for P{} (hand={}): {}",
+                player.to_usize(), hand, self.wait[player.to_usize()]);
+        }
     }
 }
 

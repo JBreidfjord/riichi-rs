@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use thiserror::Error;
 
 use crate::common::*;
@@ -33,6 +32,9 @@ pub enum ActionError {
 
     #[error("Attempting to declare riichi with a hand not ready after discarding.")]
     DeclareRiichiWhileNotReady,
+
+    #[error("Can only discard after Chii/Pon.")]
+    DiscardOnlyAfterChiiPon,
 
     #[error("Cannot ankan/kakan on the last draw")]
     CannotKanOnLastDraw,
@@ -71,13 +73,27 @@ pub(crate) fn check_action(
     let actor = state.core.action_player;
     let actor_i = actor.to_usize();
 
-    // Make a copy of `actor`'s hand
+    // Make a copy of `actor`'s hand; this will be updated along the way to reflect what happens
+    // at each step.
     let mut hand = state.closed_hands[actor.to_usize()].clone();
     let under_riichi = state.core.riichi[actor_i].is_active;
 
+    if let Some(draw) = state.core.draw {
+        hand[draw] += 1;  // 3N+2
+    } else if let Some(meld @ Meld::Chii(_)) | Some(meld @ Meld::Pon(_)) = state.core.incoming_meld {
+        // The only valid action right after Chii/Pon is to discard under swap-call restrictions.
+        if let Action::Discard(discard) = action {
+            if is_forbidden_swap_call(meld, discard.tile) {
+                return Err(NoSwapCalling(discard.tile, meld));
+            }
+        } else {
+            return Err(DiscardOnlyAfterChiiPon);
+        }
+    }
+
     match action {
         Action::Discard(discard) => {
-            // D'oh!
+            // No need to re-declare riichi.
             if under_riichi && discard.declares_riichi { return Err(DeclareRiichiAgain); }
 
             // Discarded tile must be either just drawn, or already in our closed hand.
@@ -90,44 +106,39 @@ pub(crate) fn check_action(
                     return Err(DiscardClosedHandUnderRiichi);
                 }
             }
+
+            // Update hand: remove the discard.
             if hand[discard.tile] == 0 { return Err(TileNotExist(discard.tile)); }
-            hand[discard.tile] -= 1;
+            hand[discard.tile] -= 1;  // 3N+2 - 1 = 3N+1
             cache.update_wait_cache(actor, &hand);
 
-            // Declaring riichi requires a closed 3N+1 ready (tenpai) hand after discarding.
+            // Declaring riichi requires a closed 3N+1 waiting hand _after discarding_.
             if discard.declares_riichi {
+                // Need enough points to put into the pot
                 if begin.points[actor_i] < RIICHI_POT {
                     return Err(DeclareRiichiWithoutPoints);
                 }
-                // Ankan is considered closed; all other melds are not ok.
-                if state.melds[actor_i]
-                    .iter()
-                    .any(|meld| !matches!(meld, &Meld::Ankan(_)))
-                {
+                // Hand must be closed
+                if !state.melds[actor_i].iter().all(|meld| meld.is_closed()) {
                     return Err(DeclareRiichiWithOpenMeld);
                 }
+                // Hand must be waiting
                 if cache.wait[actor_i].waiting_set.is_empty() {
                     return Err(DeclareRiichiWhileNotReady);
-                }
-            }
-
-            if let Some(meld) = state.core.incoming_meld {
-                if is_forbidden_swap_call(meld, discard.tile) {
-                    return Err(NoSwapCalling(discard.tile, meld));
                 }
             }
         }
 
         Action::Ankan(tile) => {
             let tile = tile.to_normal();
-
             if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
             if under_riichi && !is_ankan_ok_under_riichi(
                 &cache.wait[actor_i].regular, tile) {
                 return Err(InvalidAnkanUnderRiichi(tile));
             }
+
             if let Some(ankan) = Ankan::from_hand(&hand, tile) {
-                ankan.consume_from_hand(&mut hand);
+                ankan.consume_from_hand(&mut hand); // 3N+2 - 4 = 3M+1
                 cache.meld[actor_i] = Some(Meld::Ankan(ankan));
                 cache.update_wait_cache(actor, &hand);
             } else {
@@ -136,9 +147,9 @@ pub(crate) fn check_action(
         }
         Action::Kakan(added) => {
             if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
-            let &pon = state.melds[actor_i]
+            let pon = state.melds[actor_i]
                 .iter()
-                .filter_map(|meld| {
+                .find_map(|meld| {
                     if let Meld::Pon(pon) = meld {
                         if pon.called.to_normal() == added.to_normal() {
                             return Some(pon);
@@ -146,10 +157,9 @@ pub(crate) fn check_action(
                     }
                     None
                 })
-                .exactly_one()
-                .map_err(|_| NoPonForKakan(added))?;
-            if let Some(kakan) = Kakan::from_pon_hand(pon, &hand) {
-                kakan.consume_from_hand(&mut hand);
+                .ok_or_else(|| NoPonForKakan(added))?;
+            if let Some(kakan) = Kakan::from_pon_hand(*pon, &hand) {
+                kakan.consume_from_hand(&mut hand);  // 3N+2 - 1 = 3N+1
                 cache.meld[actor_i] = Some(Meld::Kakan(kakan));
                 cache.update_wait_cache(actor, &hand);
             } else {
@@ -159,12 +169,17 @@ pub(crate) fn check_action(
 
         Action::TsumoAgari(tile) => {
             if state.core.draw != Some(tile) { return Err(MustDeclareTsumoAgariOnDraw); }
-            // Special case: We do not update the wait cache for Chii/Pon/Daiminkan. This is okay
-            // for Chii/Pon (cannot declare TsumoAgari right away), but not for Daiminkan.
-            // Now that we got caught with our pants down, we have to backfill it.
+
+            // Special case when the current player started the turn by Daiminkan:
+            //
+            // - Before Daiminkan: 3N+1 hand
+            // - After Daiminkan: 3N+1 - 3 = 3M+1 hand, with 1 draw from the tail of the wall.
+            //
+            // Note that although the closed hand retains 3N+1 form, it has nevertheless changed.
+            // In case the hand remains waiting, the player _is_ eligible for TsumoAgari, with the
+            // extra bonus of [`Yaku::Rinshankaihou`]. Therefore we need to re-calc the wait.
             if let Some(Meld::Daiminkan(_)) = state.core.incoming_meld {
-                // Cheat by rewinding to 3N+1 (without rinshan tsumo).
-                hand[state.core.draw.unwrap()] -= 1;
+                hand[state.core.draw.unwrap()] -= 1;  // undo the merging of draw above; now 3N+1.
                 cache.update_wait_cache(actor, &hand);
             }
 
@@ -180,6 +195,7 @@ pub(crate) fn check_action(
             if candidates.is_empty() { return Err(CannotTsumoAgari); }
             cache.win[actor_i] = candidates;
         }
+
         Action::AbortNineKinds => {
             if !is_first_chance(state) { return Err(NotInitAbortable); }
             let n = terminal_kinds(&hand);

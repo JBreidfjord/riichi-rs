@@ -160,12 +160,9 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                 break
             }
         }
-        /*
-        // TODO DEBUG
-        println!("[{}] = {}",
-                 recovered.action_reactions.len() - 1,
-                 recovered.action_reactions.last().unwrap());
-         */
+        log::debug!("[{}] = {}",
+            recovered.action_reactions.len() - 1,
+            recovered.action_reactions.last().unwrap());
     }
     // At this point we should have walked through all entries; there shouldn't be any more.
     if !in_iter.iter_mut().all(|it| it.peek() == None) {

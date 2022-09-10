@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use itertools::Itertools;
 use crate::analysis::{Decomposer, RegularWait, IrregularWait, detect_irregular_wait};
 use crate::common::*;
@@ -24,3 +25,16 @@ impl WaitingInfo {
     }
 }
 
+impl Display for WaitingInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{{waiting_set={}", self.waiting_set)?;
+        if let Some(irregular) = self.irregular {
+            write!(f, " irregular={}", irregular)?;
+        }
+        write!(f, " regular=[")?;
+        for w in &self.regular {
+            write!(f, "({}),", w)?;
+        }
+        write!(f, "]}}")
+    }
+}

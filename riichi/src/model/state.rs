@@ -4,12 +4,15 @@
 // use arrayvec::ArrayVec;  // TODO(summivox): use ArrayVec
 
 use std::fmt::{Display, Formatter};
+use itertools::Itertools;
 use crate::common::*;
 use super::Discard;
 use super::PartiallyObservable;
 
-/// State variables sampled right before a player's action.
-/// Note that the effects of drawing (if any) is included in the state.
+/// State of a round of game.
+/// This is sampled before a player takes action, but after drawing and/or meld is taken in.
+///
+/// NOTE: The newly drawn tile is deliberately kept separate from `closed_hands`.
 #[derive(Clone, Debug, Default)]
 pub struct State {
     /// Core variables; see [`StateCore`].
@@ -19,7 +22,7 @@ pub struct State {
     pub melds: [Vec<Meld>; 4],
 
     /// The concealed/closed hand of each player, represented as a [`TileSet37`].
-    /// Note that this does NOT include any newly drawn tile.
+    /// This does not include any newly drawn tile.
     /// **A player can only observe their own hand.**
     pub closed_hands: [TileSet37; 4],
 
@@ -27,6 +30,13 @@ pub struct State {
     /// Tiles that are called by other players are explicitly marked so, not excluded.
     /// See [`Discard`].
     pub discards: [Vec<Discard>; 4],
+
+    /// The set of discarded tiles for each player. This makes it easier to answer queries of
+    /// whether a player had discarded a certain tile, no matter how many times and when.
+    /// Specifically, this is used to calculate [`FuritenFlags`].
+    ///
+    /// Any red 5 is treated the same as its corresponding normal 5.
+    pub discard_sets: [TileMask34; 4],
 }
 
 /// Essential state variables.
@@ -103,7 +113,7 @@ impl PartiallyObservable for State {
 
 impl Display for StateCore {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SL(#{} P{} draw[{}|{}]={} meld={:?} dora={})",
+        write!(f, "{{#{} P{} draw[{}|{}]={} meld={:?} dora={} riichi=[{}] furiten=[{}]}}",
                self.seq,
                self.action_player.to_usize(),
                self.num_drawn_head,
@@ -111,6 +121,8 @@ impl Display for StateCore {
                self.draw.map(|t| t.as_str()).unwrap_or("NA"),
                self.incoming_meld.map(|x| x.to_string()),
                self.num_dora_indicators,
+               self.riichi.into_iter().map(RiichiFlags::as_str).join(","),
+               self.furiten.into_iter().map(|f| f.any() as u8).join(","),
         )
     }
 }
@@ -134,6 +146,25 @@ pub struct RiichiFlags {
     ///
     /// <https://riichi.wiki/Ippatsu>
     pub is_ippatsu: bool,
+}
+
+impl RiichiFlags {
+    /// Shorthand to help debugging.
+    pub fn as_str(self) -> &'static str {
+        match (self.is_active, self.is_double, self.is_ippatsu) {
+            (false, _, _) => "_",
+            (true, false, false) =>  "r",
+            (true, false, true) => "R",
+            (true, true, false) => "d",
+            (true, true, true) => "D",
+        }
+    }
+}
+
+impl Display for RiichiFlags {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 /// Status regarding whether a player is under the penalty of Furiten (振聴) and cannot declare Ron,
