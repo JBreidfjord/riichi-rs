@@ -22,7 +22,7 @@ pub fn next_normal(
     cache: &EngineCache,
 ) -> StateCore {
     let mut next = state.core;
-    let actor = state.core.action_player;
+    let actor = state.core.actor;
     let actor_i = actor.to_usize();
 
     // Special case: Deferred revealing of new dora indicators due to Kakan/Daiminkan.
@@ -66,7 +66,7 @@ pub fn next_normal(
 
             if caller == actor {
                 // No one called. Next turn is the next player (surprise!).
-                next.action_player = player_succ(actor);
+                next.actor = player_succ(actor);
                 next.incoming_meld = None;
                 next.draw = Some(begin.wall[state.core.num_drawn_head as usize]);
                 next.num_drawn_head += 1;
@@ -74,7 +74,7 @@ pub fn next_normal(
                 // Someone called and will take the next turn instead.
                 let meld = cache.meld[caller.to_usize()].unwrap();
 
-                next.action_player = caller;
+                next.actor = caller;
                 next.incoming_meld = Some(meld);
                 if meld.is_kan() {
                     next.draw = Some(wall::kan_draw(&begin.wall, state.core.num_drawn_tail as usize));
@@ -111,7 +111,7 @@ pub fn next_normal(
             // The round has not ended => no reaction is possible on this.
             let ankan_or_kakan = cache.meld[actor_i].unwrap();
 
-            next.action_player = actor;
+            next.actor = actor;
             next.incoming_meld = Some(ankan_or_kakan);
             next.draw = Some(wall::kan_draw(&begin.wall, state.core.num_drawn_tail as usize));
             next.num_drawn_tail += 1;
@@ -193,7 +193,7 @@ pub fn next_agari(
 
     match agari_kind {
         AgariKind::Tsumo => {
-            let winner = state.core.action_player;
+            let winner = state.core.actor;
             let winning_tile = state.core.draw.unwrap();
             let agari_result_one = finalize_agari(
                 begin, state, cache,
@@ -206,7 +206,7 @@ pub fn next_agari(
 
         AgariKind::Ron => {
             // TODO(summivox): rules (atama-hane)
-            let contributor = state.core.action_player;
+            let contributor = state.core.actor;
             let winning_tile = action.tile().unwrap();
             let mut take_pot = true;
             for winner in other_players_after(contributor) {

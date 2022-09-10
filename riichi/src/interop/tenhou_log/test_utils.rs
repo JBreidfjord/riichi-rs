@@ -27,7 +27,7 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
         // println!("{}", engine.state().core);
         // println!("{}", action_reaction);
         assert_eq!(engine.state().core.seq, seq as u8);
-        assert_eq!(engine.state().core.action_player, action_reaction.actor);
+        assert_eq!(engine.state().core.actor, action_reaction.actor);
         engine.register_action(action_reaction.action).unwrap();
         if let Some((reactor, reaction)) = action_reaction.reactor_reaction {
             engine.register_reaction(reactor, reaction).unwrap();

@@ -69,14 +69,14 @@ pub struct State {
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(test, derive(type_layout::TypeLayout))]
 pub struct StateCore {
-    /// Sequence number of this action, defined as the total number of closed actions since the
+    /// Sequence number of this state, defined as the total number of closed actions since the
     /// beginning of this round.
     /// **Publicly visible.**
     pub seq: u8,
 
     /// The player in action.
     /// **Publicly visible.**
-    pub action_player: Player,
+    pub actor: Player,
 
     /// Number of tiles drawn from the head of the double-stacked cut wall.
     /// **Publicly visible.**
@@ -147,7 +147,7 @@ impl StateCore {
         let button = begin.round_id.button();
         Self {
             seq: 0,
-            action_player: button,
+            actor: button,
             num_drawn_head: 53,  // 13 x 4 + 1
             num_drawn_tail: 0,
             num_dora_indicators: 1,
@@ -163,7 +163,7 @@ impl Display for StateCore {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{{#{} P{} draw[{}|{}]={} meld={:?} dora={} riichi=[{}] furiten=[{}]}}",
                self.seq,
-               self.action_player.to_usize(),
+               self.actor.to_usize(),
                self.num_drawn_head,
                self.num_drawn_tail,
                self.draw.map(|t| t.as_str()).unwrap_or("NA"),

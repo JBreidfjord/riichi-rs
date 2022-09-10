@@ -65,7 +65,7 @@ pub fn check_reaction(
 
     if action.is_terminal() { return Err(TerminalAction); }
 
-    let actor = state.core.action_player;
+    let actor = state.core.actor;
     let reactor_i = reactor.to_usize();
     let hand = &state.closed_hands[reactor_i];
 
@@ -161,7 +161,7 @@ pub fn resolve_reaction(
     action: Action,
     reactions: &[Option<Reaction>; 4],
 ) -> (ActionResult, Option<(Player, Reaction)>) {
-    let actor = state.core.action_player;
+    let actor = state.core.actor;
 
     // Handle in-turn voluntary termination.
     match action {

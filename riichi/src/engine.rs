@@ -53,7 +53,7 @@ const RIICHI_POT: GamePoints = 1000;
 ///     points: [25000, 25000, 25000, 25000],
 /// });
 /// assert_eq!(engine.state().core.seq, 0);
-/// assert_eq!(engine.state().core.action_player, P0);
+/// assert_eq!(engine.state().core.actor, P0);
 ///
 /// engine.register_action(Action::Discard(Discard {
 ///     tile: t!("1m"), ..Discard::default()})).unwrap();
@@ -61,7 +61,7 @@ const RIICHI_POT: GamePoints = 1000;
 /// assert_eq!(engine.step(), ActionResult::Pass);
 ///
 /// assert_eq!(engine.state().core.seq, 1);
-/// assert_eq!(engine.state().core.action_player, P1);
+/// assert_eq!(engine.state().core.actor, P1);
 /// /* ... */
 /// ```
 #[derive(Default)]
@@ -145,7 +145,7 @@ impl Engine {
     /// the state to the beginning of the next turn, or determines the end-of-round conclusions if
     /// the round has ended.
     pub fn step(&mut self) -> ActionResult {
-        let actor = self.state.core.action_player;
+        let actor = self.state.core.actor;
         let action = self.action.unwrap();
         let (action_result, reactor_reaction) =
             resolve_reaction(&self.state, action, &self.reactions);

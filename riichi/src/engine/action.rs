@@ -70,7 +70,7 @@ pub fn check_action(
 
     use ActionError::*;
 
-    let actor = state.core.action_player;
+    let actor = state.core.actor;
     let actor_i = actor.to_usize();
 
     // Make a copy of `actor`'s hand; this will be updated along the way to reflect what happens

@@ -134,7 +134,7 @@ pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
         return is_first_chance(state) &&
             state.core.seq == 3 &&
             discard.tile.is_wind() &&
-            other_players_after(state.core.action_player).iter()
+            other_players_after(state.core.actor).iter()
                 .map(|actor| &state.discards[actor.to_usize()])
                 .all(|discards|
                     discards.len() == 1 && discards[0].tile == discard.tile)
@@ -144,7 +144,7 @@ pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
 
 /// Checks if [`AbortReason::FourKan`] applies (during end-of-turn resolution).
 pub fn is_aborted_four_kan(state: &State, action: Action, reaction: Option<Reaction>) -> bool {
-    let actor_i = state.core.action_player.to_usize();
+    let actor_i = state.core.actor.to_usize();
 
     if matches!(action, Action::Kakan(_)) ||
         matches!(action, Action::Ankan(_)) ||

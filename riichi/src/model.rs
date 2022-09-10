@@ -168,9 +168,9 @@ impl State {
         if let Some(next) = game_step.next {
             let actor = game_step.actor;
             let actor_i = actor.to_usize();
-            let next_actor = next.action_player;
+            let next_actor = next.actor;
             let next_actor_i = next_actor.to_usize();
-            assert_eq!(self.core.action_player, actor);
+            assert_eq!(self.core.actor, actor);
 
             // Merge the self draw of this turn into the closed hand (it had been kept separate).
             if let Some(draw) = self.core.draw {
