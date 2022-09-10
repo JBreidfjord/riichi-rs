@@ -6,14 +6,13 @@ mod step;
 mod reaction;
 mod scoring;
 pub mod utils;
-mod wait_calc;
 
 use std::default::Default;
 
 use log::log_enabled;
 
 use crate::{
-    analysis::Decomposer,
+    analysis::{Decomposer, WaitingInfo},
     common::*,
     model::*,
 };
@@ -26,7 +25,6 @@ pub use self::{
     action::ActionError,
     reaction::ReactionError,
     scoring::*,
-    wait_calc::WaitingInfo,
 };
 
 // TODO(summivox): rules (riichi sticks)
@@ -126,7 +124,7 @@ impl Engine {
 
     pub fn register_action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
         // sanity check: must have valid state
-        assert!(self.state.core.num_drawn_head >= 52);
+        assert!(self.state.core.num_drawn_head >= 53);
 
         self.action = None;
         self.reactions = Default::default();

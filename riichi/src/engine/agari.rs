@@ -5,11 +5,10 @@ mod yaku_detectors;
 use itertools::Itertools;
 
 use crate::{
-    analysis::{IrregularWait, RegularWait, Wait},
+    analysis::{IrregularWait, RegularWait, Wait, WaitingInfo},
     common::*,
     engine::{
         utils::*,
-        WaitingInfo,
     },
     model::*,
     rules::Rules,

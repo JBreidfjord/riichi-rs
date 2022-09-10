@@ -141,7 +141,7 @@ pub struct GameStep {
 }
 
 impl RoundBegin {
-    /// Returns the initial state of a round, with all 4 players' initial hand dealt (13 x 4),
+    /// Returns the initial state of a round, with all 4 players' initial hands dealt (13 x 4),
     /// and the button player's first self draw added.
     pub fn to_initial_state(&self) -> State {
         let wall = &self.wall;
