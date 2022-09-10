@@ -311,16 +311,15 @@ pub use t;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert2::check;
 
     #[test]
     fn tile_str_is_num_and_suite() {
         for encoding in Tile::MIN_ENCODING..=Tile::MAX_ENCODING {
             let tile = Tile::from_encoding(encoding).unwrap();
             let tile_str = tile.as_str();
-            check!(tile_str.len() == 2);
-            check!(tile_str[0..=0] == tile.num().to_string());
-            check!(tile_str[1..=1] == tile.suit_char().to_string());
+            assert_eq!(tile_str.len(), 2);
+            assert_eq!(tile_str[0..=0], tile.num().to_string());
+            assert_eq!(tile_str[1..=1], tile.suit_char().to_string());
         }
     }
 
@@ -330,7 +329,7 @@ mod tests {
             let tile = Tile::from_encoding(encoding).unwrap();
             let tile_str = tile.as_str();
             let roundtrip: Tile = tile_str.parse().unwrap();
-            check!(tile == roundtrip);
+            assert_eq!(tile, roundtrip);
         }
     }
 
@@ -346,7 +345,7 @@ mod tests {
         for encoding in Tile::MIN_ENCODING..=Tile::MAX_ENCODING {
             let tile = Tile::from_encoding(encoding).unwrap();
             let roundtrip: Tile = Tile::from_num_suit(tile.num(), tile.suit()).unwrap();
-            check!(tile == roundtrip);
+            assert_eq!(tile, roundtrip);
         }
     }
 
@@ -361,7 +360,7 @@ mod tests {
         ];
         for window in correct_order.windows(2) {
             if let [a, b] = window {
-                check!(Tile::from_str(a) < Tile::from_str(b));
+                assert!(Tile::from_str(a) < Tile::from_str(b));
             } else { panic!() }
         }
     }
@@ -375,7 +374,7 @@ mod tests {
                 let indicator = Tile::from_num_suit(num_indicator, suit).unwrap();
                 let dora = Tile::from_num_suit(num_dora, suit).unwrap();
                 let indicated_dora = indicator.indicated_dora();
-                check!(dora == indicated_dora);
+                assert_eq!(dora, indicated_dora);
             }
         }
         // red 5 => 6 in the same suit
@@ -386,7 +385,7 @@ mod tests {
                 let indicator = Tile::from_num_suit(num_indicator, suit).unwrap();
                 let dora = Tile::from_num_suit(num_dora, suit).unwrap();
                 let indicated_dora = indicator.indicated_dora();
-                check!(dora == indicated_dora);
+                assert_eq!(dora, indicated_dora);
             }
         }
         // winds => wrapping successor among winds
@@ -395,7 +394,7 @@ mod tests {
             let indicator = Tile::from_num_suit(num_indicator, 3).unwrap();
             let dora = Tile::from_num_suit(num_dora, 3).unwrap();
             let indicated_dora = indicator.indicated_dora();
-            check!(dora == indicated_dora);
+            assert_eq!(dora, indicated_dora);
         }
         // dragons => wrapping successor among dragons
         for num_indicator in 5..=7 {
@@ -403,7 +402,7 @@ mod tests {
             let indicator = Tile::from_num_suit(num_indicator, 3).unwrap();
             let dora = Tile::from_num_suit(num_dora, 3).unwrap();
             let indicated_dora = indicator.indicated_dora();
-            check!(dora == indicated_dora);
+            assert_eq!(dora, indicated_dora);
         }
     }
 

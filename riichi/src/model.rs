@@ -182,7 +182,7 @@ impl State {
             if let Some(draw) = self.core.draw {
                 self.closed_hands[actor_i][draw] += 1;
 
-                log::debug!("P{}:Draw({}) => hand={}", 
+                log::debug!("P{}:Draw({}) => hand={}",
                     next_actor_i, draw, self.closed_hands[next_actor_i]);
             }
 
@@ -240,30 +240,13 @@ impl State {
 #[cfg(test)]
 mod test {
     use super::*;
-    use assert2::check;
-    use itertools::Itertools;
-
-    #[test]
-    fn reaction_ordering_is_correct() {
-        let reactions = [
-            Reaction::Chii(Tile::MIN, Tile::MIN.succ().unwrap()),
-            Reaction::Chii(Tile::MIN.succ().unwrap(), Tile::MIN.succ2().unwrap()),
-            Reaction::Pon(Tile::MIN, Tile::MIN),
-            Reaction::Pon(Tile::MIN.succ().unwrap(), Tile::MIN.succ().unwrap()),
-            Reaction::Daiminkan,
-            Reaction::RonAgari,
-        ];
-        for (low, high) in reactions.iter().tuple_windows() {
-            check!(low < high);
-        }
-    }
 
     #[test]
     fn round_id_computes_correct_self_wind() {
         let round_id = RoundId { kyoku: 6, honba: 0 };
-        check!(round_id.self_wind_for_player(P2) == Wind::new(0));
-        check!(round_id.self_wind_for_player(P3) == Wind::new(1));
-        check!(round_id.self_wind_for_player(P0) == Wind::new(2));
-        check!(round_id.self_wind_for_player(P1) == Wind::new(3));
+        assert_eq!(round_id.self_wind_for_player(P2), Wind::new(0));
+        assert_eq!(round_id.self_wind_for_player(P3), Wind::new(1));
+        assert_eq!(round_id.self_wind_for_player(P0), Wind::new(2));
+        assert_eq!(round_id.self_wind_for_player(P1), Wind::new(3));
     }
 }

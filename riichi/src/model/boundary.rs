@@ -145,3 +145,17 @@ pub struct RoundEnd {
     /// If a player has won this round (non-exclusive due to multi-ron), how they did so.
     pub agari_result: [Option<AgariResult>; 4],
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn round_id_computes_correct_self_wind() {
+        let round_id = RoundId { kyoku: 6, honba: 0 };
+        assert_eq!(round_id.self_wind_for_player(P2), Wind::new(0));
+        assert_eq!(round_id.self_wind_for_player(P3), Wind::new(1));
+        assert_eq!(round_id.self_wind_for_player(P0), Wind::new(2));
+        assert_eq!(round_id.self_wind_for_player(P1), Wind::new(3));
+    }
+}

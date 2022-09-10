@@ -12,7 +12,7 @@ impl Hand {
         closed_hand: impl IntoIterator<Item=Tile>,
         melds: impl IntoIterator<Item=Meld>,
     ) -> Hand {
-        let mut closed_hand = TileSet37::from_iter(closed_hand);
+        let closed_hand = TileSet37::from_iter(closed_hand);
         let melds = Vec::from_iter(melds);
         let waiting_info = WaitingInfo::from_keys(
             &mut Decomposer::new(),

@@ -41,9 +41,6 @@ impl Display for Reaction {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use assert2::assert;
     use itertools::Itertools;
     use super::*;
 
@@ -51,8 +48,10 @@ mod tests {
     fn reaction_order_by_priority() {
         use Reaction::*;
         let reactions = [
-            Chii(Tile::from_str("1s").unwrap(), Tile::from_str("2s").unwrap()),
-            Pon(Tile::from_str("3s").unwrap(), Tile::from_str("3s").unwrap()),
+            Chii(t!("1s"), t!("2s")),
+            Chii(t!("2s"), t!("3s")),
+            Pon(t!("0p"), t!("5p")),
+            Pon(t!("8p"), t!("8p")),
             Daiminkan,
             RonAgari,
         ];

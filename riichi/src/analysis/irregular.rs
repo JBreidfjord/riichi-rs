@@ -25,7 +25,7 @@ impl IrregularWait {
     }
 }
 
-// This is necessary to show the waiting tile nicely.
+// This is necessary to pretty-print the wrapped tile.
 impl Display for IrregularWait {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {

@@ -95,7 +95,6 @@ impl Display for HandGroup {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use assert2::check;
     
     #[test]
     fn all_hand_groups_are_correctly_encoded() {
@@ -122,9 +121,9 @@ mod tests {
         for (i, ans) in all.into_iter().enumerate() {
             let i = i as u8;
             let unpacked = HandGroup::from_packed(i as u8);
-            check!(unpacked == ans);
+            assert_eq!(unpacked, ans);
             if let Some(g) = unpacked {
-                check!(g.packed() == i);
+                assert_eq!(g.packed(), i);
             }
         }
     }
