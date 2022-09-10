@@ -129,8 +129,9 @@ impl Display for StateCore {
 
 /// Status regarding whether a player is under riichi (リーチ).
 ///
+/// NOTE: Not implemented as an `Option<(bool, bool)>` due to bad ergonomics.
+///
 /// <https://riichi.wiki/Riichi>
-// TODO(summivox): represent with `Option<(bool, bool)>` instead?
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct RiichiFlags {
     /// Player is under active riichi (リーチ).
@@ -153,7 +154,7 @@ impl RiichiFlags {
     pub fn as_str(self) -> &'static str {
         match (self.is_active, self.is_double, self.is_ippatsu) {
             (false, _, _) => "_",
-            (true, false, false) =>  "r",
+            (true, false, false) => "r",
             (true, false, true) => "R",
             (true, true, false) => "d",
             (true, true, true) => "D",
