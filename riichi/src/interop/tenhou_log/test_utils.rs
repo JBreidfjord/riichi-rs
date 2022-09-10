@@ -5,6 +5,8 @@ use crate::prelude::*;
 use crate::engine::utils::calc_pot_delta;
 use super::*;
 
+/// Fully simulate/replay a [`RecoveredRound`] through our [`Engine`], validating the states along
+/// the way. Useful for cross-checking the implementation of our [`Engine`].
 pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &TenhouEndInfo) {
     println!("\n\n{:?}", recovered.begin.round_id);
     let mut engine = Engine::new();
@@ -62,7 +64,7 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
             // Deduct newly added pot from players under riichi.
             // They are not included anyway.
             let mut delta = end.points_delta;
-            let pot_delta = calc_pot_delta(dbg!(&engine.state().core.riichi));
+            let pot_delta = calc_pot_delta(&engine.state().core.riichi);
             for i in 0..4 { delta[i] -= pot_delta[i]; }
 
             // Exclude cases where Pao / Liability apply.

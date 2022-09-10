@@ -7,6 +7,8 @@ use crate::{
     model::*,
 };
 
+// TODO(summivox): Consider porting these directly to `impl TileSet37`.
+
 pub fn terminal_kinds(h: &TileSet37) -> u8 {
     pure_terminal_kinds(h) + honor_kinds(h)
 }
@@ -104,29 +106,29 @@ pub fn is_last_draw(state: &State) -> bool {
 
 /// First 4 turns of the game without being interrupted by any meld.
 /// Affects:
-/// - [`ActionResult::AbortNineKinds`] (active), [`ActionResult::AbortFourWind`] (passive)
+/// - [`AbortReason::NineKinds`] (active), [`AbortReason::FourWind`] (passive)
 /// - [`RiichiFlags::is_double`]
 /// - [`Yaku::Tenhou`], [`Yaku::Chiihou`], [`Yaku::Renhou`]
 pub fn is_first_chance(state: &State) -> bool {
     state.core.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
 }
 
-/// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for the
+/// Checks if [`AbortReason::NagashiMangan`] applies (during end-of-turn resolution) for the
 /// specified player.
-/// Assuming [`is_wall_exhausted`].
+/// Assuming [`is_last_draw`].
 pub fn is_nagashi_mangan(state: &State, player: Player) -> bool {
     state.discards[player.to_usize()].iter().all(|discard|
         discard.tile.is_terminal() && discard.called_by == player)
 }
 
-/// Checks if [`ActionResult::AbortNagashiMangan`] applies (during end-of-turn resolution) for all
+/// Checks if [`AbortReason::NagashiMangan`] applies (during end-of-turn resolution) for all
 /// players.
-/// Assuming [`is_wall_exhausted`].
+/// Assuming [`is_last_draw`].
 pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
     all_players().into_iter().any(|player| is_nagashi_mangan(state, player))
 }
 
-/// Checks if [`ActionResult::AbortFourWind`] applies (during end-of-turn resolution).
+/// Checks if [`AbortReason::FourWind`] applies (during end-of-turn resolution).
 pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
     if let Action::Discard(discard) = action {
         return is_first_chance(state) &&
@@ -140,7 +142,7 @@ pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
     false
 }
 
-/// Checks if [`ActionResult::AbortFourKan`] applies (during end-of-turn resolution).
+/// Checks if [`AbortReason::FourKan`] applies (during end-of-turn resolution).
 pub fn is_aborted_four_kan(state: &State, action: Action, reaction: Option<Reaction>) -> bool {
     let actor_i = state.core.action_player.to_usize();
 
@@ -162,14 +164,14 @@ pub fn is_aborted_four_kan(state: &State, action: Action, reaction: Option<React
     false
 }
 
-/// Checks if [`ActionResult::AbortFourRiichi`] applies (during end-of-turn resolution).
+/// Checks if [`AbortReason::FourRiichi`] applies (during end-of-turn resolution).
 pub fn is_aborted_four_riichi(state: &State, action: Action) -> bool {
     matches!(action, Action::Discard(Discard{declares_riichi: true, ..})) &&
         num_active_riichi(state) == 3  // not a typo --- the last player only declared => not active yet
 }
 
 /// When the wall has been exhausted and no player has achieved
-/// [`ActionResult::AbortNagashiMangan`], given whether each player is waiting (1) or not (0),
+/// [`AbortReason::NagashiMangan`], given whether each player is waiting (1) or not (0),
 /// returns the points delta for each player.
 pub fn calc_wall_exhausted_delta(waiting: [u8; 4]) -> [GamePoints; 4] {
     // TODO(summivox): rules (ten-no-ten points)
@@ -187,7 +189,7 @@ pub fn calc_wall_exhausted_delta(waiting: [u8; 4]) -> [GamePoints; 4] {
 }
 
 /// When the wall has been exhausted and some player has achieved
-/// [`ActionResult::AbortNagashiMangan`], returns the points delta for each player.
+/// [`AbortReason::NagashiMangan`], returns the points delta for each player.
 pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 4] {
     // TODO(summivox): rules (nagashi-mangan-points)
 

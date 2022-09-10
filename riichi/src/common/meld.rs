@@ -58,6 +58,7 @@ impl Meld {
         matches!(self, Meld::Kakan(_) | Meld::Daiminkan(_) | Meld::Ankan(_))
     }
 
+    /// Returns the called tile for [`Chii`], [`Pon`], [`Daiminkan`], or [`Kakan`].
     pub fn called(&self) -> Option<Tile> {
         match self {
             Self::Chii(chii) => Some(chii.called),
@@ -68,6 +69,9 @@ impl Meld {
         }
     }
 
+    /// Returns where this meld is called from (relative to this [`Player`]).
+    /// - [`Chii`]: Always the previous player (+3).
+    /// - [`Ankan`]: Not called from anyone, so `None`.
     pub fn dir(&self) -> Option<Player> {
         match self {
             Self::Chii(_) => Some(P3),
@@ -79,8 +83,8 @@ impl Meld {
     }
 
     /// Maps to the equivalent closed-hand group. Useful for e.g. winning condition calculations.
-    /// - Chii => [`HandGroup::Shuntsu`]
-    /// - Pon/Kan => [`HandGroup::Koutsu`] (ignoring the 4th tile)
+    /// - [`Chii`] => [`HandGroup::Shuntsu`]
+    /// - [`Pon`]/Kan => [`HandGroup::Koutsu`] (ignoring the 4th tile)
     pub fn to_equivalent_group(&self) -> HandGroup {
         use HandGroup::*;
         match self {
@@ -92,6 +96,8 @@ impl Meld {
         }
     }
 
+    /// Removes this meld's "own tile(s)" from the closed hand.
+    /// For [`Kakan`], the added tile is removed, since the underlying [`Pon`] already exists.
     pub fn consume_from_hand(&self, hand: &mut TileSet37) {
         match self {
             Meld::Chii(chii) => chii.consume_from_hand(hand),

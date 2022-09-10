@@ -140,7 +140,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             Some(&TenhouOutgoing::KakanAnkan(meld)) => {
                 recovered.action_reactions.push(ActionReaction {
                     actor,
-                    action: Action::from_meld(meld)?,
+                    action: Action::from_meld(&meld)?,
                     reactor_reaction: None,
                 });
                 kan = true;

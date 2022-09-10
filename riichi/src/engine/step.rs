@@ -14,7 +14,7 @@ use super::{
 /// Process normal end-of-turn flow (no abort, no win).
 /// Each change to the state is processed in chronological order, gradually morphing the current
 /// state to the next. This avoids copying the entire state.
-pub(crate) fn next_normal(
+pub fn next_normal(
     begin: &RoundBegin,
     state: &State,
     action: Action,
@@ -166,7 +166,7 @@ pub(crate) fn next_normal(
     next
 }
 
-pub(crate) fn next_agari(
+pub fn next_agari(
     begin: &RoundBegin,
     state: &State,
     action: Action,
@@ -298,7 +298,7 @@ fn finalize_agari(
     }
 }
 
-pub(crate) fn next_abort(
+pub fn next_abort(
     begin: &RoundBegin,
     state: &State,
     abort_reason: AbortReason,

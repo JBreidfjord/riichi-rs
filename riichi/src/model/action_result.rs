@@ -1,3 +1,5 @@
+//! Conclusion of an action-reaction cycle ([`ActionResult`]).
+
 use crate::common::*;
 use super::agari::AgariKind;
 
@@ -30,16 +32,16 @@ pub enum AbortReason {
     NineKinds,
 
     /// The round has ended because no more tiles can be drawn from the wall (荒牌).
-    /// Penalties payments may apply (不聴罰符), including sub-type [`Self::AbortNagashiMangan`].
+    /// Penalties payments may apply (不聴罰符), including sub-type [`Self::NagashiMangan`].
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
-    /// - Can be preempted by [`Self::RonAgari`] and all other aborts.
+    /// - Can be preempted by Ron and all other aborts.
     ///
     /// <https://riichi.wiki/Ryuukyoku>
     WallExhausted,
 
-    /// Special case of [`Self::AbortWallExhausted`] (流し満貫).
+    /// Special case of [`Self::WallExhausted`] (流し満貫).
     /// Treated as penalties payments.
     ///
     /// <https://riichi.wiki/Nagashi_mangan>
@@ -51,7 +53,7 @@ pub enum AbortReason {
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
-    /// - Can be preempted by [`Self::RonAgari`].
+    /// - Can be preempted by Ron.
     ///
     /// Note that Kakan and Ankan may also be preempted due to Chankan (搶槓).
     ///
@@ -72,13 +74,13 @@ pub enum AbortReason {
     ///
     /// Resolution:
     /// - Determined by end-of-turn resolution.
-    /// - Can be preempted by [`Self::RonAgari`].
+    /// - Can be preempted by Ron.
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suucha_riichi>
     FourRiichi,
 
     /// The round has been aborted because 2 players called Ron on the same tile.
-    /// This is a rare rule variation of [`Self::AbortTripleRon`].
+    /// This is a rare rule variation of [`Self::TripleRon`].
     DoubleRon,
 
     /// The round has been aborted because 3 players called Ron on the same tile.

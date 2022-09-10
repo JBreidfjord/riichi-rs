@@ -13,7 +13,8 @@ pub use self::{
     irregular::{IrregularWait, detect_irregular_wait},
 };
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug)]
+#[cfg_attr(test, derive(Eq, PartialEq))]  // due to `RegularWait`
 pub enum Wait {
     Regular(RegularWait),
     Irregular(IrregularWait),

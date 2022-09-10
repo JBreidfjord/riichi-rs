@@ -16,9 +16,7 @@ pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, AbortReason> = phf::phf_map
   "四槓散了" => AbortReason::FourKan,
 };
 
-/// Tenhou round result string => [`ActionResult`].
-/// Due to [`ActionResult::TsumoAgari`] or [`ActionResult::RonAgari`] sharing the same string
-/// [`AGARI_STR`], this map only contains reasons of round abortion.
+/// Tenhou round result string => [`AbortReason`].
 pub fn abort_from_str(str: &str) -> Option<AbortReason> {
     ABORT_STR_TO_ENUM.get(str).copied()
 }
@@ -37,7 +35,6 @@ pub const fn abort_to_str(abort_reason: AbortReason) -> &'static str {
 }
 
 /// [`ActionResult`] => Tenhou round result string.
-/// Here we _can_ map both [`ActionResult::TsumoAgari`] and [`ActionResult::RonAgari`].
 pub const fn action_result_to_str(action_result: ActionResult) -> &'static str {
     match action_result {
         ActionResult::Abort(abort_reason) => abort_to_str(abort_reason),

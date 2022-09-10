@@ -1,6 +1,9 @@
+//! All [`Yaku`]'s (役) known to this package.
+
 use std::collections::{HashMap, HashSet};
 
 /// All Yaku's (役) known to this package.
+///
 /// This is intended to be used as a unifying key/symbol to uniquely represent each Yaku without
 /// having to use strings everywhere.
 #[derive(

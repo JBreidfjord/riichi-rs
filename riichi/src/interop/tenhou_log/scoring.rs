@@ -7,22 +7,36 @@ use crate::common::*;
 use crate::model::*;
 use super::strings::*;
 
+/// Points and distribution of the win.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct TenhouScoring {
     pub kind: TenhouScoringKind,
     pub payout: TenhouPayout,
 }
 
+/// Points of the win, in the commonly written notation.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TenhouScoringKind {
+    /// Value under Mangan
     HanFu { han: u8, fu: u8 },
+
+    /// Mangan value (満貫).
     Mangan,
+
+    /// Haneman (1.5x Mangan) value (跳満).
     Haneman,
+
+    /// Baiman (2x Mangan) value (倍満).
     Baiman,
+
+    /// Sanbaiman (3x Mangan) value (三倍満).
     Sanbaiman,
+
+    /// Yakuman (lit. maxxed out) value (役満).
     Yakuman,
 }
 
+/// How the points are being distributed.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TenhouPayout {
     Ron(GamePoints),
@@ -96,6 +110,7 @@ impl Display for TenhouScoring {
     }
 }
 
+/// Multiplexed [`Yaku`] and Dora representations, both with Han-values attached.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum YakuOrDora {
     Yaku(Yaku, i8),

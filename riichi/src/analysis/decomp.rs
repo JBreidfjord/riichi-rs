@@ -1,4 +1,3 @@
-use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
@@ -10,21 +9,46 @@ use riichi_decomp_table::{
     WaitingKind, WaitingPattern,
 };
 
-/// TODO(summivox): doc
+/// A regular waiting pattern and hand decomposition of a waiting hand.
+///
+/// For a regular `3N+1` hand, this includes:
+///
+/// - Exactly `N` hand groups with at most one incomplete.
+/// - A complete pair (雀頭) or a [Tanki (単騎)][Tanki] waiting pattern (= incomplete pair).
+///
+/// Note that there is exactly one waiting pattern, either a [Tanki][] or an incomplete group.
+///
+/// [Tanki]: WaitingKind::Tanki
 #[derive(Copy, Clone, Debug)]
 pub struct RegularWait {
     // TODO(summivox): reduce these into a "small vec" type --- decomp table could use these too
     raw_groups: u32, // (suited) groups: u8 x 4, with current len;
+
+    /// Number of complete groups.
     pub num_groups: u8,
 
-    pub pair: Option<Tile>, // only the complete pair (not Tanki)
+    /// The complete pair (excluding Tanki).
+    pub pair: Option<Tile>,
 
+    /// The detailed kind of the waiting pattern.
     pub waiting_kind: WaitingKind,
+
+    /// The smallest tile in the waiting pattern.
+    ///
+    /// Examples:
+    /// - 12m wait 3m => 1m
+    /// - 34m wait 2m => 3m
+    /// - 79p wait 8p => 7p
+    /// - 3s wait 3s => 3s
     pub pattern_tile: Tile,
+
+    /// The waiting tile (duh).
     pub waiting_tile: Tile,
 }
 
 impl RegularWait {
+    /// Construct from components. This is only used for testing purposes.
+    #[cfg(test)]
     pub fn new(groups: &[HandGroup], pair: Option<Tile>,
                waiting_kind: WaitingKind, pattern_tile: Tile, waiting_tile: Tile) -> Self {
         let raw_groups = groups.iter().enumerate()
@@ -38,7 +62,8 @@ impl RegularWait {
             waiting_tile,
         }
     }
-    /// TODO(summivox): doc
+
+    /// Iterate all complete groups in this hand decomposition.
     pub fn groups(&self) -> impl Iterator<Item = HandGroup> {
         self.raw_groups
             .to_le_bytes()
@@ -47,15 +72,24 @@ impl RegularWait {
             .map(|x| HandGroup::from_packed(x).unwrap())
     }
 
+    /// Returns whether this waiting pattern has a pair (complete or incomplete).
     pub fn has_pair_or_tanki(&self) -> bool {
         self.pair.is_some() || self.waiting_kind == WaitingKind::Tanki
     }
 
+    /// Returns the tile of the pair (complete or incomplete).
     pub fn pair_or_tanki(&self) -> Option<Tile> {
         self.pair.or_else(||
             (self.waiting_kind == WaitingKind::Tanki).then_some(self.waiting_tile))
     }
 
+    /// Returns whether this waiting pattern is part of a double-sided wait, i.e.
+    /// 45m waits 3m or 6m (両面). This mostly affects scoring and the Pinfu Yaku.
+    ///
+    /// The reason this is separate is because we overloaded the "Ryanmen" term in [`WaitingKind`]
+    /// to broaden its scope to any 2 consecutive numerals, which simplified handling.
+    ///
+    /// For game rule purposes, this method should be used.
     pub fn is_true_ryanmen(&self) -> bool {
         matches!((self.waiting_kind, self.pattern_tile.normal_num()),
             (WaitingKind::RyanmenLow, 2..=7) |  // (1)23 ..= (6)78 ; excluding (7)89
@@ -65,6 +99,15 @@ impl RegularWait {
     }
 }
 
+// NOTE: Comparison of two waiting patterns is non-trivial because `groups` is logically an
+// unordered collection. The only occasion comparison is needed is in tests.
+//
+// The following provides relatively inefficient but working comparisons for tests only.
+
+#[cfg(test)]
+use std::cmp::Ordering;
+
+#[cfg(test)]
 impl PartialEq<Self> for RegularWait {
     fn eq(&self, other: &Self) -> bool {
         self.groups().sorted().collect_vec() == other.groups().sorted().collect_vec()
@@ -75,14 +118,17 @@ impl PartialEq<Self> for RegularWait {
     }
 }
 
+#[cfg(test)]
 impl Eq for RegularWait {}
 
+#[cfg(test)]
 impl PartialOrd<Self> for RegularWait {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
+#[cfg(test)]
 impl Ord for RegularWait {
     fn cmp(&self, other: &Self) -> Ordering {
         let o =
@@ -120,6 +166,24 @@ impl Display for RegularWait {
     }
 }
 
+// End of test-only comparisons.
+
+/// Helper for iterating all regular decompositions (i.e. [`RegularWait`]) of a waiting hand.
+///
+/// Example:
+/// ```
+/// use riichi::analysis::*;
+/// use riichi::common::*;
+/// let mut decomposer = Decomposer::new();
+/// let hand = TileSet34::from_iter(tiles_from_str("1112345678999m"));
+/// for wait in decomposer.with_tile_set(&hand).iter() {
+///     println!("{wait}");
+/// }
+/// ```
+///
+/// The reason this is needed: The iterator needs to reference some intermediate cached results,
+/// with lifetimes ultimated tied to the lookup tables. An object must be used to concretely
+/// represent these lifetimes.
 pub struct Decomposer<'a> {
     c_table: &'a CTable,
     w_table: &'a WTable,
@@ -128,7 +192,7 @@ pub struct Decomposer<'a> {
 }
 
 impl Decomposer<'_> {
-    /// TODO(summivox): doc
+    /// Creates a new decomposer. Note that this instance can be reused across multiple hands.
     pub fn new() -> Decomposer<'static> {
         Decomposer {
             c_table: get_c_table(),
@@ -138,7 +202,10 @@ impl Decomposer<'_> {
         }
     }
 
-    /// TODO(summivox): doc
+    /// Loads the decomposer with a hand, represented as an [octal-packed][packed] tile set.
+    /// After loading, the decomposer is ready to be iterated.
+    ///
+    /// [packed]: TileSet34::packed
     pub fn with_keys(&mut self, keys: [u32; 4]) -> &Self {
         self.keys = keys;
         self.c_for_suit = [
@@ -150,12 +217,13 @@ impl Decomposer<'_> {
         self
     }
 
-    /// TODO(summivox): doc
-    pub fn with_tile_set(&mut self, tile_set: TileSet34) -> &Self {
+    /// Loads the decomposer with a hand, represented as a plain tile set.
+    /// After loading, the decomposer is ready to be iterated.
+    pub fn with_tile_set(&mut self, tile_set: &TileSet34) -> &Self {
         self.with_keys(tile_set.packed())
     }
 
-    /// TODO(summivox): doc
+    /// Iterates through all regular hand decompositions.
     pub fn iter(&self) -> impl Iterator<Item=RegularWait> + '_ {
         let suit_x =
             self.c_for_suit
@@ -192,6 +260,19 @@ impl Decomposer<'_> {
             })
     }
 }
+
+/*
+// TODO(summivox): rust (impl Trait in type aliases)
+impl<'a> IntoIterator for &Decomposer<'a> {
+    type Item = RegularWait;
+    type IntoIter = impl Iterator<Item=RegularWait> + 'a;
+
+    fn into_iter(self) -> Self::IntoIter { self.iter() }
+}
+*/
+
+// Note: Below are all implementation details. Conveniently, `RegularWait` can be directly used to
+// represent intermediate results of a hand decomposition.
 
 impl RegularWait {
     fn from_waiting_pattern(suit: u8, w: WaitingPattern) -> Option<Self> {
@@ -364,7 +445,7 @@ mod tests {
 
     #[test]
     fn check_decomp_examples() {
-        // no ten
+        // not waiting
         check_decomp([3, 2, 1, 0], &[]);
         check_decomp([0, 0, 0, 0o0122000], &[]);
         check_decomp([0, 0, 0, 0o0011000], &[]);

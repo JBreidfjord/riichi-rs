@@ -1,4 +1,4 @@
-//! [`Action`]s, [`Reaction`]s, and the [result](`ActionResult`) of an action-reaction cycle.
+//! [`Action`] by the in-turn player.
 
 use std::fmt::{Display, Formatter};
 use crate::common::*;
@@ -14,14 +14,16 @@ pub enum Action {
     Ankan(Tile),
     /// Declare a [`Kakan`] (1 in closed hand, 3 in pon).
     Kakan(Tile),
-    /// Win by self-draw. See [`ActionResult::TsumoAgari`].
+    /// Win by self-draw (ツモ和ガリ).
+    /// See [`super::ActionResult::Agari`], [`super::AgariKind::Tsumo`].
     TsumoAgari(Tile),
-    /// Abort by Nine Kinds of Terminals. See [`ActionResult::AbortNineKinds`].
+    /// Abort by Nine Kinds of Terminals.
+    /// See [`super::ActionResult::Abort`], [`super::AbortReason::NineKinds`].
     AbortNineKinds,
 }
 
 impl Action {
-    pub fn from_meld(meld: Meld) -> Option<Self> {
+    pub fn from_meld(meld: &Meld) -> Option<Self> {
         match meld {
             Meld::Kakan(kakan) => Some(Action::Kakan(kakan.added)),
             Meld::Ankan(ankan) => Some(Action::Ankan(ankan.own[0].to_normal())),

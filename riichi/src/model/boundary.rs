@@ -7,7 +7,6 @@ use crate::{
 use super::{
     ActionResult,
     AgariResult,
-    PartiallyObservable,
 };
 
 /// Kyoku-Honba (局-本場) pair that uniquely identifies a round in a game.
@@ -116,18 +115,10 @@ impl Default for RoundBegin {
     }
 }
 
-impl PartiallyObservable for RoundBegin {
-    fn observe_by(&self, _player: Player) -> Self {
-        let mut observed = self.clone();
-        observed.wall = wall::make_dummy_wall();
-        observed
-    }
-}
-
 #[derive(Clone, Debug, Default)]
 pub struct RoundEnd {
     /// The result of the round; equal to the last `ActionResult` before round ended.
-    /// Guaranteed to be "terminal" (see [`ActionResult::is_terminal`]).
+    /// Guaranteed to be "terminal" (agari or abort).
     pub round_result: ActionResult,
 
     /// Same definition as [`RoundBegin::pot`] but at round end.

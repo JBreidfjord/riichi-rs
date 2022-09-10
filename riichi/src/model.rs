@@ -1,45 +1,46 @@
-//! State-Action-Reaction representation of the game.
+//! State-Action-Reaction representation
 //!
-//! This module mainly provides data model definitions and some straightforward helpers.
-//! Game logic belongs to [`crate::engine`].
+//! This module defines the data models, their relationships, and helpers of a structured
+//! representation of a round of game.
 //!
 //! ## The original state machine diagram
 //!
+//! <!-- TODO: show the 4-kan abort -->
+//!
 //! ```asciiart
-//!      ┌───────┐                            ┌─────┐
-//!      │ Deal  │                            │ END │
-//!      │(Start)│                            └─────┘
-//!      └─┬─────┘                               ▲
-//!        │                            #3       │Yes
-//!        │                            ┌────────┴─────────┐
-//!        │    ┌───────────────────────┤ Forced abortion? │◄────────────────────┐
-//!        │    │                       └──────────────────┘                     │
-//!        ▼    ▼             #1                                   #2            │
-//!      ┌────────┐ Draw=Y    ┌────────────┐           ┌─────────────┐ Nothing   │
-//!      │DrawHead├──────────►│            │           │             ├───────────┘
-//!      └────────┘ Meld=N    │            │  Discard  │             │
-//!      #3                   │            ├──────────►│             │
-//!                           │            │  Riichi   │             │
-//!                           │  In-turn   │           │ Resolved    │
-//!                           │  player's  │           │ declaration │
-//!      ┌────────┐ Draw=Y    │  decision  │           │ from        │ Daiminkan
-//!   ┌─►│DrawTail├──────────►│            │           │ out-of-turn ├───────────┐
-//!   │  └────────┘ Meld=Y    │  (Action)  │           │ players     │           │
-//!   │  #4                   │            │           │             │           │
-//!   │                       │            │           │ (Reaction)  │           │
-//!   │                       │            │  Kakan    │             │           │
-//!   │  ┌────────┐ Draw=N    │            ├──────────►│             │ Chii      │
-//!   │  │Chii/Pon├──────────►│            │  Ankan    │             ├─────────┐ │
-//!   │  └────────┘ Meld=Y    └──────┬─────┘           └──────┬──────┘ Pon     │ │
-//!   │  #4   ▲             NineKinds│Tsumo                   │Ron             │ │
-//!   │       │                      ▼                        ▼                │ │
-//!   │       │                   ┌─────┐                  ┌─────┐             │ │
-//!   │       │                   │ END │                  │ END │             │ │
-//!   │       │                   └─────┘                  └─────┘             │ │
-//!   │       │                                                                │ │
-//!   │       └────────────────────────────────────────────────────────────────┘ │
-//!   │                                                                          │
-//!   └──────────────────────────────────────────────────────────────────────────┘
+//!    ┌──────┐
+//!    │ Deal │
+//!    └─┬────┘
+//!      │
+//!      │    ┌────────────────────────────────────────────────────────────────┐
+//!      │    │                                                                │
+//!      ▼    ▼             #1                                   #2            │
+//!    ┌────────┐ Draw=Y    ┌────────────┐           ┌─────────────┐ Nothing   │
+//!    │DrawHead├──────────►│            │           │             ├───────────┤
+//!    └────────┘ Meld=N    │            │  Discard  │             │           │
+//!    #3                   │            ├──────────►│             │  #3       ▼
+//!                         │            │  Riichi   │             │  ┌─────────────────┐
+//!                         │  In-turn   │           │ Resolved    │  │ Forced abortion │
+//!                         │  player's  │           │ declaration │  └─────────────────┘
+//!    ┌────────┐ Draw=Y    │  decision  │           │ from        │           ▲
+//! ┌─►│DrawTail├──────────►│            │           │ out-of-turn │           │
+//! │  └────────┘ Meld=Y    │  (Action)  │           │ players     │ Daiminkan │
+//! │  #4                   │            │           │             ├───────────┤
+//! │                       │            │           │ (Reaction)  │           │
+//! │                       │            │  Kakan    │             │           │
+//! │  ┌────────┐ Draw=N    │            ├──────────►│             │ Chii      │
+//! │  │Chii/Pon├──────────►│            │  Ankan    │             ├─────────┐ │
+//! │  └────┬───┘ Meld=Y    └──┬───────┬─┘           └──────┬──────┘ Pon     │ │
+//! │  #4   │                  │       │                    │                │ │
+//! │       │         NineKinds│       │Tsumo               │Ron             │ │
+//! │       │                  ▼       ▼                    ▼                │ │
+//! │       │         ┌──────────┐   ┌─────┐             ┌─────┐             │ │
+//! │       │         │ Abortion │   │ Win │             │ Win │             │ │
+//! │       │         └──────────┘   └─────┘             └─────┘             │ │
+//! │       │                                                                │ │
+//! │       └────────────────────────────────────────────────────────────────┘ │
+//! │                                                                          │
+//! └──────────────────────────────────────────────────────────────────────────┘
 //! ```
 //!
 //! There are multiple states within one logical turn of a round of game.
@@ -50,12 +51,32 @@
 //! 2. Each other player may independently declare an reaction: Chii, Pon, Daiminkan, or Ron.
 //!    The resolved reaction type determines the next state.
 //!
-//! 3. In case the resolved reaction type is no-op, additionally we need to check for involuntary
-//!    end conditions of this round.
+//! 3. After reaction resolution, we need to check for any involuntary round-ending conditions.
 //!
 //! 4. All done, then the next player gains draw and/or meld depending on what has happened so far,
 //!    marking the beginning of the next turn.
 //!
+//! Not all actions are valid at all times; the validity often depends on state variables not
+//! illustrated in the state machine diagram.
+//!
+//!
+//! ## The cyclical state representation
+//!
+//! <!-- TODO: explain why we decided to model this way -->
+//!
+//! We would only encode the state of a round of game at the point before the player in turn takes
+//! their action. This is referred to as the pre-action state, or simply [`State`].
+//!
+//! Other states can be derived from this definition:
+//!
+//! - The post-action state is simply the concatenation of the pre-action state and the action.
+//! - The state after any resolved reaction is likewise the concatenation of the pre-action state,
+//!   the action, and the resolved reaction.
+//! - From the post-reaction state, we can automatically determine either the next pre-action state,
+//!   or the end of the round.
+//!
+//! This design has the desirable property of only one state per turn, making the "round history"
+//! a simple repeated structure of {[`State`], [`Action`], [`Reaction`]}.
 //!
 
 mod action;
@@ -78,21 +99,20 @@ pub use yaku::*;
 
 use crate::common::*;
 
-trait PartiallyObservable {
-    fn observe_by(&self, player: Player) -> Self;
-}
-
 /// A discarded tile.
-/// This has the same representation in [`Action`] and [`State`].
+/// This has (mostly) the same representation in both [`Action`] and [`State`].
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub struct Discard {
     /// The discarded tile.
     pub tile: Tile,
+
     /// If called by another player, that player; otherwise the player who discarded this tile.
-    /// This is explicitly ignored when wrapped in [`Action::Discard`].
+    /// Since this is unknown at the time the action is made, it is ignored in [`Action::Discard`].
     pub called_by: Player,
-    /// Whether this tile was discarded as a part of declaring riichi.
+
+    /// Whether this tile was discarded as a part of declaring Riichi (立直, リーチ).
     pub declares_riichi: bool,
+
     /// Whether this tile was discarded immediately after being drawn (ツモ切り).
     pub is_tsumokiri: bool,
 }
@@ -130,7 +150,7 @@ impl Display for ActionReaction {
     }
 }
 
-/// Bundle of a turn's action, any reaction, and results
+/// Bundle of a turn's action, any reaction, and results.
 #[derive(Clone, Debug)]
 pub struct GameStep {
     pub actor: Player,
@@ -138,32 +158,6 @@ pub struct GameStep {
     pub reactor_reaction: Option<(Player, Reaction)>,
     pub action_result: ActionResult,
     pub next: Option<StateCore>,
-}
-
-impl RoundBegin {
-    /// Returns the initial state of a round, with all 4 players' initial hands dealt (13 x 4),
-    /// and the button player's first self draw added.
-    pub fn to_initial_state(&self) -> State {
-        let wall = &self.wall;
-        let button = self.round_id.button();
-        State {
-            core: StateCore {
-                seq: 0,
-                action_player: button,
-                num_drawn_head: 53,  // 13 x 4 + 1
-                num_drawn_tail: 0,
-                num_dora_indicators: 1,
-                draw: Some(self.wall[52]),
-                incoming_meld: None,
-                furiten: Default::default(),
-                riichi: Default::default(),
-            },
-            closed_hands: wall::deal(wall, button),
-            melds: Default::default(),
-            discards: Default::default(),
-            discard_sets: Default::default(),
-        }
-    }
 }
 
 impl State {

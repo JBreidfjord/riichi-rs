@@ -2,10 +2,14 @@
 //!
 //! - When red 5's are counted separately, use [`TileSet37`].
 //! - If red 5's are treated the same as normal 5's, use [`TileSet34`].
+//! - If all 4 tiles of the same kind are treated the same (i.e. you only need to deal with distinct
+//!   tiles), use [`TileMask34`].
 //!
-//! Both can be directly indexed with [`Tile`] (red or normal, 37 or 34).
+//! As the names suggest, the specific encoding of [`Tile`] is assumed.
 //!
-//! A [`TileSet37`] can be converted to a [`TileSet34`] with red 5's folded into normal 5's.
+//! Both [`TileSet37`] and [`TileSet34`] can be indexed with [`Tile`] (red or normal, 37 or 34),
+//! without first converting to encoding. A [`TileSet37`] can be converted to a [`TileSet34`] with
+//! red 5's folded into normal 5's.
 
 use std::fmt::{Display, Formatter};
 use std::ops::{Index, IndexMut};
@@ -18,7 +22,7 @@ use derive_more::{
 
 use super::Tile;
 
-/// Histogram for all 37 kinds of tiles (including red).
+/// Histogram for all 37 kinds of tiles (including reds).
 /// Can be directly indexed with [`Tile`].
 #[derive(Clone, Debug, Eq, PartialEq, Constructor, From, Into, IntoIterator, Index, IndexMut)]
 pub struct TileSet37(pub [u8; 37]);
@@ -69,7 +73,12 @@ impl FromIterator<Tile> for TileSet37 {
 }
 
 impl TileSet37 {
+    /// An empty tile set.
     pub const fn empty_set() -> Self { TileSet37([0; 37]) }
+
+    /// The complete set of tiles in a game, given the number of red 5's in play.
+    /// Each red 5 replaces its corresponding normal 5; the total number of tiles remains 136
+    /// (34 x 4).
     pub const fn complete_set(num_reds: [u8; 3]) -> Self {
         let mut a = [4; 37];
         a[34] = num_reds[0];
@@ -81,10 +90,7 @@ impl TileSet37 {
         TileSet37(a)
     }
 
-    /// Compress the histogram so that each element takes 3 bits (valid range `0..=4`).
-    /// This results in 4 x 27-bit integers, one for each suit.
-    ///
-    /// Conveniently this is 1 digit per element in octal.
+    /// Same as [`TileSet34::packed`], but collapsing red 5's into normal 5's.
     pub fn packed(&self) -> [u32; 4] {
         let mut packed = [0u32; 4];
         let h = &self.0;
@@ -98,6 +104,7 @@ impl TileSet37 {
         packed
     }
 
+    /// Iterate through all tiles in this tile set, in encoding order (i.e. reds come after honors).
     pub fn iter_tiles(&self) -> impl Iterator<Item=Tile> {
         self.0.into_iter().enumerate().flat_map(|(encoding, count)|
             itertools::repeat_n(
@@ -162,9 +169,14 @@ impl FromIterator<Tile> for TileSet34 {
 }
 
 impl TileSet34 {
+    /// An empty tile set.
     pub const fn empty_set() -> Self { TileSet34([0; 34]) }
+
+    /// The complete set of tiles in a game, without differentiating red 5's from normal 5's.
+    /// The total number of tiles is 136 (34 x 4).
     pub const fn complete_set() -> Self { TileSet34([4; 34]) }
 
+    /// Reconstruct the histogram from its [packed](Self::packed) representation.
     pub fn from_packed(packed: [u32; 4]) -> Self {
         let mut ts34 = Self::default();
         let mut i = 0;
@@ -188,7 +200,7 @@ impl TileSet34 {
     /// Compress the histogram so that each element takes 3 bits (valid range `0..=4`).
     /// This results in 4 x 27-bit integers, one for each suit.
     ///
-    /// Conveniently this is 1 digit per element in octal.
+    /// Conveniently, this is 1 digit per element in octal.
     pub fn packed(&self) -> [u32; 4] {
         let mut packed = [0u32; 4];
         let h = &self.0;
@@ -199,6 +211,7 @@ impl TileSet34 {
         packed
     }
 
+    /// Iterate through all tiles in this tile set, in encoding order.
     pub fn iter_tiles(&self) -> impl Iterator<Item=Tile> {
         self.0.into_iter().enumerate().flat_map(|(encoding, count)|
             itertools::repeat_n(
@@ -207,7 +220,7 @@ impl TileSet34 {
     }
 }
 
-/// 1-bit-per-tile version of [`TileSet34`], i.e. non-multi set.
+/// 1-bit-per-tile version of [`TileSet34`], i.e. non-multi set, set of tile kinds.
 #[derive(
     Copy, Clone, Debug, Default, Eq, PartialEq,
     Constructor, From, Into,
@@ -216,6 +229,40 @@ impl TileSet34 {
 )]
 pub struct TileMask34(pub u64);
 
+impl TileMask34 {
+    /// An empty tile set.
+    pub const fn empty_set() -> Self { Self(0) }
+
+    /// The complete set of tiles (all 34 kinds).
+    pub const fn complete_set() -> Self { Self((1 << 34) - 1) }
+
+    /// Returns if this is an empty set.
+    pub fn is_empty(self) -> bool { self.0 == 0 }
+
+    /// Returns if there is at least one kind of tile in the set.
+    pub fn any(self) -> bool { self.0 > 0 }
+
+    /// Tests if this set contains the given tile.
+    pub fn has(self, tile: Tile) -> bool {
+        (self.0 >> (tile.normal_encoding() as u64)) & 1 == 1
+    }
+
+    /// Tests if this set contains the given tile encoding.
+    pub fn has_i(self, i: u8) -> bool {
+        (self.0 >> (i as u64)) & 1 == 1
+    }
+
+    /// Mutates the set to include the given tile.
+    pub fn set(&mut self, tile: Tile) {
+        self.0 |= 1 << (tile.normal_encoding() as u64);
+    }
+
+    /// Mutates the set to exclude the given tile.
+    pub fn clear(&mut self, tile: Tile) {
+        self.0 &= !(1 << (tile.normal_encoding() as u64));
+    }
+}
+
 impl FromIterator<Tile> for TileMask34 {
     fn from_iter<T: IntoIterator<Item=Tile>>(tiles: T) -> Self {
         let mut mask = 0u64;
@@ -223,23 +270,6 @@ impl FromIterator<Tile> for TileMask34 {
             mask |= 1u64 << tile.normal_encoding() as u64;
         }
         Self(mask)
-    }
-}
-
-impl TileMask34 {
-    pub fn is_empty(self) -> bool { self.0 == 0 }
-    pub fn any(self) -> bool { self.0 > 0 }
-    pub fn has(self, tile: Tile) -> bool {
-        (self.0 >> (tile.normal_encoding() as u64)) & 1 == 1
-    }
-    pub fn has_i(self, i: u8) -> bool {
-        (self.0 >> (i as u64)) & 1 == 1
-    }
-    pub fn set(&mut self, tile: Tile) {
-        self.0 |= 1 << (tile.normal_encoding() as u64);
-    }
-    pub fn clear(&mut self, tile: Tile) {
-        self.0 &= !(1 << (tile.normal_encoding() as u64));
     }
 }
 

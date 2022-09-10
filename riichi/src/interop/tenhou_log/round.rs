@@ -9,6 +9,7 @@ use super::{
     entry::*,
 };
 
+/// Serde model for the compact representation of a round.
 #[derive(Clone, Debug, Default, Serialize_tuple, Deserialize_tuple)]
 #[cfg_attr(test, derive(Eq, PartialEq))]  // No need to compare other than in tests.
 pub struct TenhouRoundRaw {
@@ -36,10 +37,16 @@ pub struct TenhouRoundRaw {
     pub end_info: TenhouEndInfo,
 }
 
+/// [`RoundId`] plus the _number_ of riichi sticks.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Serialize_tuple, Deserialize_tuple)]
 pub struct RoundIdAndPot {
+    /// Same as in [`RoundId`].
     pub kyoku: u8,
+    /// Same as in [`RoundId`].
     pub honba: u8,
+
+    /// Represents 1000 x value in [`GamePoints`] (i.e. the _number_ of riichi sticks).
+    /// This is different from the definition in [`RoundBegin`].
     pub pot_count: u8,
 }
 

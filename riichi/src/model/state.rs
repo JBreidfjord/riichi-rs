@@ -4,62 +4,85 @@
 // use arrayvec::ArrayVec;  // TODO(summivox): use ArrayVec
 
 use std::fmt::{Display, Formatter};
+
 use itertools::Itertools;
+
 use crate::common::*;
-use super::Discard;
-use super::PartiallyObservable;
+use super::{
+    Discard,
+    RoundBegin,
+};
 
 /// State of a round of game.
-/// This is sampled before a player takes action, but after drawing and/or meld is taken in.
 ///
-/// NOTE: The newly drawn tile is deliberately kept separate from `closed_hands`.
+/// This is sampled before a player takes action, but after drawing and/or meld is taken in.
+/// Note that any newly drawn tile is deliberately kept separate from `closed_hands`.
+///
+/// See [mod-level docs](crate::model) for the details of modeling.
 #[derive(Clone, Debug, Default)]
 pub struct State {
-    /// Core variables; see [`StateCore`].
+    /// Core state variables.
+    /// **Visibility varies.**
     pub core: StateCore,
 
     /// Melds / open hands of each player.
+    /// **Publicly visible.**
     pub melds: [Vec<Meld>; 4],
 
     /// The concealed/closed hand of each player, represented as a [`TileSet37`].
-    /// This does not include any newly drawn tile.
+    /// This does not include any newly drawn tile, i.e. [`StateCore::draw`].
     /// **A player can only observe their own hand.**
     pub closed_hands: [TileSet37; 4],
 
-    /// The discard stream of each player.
-    /// Tiles that are called by other players are explicitly marked so, not excluded.
+    /// The discard stream of each player, a.k.a. "River" (河).
+    /// **Publicly visible.**
+    ///
+    /// Tiles that are called by other players are explicitly marked so, unlike the physical
+    /// 6-in-a-row representation on table, where the tile cannot exist both in the discard stream
+    /// and the corresponding meld.
+    ///
     /// See [`Discard`].
     pub discards: [Vec<Discard>; 4],
 
-    /// The set of discarded tiles for each player. This makes it easier to answer queries of
-    /// whether a player had discarded a certain tile, no matter how many times and when.
-    /// Specifically, this is used to calculate [`FuritenFlags`].
+    /// The set of discarded tiles for each player.
+    /// **Publicly visible.**
+    ///
+    /// This makes it easier to answer queries of whether a player had discarded a certain tile, no
+    /// matter how many times and when. Specifically, this is used to calculate [`FuritenFlags`].
     ///
     /// Any red 5 is treated the same as its corresponding normal 5.
     pub discard_sets: [TileMask34; 4],
 }
 
 /// Essential state variables.
+///
 /// These variables, together with the previous turn's actions and reactions, imply the delta of
-/// all other variables from the previous state to the current.
+/// all other variables from the previous [`State`] to the current.
 ///
 /// Expressed in forward form: `state + {action, reactions, next state core} => next state`.
 ///
 /// This means that the history of full states can be derived by folding the initial state with
 /// each consecutive `{action, reactions, next state core}` triplet, which is effectively a
 /// more space-efficient representation of the same information.
+///
+/// See [mod-level docs](crate::model) for the details of modeling.
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(test, derive(type_layout::TypeLayout))]
 pub struct StateCore {
     /// Sequence number of this action, defined as the total number of closed actions since the
     /// beginning of this round.
+    /// **Publicly visible.**
     pub seq: u8,
 
     /// The player in action.
+    /// **Publicly visible.**
     pub action_player: Player,
 
-    /// Number of tiles drawn from the head of the double-stacked cut wall. This includes the
-    /// initial deal (13 x 4 = 52), the current player's normal self draw, and everything in between.
+    /// Number of tiles drawn from the head of the double-stacked cut wall.
+    /// **Publicly visible.**
+    ///
+    /// This includes the initial deal (13 x 4 = 52), the current player's normal self draw, and
+    /// everything in between.
     ///
     /// A normal draw is from `wall[num_drawn_head - 1]`. As an example, before the first action of
     /// any round, `num_drawn_head == 53` and the tile drawn will be `wall[52]`.
@@ -67,24 +90,29 @@ pub struct StateCore {
 
     /// Number of tiles drawn from the tail of the double-stacked cut wall, as a result of forming
     /// (any kind of) kan. Same as the number of completed kan.
+    /// **Publicly visible.**
     ///
-    /// Due to the double-stacking (see [`crate::wall`]), the order of tiles drawing from the tail
-    /// is NOT the same as the reverse order of the wall array. See [`crate::wall::KAN_DRAW_INDEX`].
+    /// Due to the double-stacking (see [`wall`]), the order of tiles drawing from the tail
+    /// is NOT the same as the reverse order of the wall array. See [`wall::KAN_DRAW_INDEX`].
     pub num_drawn_tail: u8,
 
     /// Number of revealed dora indicators (see [`Tile::indicated_dora`]).
+    /// **Publicly visible.**
     pub num_dora_indicators: u8,
 
     // The player will always gain one tile before action. Possibilities:
-    // - Normal draw: from the head of the wall
-    // - Kan draw: from the tail of the wall
-    // - Chii/Pon: from another player; combined into the meld list (not the closed hand!)
+    // - `{draw=Some, meld=None}` Normal draw: from the head of the wall
+    // - `{draw=Some, meld=Some}` Kan draw: from the tail of the wall
+    // - `{draw=None, meld=Some}` Chii/Pon: from another player; combined into the meld list
+    //   (not the closed hand!)
 
     /// If the player has drawn a tile from the wall (normal or kan), this is it.
     /// **A player can only observe their own draw.**
     pub draw: Option<Tile>,
+
     /// If the player called a meld during the last action-reaction cycle, this is it.
-    /// Note that this is not mutually exclusive with `draw`; kan => both draw and meld.
+    /// Note that this is not mutually exclusive with `draw`; an incoming Kan => both draw and meld.
+    /// **Publicly visible.**
     pub incoming_meld: Option<Meld>,
 
     /// Furiten status for each player before action.
@@ -92,22 +120,42 @@ pub struct StateCore {
     pub furiten: [FuritenFlags; 4],
 
     /// Riichi status for each player.
+    /// **Publicly visible.**
     pub riichi: [RiichiFlags; 4],
 }
 
-impl PartiallyObservable for State {
-    fn observe_by(&self, player: Player) -> Self {
-        let mut observed = self.clone();
-        if player != observed.core.action_player {
-            observed.core.draw = None;
+impl State {
+    /// Returns the initial state of a round, with all 4 players' initial hands dealt (13 x 4),
+    /// and the button player's first self draw added.
+    pub fn new(begin: &RoundBegin) -> Self {
+        let button = begin.round_id.button();
+        Self {
+            core: StateCore::new(begin),
+
+            closed_hands: wall::deal(&begin.wall, button),
+            melds: Default::default(),
+            discards: Default::default(),
+            discard_sets: Default::default(),
         }
-        for i in 0..4 {
-            if i != player.to_usize() {
-                observed.closed_hands[i] = TileSet37::default();
-                observed.core.furiten[i] = FuritenFlags::default();
-            }
+    }
+}
+
+impl StateCore {
+    /// Returns the initial state of a round, with all 4 players' initial hands dealt (13 x 4),
+    /// and the button player's first self draw added.
+    pub fn new(begin: &RoundBegin) -> Self {
+        let button = begin.round_id.button();
+        Self {
+            seq: 0,
+            action_player: button,
+            num_drawn_head: 53,  // 13 x 4 + 1
+            num_drawn_tail: 0,
+            num_dora_indicators: 1,
+            draw: Some(begin.wall[52]),
+            incoming_meld: None,
+            furiten: Default::default(),
+            riichi: Default::default(),
         }
-        observed
     }
 }
 
@@ -181,7 +229,7 @@ pub struct FuritenFlags {
     /// Another player discarded, or made kakan/ankan, on a tile in the player's waiting set, but
     /// this player did not (including if this player was not able to) declare Ron on it.
     /// This penalty is temporary, as it will be lifted once this player discards, unless this
-    /// player is also under riichi, which will mark [`miss_permanent`] instead.
+    /// player is also under riichi, which will mark `miss_permanent` instead.
     pub miss_temporary: bool,
 
     /// Same trigger as `miss_temporary` while under riichi.

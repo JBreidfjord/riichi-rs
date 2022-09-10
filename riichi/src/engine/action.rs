@@ -61,7 +61,7 @@ pub enum ActionError {
     CannotTsumoAgari,
 }
 
-pub(crate) fn check_action(
+pub fn check_action(
     begin: &RoundBegin,
     state: &State,
     action: Action,

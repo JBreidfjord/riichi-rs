@@ -1,7 +1,8 @@
-//! Core game logic, i.e. state transitions.
+//! Driver of the main game logic.
 
 mod action;
 mod agari;
+mod cache;
 mod step;
 mod reaction;
 mod scoring;
@@ -9,16 +10,14 @@ pub mod utils;
 
 use std::default::Default;
 
-use log::log_enabled;
-
 use crate::{
-    analysis::{Decomposer, WaitingInfo},
     common::*,
     model::*,
 };
 use self::{
-    reaction::{check_reaction, resolve_reaction},
     action::check_action,
+    cache::EngineCache,
+    reaction::{check_reaction, resolve_reaction},
     step::{next_normal, next_agari, next_abort}
 };
 pub use self::{
@@ -30,6 +29,41 @@ pub use self::{
 // TODO(summivox): rules (riichi sticks)
 const RIICHI_POT: GamePoints = 1000;
 
+/// Driver of the main game logic.
+///
+/// This has the following main functions:
+///
+/// - Given [`State`], is some [`Action`] valid?
+/// - Given [`State`] and a valid [`Action`], is some [`Reaction`] valid?
+/// - Given [`State`] and valid [`Action`] and any valid [`Reaction`]s, proceed to the next state.
+///
+/// For improved efficiency, valid [`Action`] and [`Reaction`]s, together with cached info from
+/// their validation, are cached here for deriving the next state.
+///
+/// Example:
+/// ```
+/// use riichi::prelude::*;  // includes `Engine`
+/// let mut engine = Engine::new();
+///
+/// engine.begin_round(RoundBegin {
+///     rules: Default::default(),
+///     round_id: RoundId { kyoku: 0, honba: 0 },
+///     wall: wall::make_sorted_wall([1, 1, 1]),
+///     pot: 0,
+///     points: [25000, 25000, 25000, 25000],
+/// });
+/// assert_eq!(engine.state().core.seq, 0);
+/// assert_eq!(engine.state().core.action_player, P0);
+///
+/// engine.register_action(Action::Discard(Discard {
+///     tile: t!("1m"), ..Discard::default()})).unwrap();
+///
+/// assert_eq!(engine.step(), ActionResult::Pass);
+///
+/// assert_eq!(engine.state().core.seq, 1);
+/// assert_eq!(engine.state().core.action_player, P1);
+/// /* ... */
+/// ```
 #[derive(Default)]
 pub struct Engine {
     begin: RoundBegin,
@@ -41,68 +75,22 @@ pub struct Engine {
     cache: EngineCache,
 }
 
-pub(crate) struct EngineCache {
-    /// Local decomposer instance for simplifying ownership.
-    /// All regular hand decomposition is performed through this cache anyway.
-    decomposer: Decomposer<'static>,
-
-    /// Pending meld declared by each player, either action or reaction.
-    meld: [Option<Meld>; 4],
-
-    /// Pending wins declared by each player, either action (tsumo) or reaction (ron).
-    /// Note that _all_ win candidates are cached; optimization for points is deferred.
-    win: [Vec<AgariCandidate>; 4],
-
-    /// Full (3N + 1) hand waiting decomposition cache for each player.
-    /// - Initialized when jumped to a new state.
-    /// - Updated when a player's hand returns to (3N + 1) form.
-    wait: [WaitingInfo; 4],
-}
-
-impl EngineCache {
-    fn new() -> Self {
-        Self {
-            decomposer: Decomposer::new(),
-
-            meld: Default::default(),
-            win: Default::default(),
-            wait: Default::default(),
-        }
-    }
-
-    fn init_wait_cache(&mut self, hands: &[TileSet37; 4]) {
-        for player in all_players() {
-            self.wait[player.to_usize()] = WaitingInfo::from_keys(
-                &mut self.decomposer,
-                &hands[player.to_usize()].packed());
-        }
-    }
-
-    fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
-        self.wait[player.to_usize()] = WaitingInfo::from_keys(
-            &mut self.decomposer, &hand.packed());
-
-        if log_enabled!(log::Level::Trace) {
-            // This is very noisy --- called every turn. Please turn on with care.
-            log::debug!("updated waiting cache for P{} (hand={}): {}",
-                player.to_usize(), hand, self.wait[player.to_usize()]);
-        }
-    }
-}
-
-impl Default for EngineCache {
-    fn default() -> Self { Self::new() }
-}
-
 impl Engine {
+    /// Creates an empty engine.
     pub fn new() -> Self { Default::default() }
-    
+
+    /// Returns the current game state.
     pub fn state(&self) -> &State { &self.state }
+
+    /// Returns the end-of-round conclusions if the round has ended.
     pub fn end(&self) -> &Option<RoundEnd> { &self.end }
 
+    /// Set up the engine for the specified round.
+    /// The state is initialized to the beginning of this round, ready for the button player to
+    /// take action.
     pub fn begin_round(&mut self, begin: RoundBegin) -> &mut Self {
         self.begin = begin;
-        self.state = self.begin.to_initial_state();
+        self.state = State::new(&self.begin);
         self.action = Default::default();
         self.reactions = Default::default();
         self.end = None;
@@ -110,6 +98,7 @@ impl Engine {
         self
     }
 
+    /// Within the same round, resets the engine to start from the given state.
     pub fn jump_to_state(&mut self, state: State) -> &mut Self {
         // sanity check: must have valid begin
         debug_assert!(wall::is_valid_wall(self.begin.wall));
@@ -122,6 +111,7 @@ impl Engine {
         self
     }
 
+    /// Validates the given action against the current state, then caches it in the engine if valid.
     pub fn register_action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
         // sanity check: must have valid state
         assert!(self.state.core.num_drawn_head >= 53);
@@ -135,6 +125,8 @@ impl Engine {
         Ok(self)
     }
 
+    /// Validates the given reaction against the current state and cached action, then caches it if
+    /// valid.
     pub fn register_reaction(&mut self, reactor: Player, reaction: Reaction)
         -> Result<&mut Self, ReactionError> {
         self.reactions[reactor.to_usize()] = None;
@@ -149,6 +141,9 @@ impl Engine {
         Ok(self)
     }
 
+    /// Resolves the cached actions and reactions into the conclusion of this turn, then updates
+    /// the state to the beginning of the next turn, or determines the end-of-round conclusions if
+    /// the round has ended.
     pub fn step(&mut self) -> ActionResult {
         let actor = self.state.core.action_player;
         let action = self.action.unwrap();

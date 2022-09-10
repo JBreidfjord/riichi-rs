@@ -2,15 +2,29 @@ use std::fmt::{Display, Formatter};
 use std::iter::zip;
 use crate::common::*;
 
+/// Represents one of the irregular waiting hand patterns.
+///
+/// Note that they are mutually exclusive --- one hand can fit at most one of these patterns.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum IrregularWait {
-    /// chiitoi
+    /// Seven Pairs (七対子)
+    ///
+    /// The associated tile is the waiting tile, i.e. the final (7th) incomplete pair.
+    ///
+    /// <https://riichi.wiki/Chiitoitsu>
     SevenPairs(Tile),
 
-    /// kokushi-musou 1-wait
+    /// Thirteen Orphans (十三幺), more commonly known as Kokushi-Musou (国士無双).
+    ///
+    /// The associated tile is the waiting tile, i.e. the "missing"
+    /// [terminal tile](Tile::is_terminal).
+    ///
+    /// <https://riichi.wiki/Kokushi_musou>
     ThirteenOrphans(Tile),
 
-    /// kokushi-musou 13-wait
+    /// 13-way waiting version of Thirteen Orphans (国士無双１３面待ち).
+    ///
+    /// Any [terminal tile](Tile::is_terminal) will complete this hand.
     ThirteenOrphansAll,
 }
 
@@ -36,6 +50,9 @@ impl Display for IrregularWait {
     }
 }
 
+/// Detect which irregular waiting patterns match the supplied hand (octal-[packed][]).
+///
+/// [packed]: TileSet34::packed
 pub fn detect_irregular_wait(keys: [u32; 4]) -> Option<IrregularWait> {
     if let Some(tile) = detect_seven_pairs(keys) {
         Some(IrregularWait::SevenPairs(tile))
@@ -94,11 +111,16 @@ fn detect_thirteen_orphans(keys: [u32; 4]) -> Option<IrregularWait> {
     }
 }
 
+/// Bit hack to obtain {bit mask, count} of {isolated tiles, pairs} in one octal-packed suit.
+/// If there are any trips / quads, return an absurdly big count for both.
 fn one_two(x: u32) -> (u32, u32, u32, u32) {
+    // detect trips/quads
     let over = (x + 0o111111111) & 0o444444444;
     if over > 0 { return (0, 20, 0, 20); }
+    // now everything is 0/1/2; 2 has one more bit.
     let twos = (x >> 1) & 0o111111111;
     let num_twos = twos.count_ones();
+    // 0/1/2 with 2 removed becomes 0/1
     let ones = x - twos * 2;
     let num_ones = ones.count_ones();
     (ones, num_ones, twos, num_twos)

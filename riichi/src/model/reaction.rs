@@ -1,19 +1,30 @@
+//! [`Reaction`] from an out-of-turn player.
+
 use std::fmt::{Display, Formatter};
 use crate::common::*;
 
 /// Reaction from an out-of-turn player.
+///
 /// The lack of reaction / "pass" / unknown reaction can be represented by `Option<Reaction>`.
+///
 /// Variants are ordered by their priority (`Chii` is the lowest, `RonAgari` the highest).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 pub enum Reaction {
-    /// Declare a [`crate::Chii`] (チー) on the recent discard with the specified own tiles.
+    /// Declare a [`Chii`] (チー) on the recent discard with the specified own tiles.
     Chii(Tile, Tile),
-    /// Declare a [`crate::Pon`] (ポン) on the recent discard with the specified own tiles.
+
+    /// Declare a [`Pon`] (ポン) on the recent discard with the specified own tiles.
     Pon(Tile, Tile),
-    /// Declare a [`crate::Daiminkan`] (大明槓) on the recent discard; own tiles are implicit.
+
+    /// Declare a [`Daiminkan`] (大明槓) on the recent discard; own tiles are implicit.
     Daiminkan,
-    /// Declare win-by-steal (ロン和ガリ) on the recent action, which can be
-    /// [`Action::Discard`], [`Action::Kakan`] (rare), or [`Action::Ankan`] (very rare).
+
+    /// Declare win-by-steal (ロン和ガリ) on the recent action.
+    ///
+    /// The action can be:
+    /// - [`super::Action::Discard`] (common)
+    /// - [`super::Action::Kakan`] (rare)
+    /// - [`super::Action::Ankan`] (very rare)
     RonAgari,
 }
 

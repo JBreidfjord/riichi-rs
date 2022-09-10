@@ -53,7 +53,7 @@ pub enum ReactionError {
     CannotRonAgariOverAnkan,
 }
 
-pub(crate) fn check_reaction(
+pub fn check_reaction(
     begin: &RoundBegin,
     state: &State,
     action: Action,
@@ -156,7 +156,7 @@ pub(crate) fn check_reaction(
     Ok(())
 }
 
-pub(crate) fn resolve_reaction(
+pub fn resolve_reaction(
     state: &State,
     action: Action,
     reactions: &[Option<Reaction>; 4],
