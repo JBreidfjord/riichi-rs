@@ -60,7 +60,7 @@
 //! illustrated in the state machine diagram.
 //!
 //!
-//! ## The cyclical state representation
+//! ## The cyclical state
 //!
 //! <!-- TODO: explain why we decided to model this way -->
 //!

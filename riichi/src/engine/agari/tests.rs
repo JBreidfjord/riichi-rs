@@ -16,7 +16,7 @@ impl Hand {
         let melds = Vec::from_iter(melds);
         let waiting_info = WaitingInfo::from_keys(
             &mut Decomposer::new(),
-            &closed_hand.packed(),
+            &closed_hand.packed_34(),
         );
         for w in waiting_info.regular.iter() {
             println!("{}", w);

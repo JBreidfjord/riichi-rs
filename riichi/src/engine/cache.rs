@@ -39,13 +39,13 @@ impl EngineCache {
         for player in all_players() {
             self.wait[player.to_usize()] = WaitingInfo::from_keys(
                 &mut self.decomposer,
-                &hands[player.to_usize()].packed());
+                &hands[player.to_usize()].packed_34());
         }
     }
 
     pub fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
         self.wait[player.to_usize()] = WaitingInfo::from_keys(
-            &mut self.decomposer, &hand.packed());
+            &mut self.decomposer, &hand.packed_34());
 
         if log_enabled!(log::Level::Trace) {
             // This is very noisy --- called every turn. Please turn on with care.

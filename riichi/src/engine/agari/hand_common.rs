@@ -25,7 +25,7 @@ pub fn calc_hand_common(_rules: &Rules, input: &AgariInput) -> HandCommon {
         input.closed_hand,
         input.winning_tile,
         input.melds);
-    let all_tiles_packed = TileSet34::from(&all_tiles).packed();
+    let all_tiles_packed = TileSet34::from(&all_tiles).packed_34();
     let is_closed = input.melds.iter().all(|m| m.is_closed());
     HandCommon {
         agari_kind,

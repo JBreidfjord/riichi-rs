@@ -220,7 +220,7 @@ impl Decomposer<'_> {
     /// Loads the decomposer with a hand, represented as a plain tile set.
     /// After loading, the decomposer is ready to be iterated.
     pub fn with_tile_set(&mut self, tile_set: &TileSet34) -> &Self {
-        self.with_keys(tile_set.packed())
+        self.with_keys(tile_set.packed_34())
     }
 
     /// Iterates through all regular hand decompositions.

@@ -1,10 +1,7 @@
 use std::path::Path;
 use std::str::FromStr;
 
-use glob::glob;
-
 use riichi::{
-    prelude::*,
     interop::tenhou_log::*,
     interop::tenhou_log::test_utils::run_a_round,
 };

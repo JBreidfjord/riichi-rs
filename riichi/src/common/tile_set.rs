@@ -90,8 +90,8 @@ impl TileSet37 {
         TileSet37(a)
     }
 
-    /// Same as [`TileSet34::packed`], but collapsing red 5's into normal 5's.
-    pub fn packed(&self) -> [u32; 4] {
+    /// Same as [`TileSet34::packed_34`], but collapsing red 5's into normal 5's.
+    pub fn packed_34(&self) -> [u32; 4] {
         let mut packed = [0u32; 4];
         let h = &self.0;
         for i in (0..34).rev() {
@@ -176,7 +176,7 @@ impl TileSet34 {
     /// The total number of tiles is 136 (34 x 4).
     pub const fn complete_set() -> Self { TileSet34([4; 34]) }
 
-    /// Reconstruct the histogram from its [packed](Self::packed) representation.
+    /// Reconstruct the histogram from its [packed](Self::packed_34) representation.
     pub fn from_packed(packed: [u32; 4]) -> Self {
         let mut ts34 = Self::default();
         let mut i = 0;
@@ -201,7 +201,7 @@ impl TileSet34 {
     /// This results in 4 x 27-bit integers, one for each suit.
     ///
     /// Conveniently, this is 1 digit per element in octal.
-    pub fn packed(&self) -> [u32; 4] {
+    pub fn packed_34(&self) -> [u32; 4] {
         let mut packed = [0u32; 4];
         let h = &self.0;
         for i in (0..34).rev() {
@@ -349,13 +349,13 @@ mod tests {
     #[test]
     fn ts34_packs_correctly() {
         let h = TileSet34::from_iter(tiles_from_str("147m258p369s77z"));
-        assert_eq!(h.packed(), [
+        assert_eq!(h.packed_34(), [
             0o001001001,
             0o010010010,
             0o100100100,
             0o2000000,
         ]);
-        assert_eq!(TileSet34::from_packed(h.packed()), h);
+        assert_eq!(TileSet34::from_packed(h.packed_34()), h);
     }
 
     #[test]
