@@ -28,6 +28,7 @@ mod tenhou_log_tests {
         for json_path in sample_json_paths() {
             println!("testing: {}", json_path.file_name().unwrap().to_str().unwrap());
             let json_str = std::fs::read_to_string(json_path).unwrap();
+            // We won't be deserializing into
             if json_str.contains(ALL_WAITING) {
                 println!("{}", ALL_WAITING);
                 continue;
@@ -39,12 +40,10 @@ mod tenhou_log_tests {
             let json_value = serde_json::Value::from_str(&json_str).unwrap();
             let deserialized = serde_json::from_value::<TenhouLog>(json_value.clone()).unwrap();
             let reserialized = serde_json::to_value(deserialized).unwrap();
-            /*
-            println!("=== original ===");
-            println!("{}", json_value);
-            println!("=== reserialized ===");
-            println!("{}", reserialized);
-            */
+            log::debug!("=== original ===");
+            log::debug!("{}", json_value);
+            log::debug!("=== reserialized ===");
+            log::debug!("{}", reserialized);
             assert_json_include!(actual: json_value, expected: reserialized);
         }
     }
@@ -79,6 +78,4 @@ mod tenhou_log_tests {
             }
         }
     }
-
-    
 }

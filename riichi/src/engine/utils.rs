@@ -208,8 +208,8 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
 }
 
 /// Each player with active riichi must pay into the pot.
-pub fn calc_pot_delta(state_core: &StateCore) -> [GamePoints; 4] {
-    state_core.riichi.map(|r| if r.is_active { -super::RIICHI_POT } else { 0 })
+pub fn calc_pot_delta(riichi: &[RiichiFlags; 4]) -> [GamePoints; 4] {
+    riichi.map(|r| if r.is_active { -super::RIICHI_POT } else { 0 })
 }
 
 /// All tiles at win condition = closed hand + the winning tile + all tiles in melds .

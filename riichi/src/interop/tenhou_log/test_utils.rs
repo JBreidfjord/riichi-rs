@@ -1,4 +1,8 @@
+use log::log_enabled;
+use rand::prelude::*;
+
 use crate::prelude::*;
+use crate::engine::utils::calc_pot_delta;
 use super::*;
 
 pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &TenhouEndInfo) {
@@ -6,12 +10,14 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
     let mut engine = Engine::new();
 
     let mut begin = recovered.begin.clone();
-    let missing_tiles = wall::get_missing_tiles_in_partial_wall(
+    let mut missing_tiles = wall::get_missing_tiles_in_partial_wall(
         &recovered.known_wall, num_reds);
-    // no shuffle --- just put them back for now
+    missing_tiles[..].shuffle(&mut thread_rng());
     begin.wall = wall::fill_missing_tiles_in_partial_wall(
         &recovered.known_wall, missing_tiles.into_iter());
-    // wall::print(&begin.wall);
+    if log_enabled!(log::Level::Debug) {
+        wall::print(&begin.wall);
+    }
 
     engine.begin_round(begin);
     let mut action_result = ActionResult::Pass;
@@ -44,16 +50,24 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
         action_result = engine.step();
     }
     match action_result {
-        ActionResult::Abort(_abort_reason) => {
-            // println!("engine says: {:?}", _abort_reason);
+        ActionResult::Abort(abort_reason) => {
+            log::info!("engine says: {:?}", abort_reason);
         }
-        ActionResult::Agari(_agari_kind) => {
-            // println!("engine says: {:?}", _agari_kind);
+        ActionResult::Agari(agari_kind) => {
+            log::info!("engine says: {:?}", agari_kind);
+
             let end = engine.end().clone().unwrap();
             println!("{:?}", end.agari_result);
+
+            // Deduct newly added pot from players under riichi.
+            // They are not included anyway.
+            let mut delta = end.points_delta;
+            let pot_delta = calc_pot_delta(dbg!(&engine.state().core.riichi));
+            for i in 0..4 { delta[i] -= pot_delta[i]; }
+
             // Exclude cases where Pao / Liability apply.
             if end_info.agari.iter().all(|x| x.liable_player == x.winner) {
-                assert_eq!(end.points_delta, end_info.overall_delta);
+                assert_eq!(delta, end_info.overall_delta);
             }
         }
         _ => {}

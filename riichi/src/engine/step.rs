@@ -224,6 +224,11 @@ pub(crate) fn next_agari(
         }
     }
 
+    // apply pot contributions in this round
+    let pot_delta = calc_pot_delta(&state.core.riichi);
+    for i in 0..4 { delta[i] += pot_delta[i]; }
+
+    // apply delta to points
     let mut points = begin.points;
     for i in 0..4 { points[i] += delta[i]; }
     let renchan = agari_result[begin.round_id.button().to_usize()].is_some();
