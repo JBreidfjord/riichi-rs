@@ -113,7 +113,6 @@ pub struct Discard {
 
     /// If called by another player, that player; otherwise the player who discarded this tile.
     /// Since this is unknown at the time the action is made, it is ignored in [`Action::Discard`].
-    #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
     pub called_by: Player,
 
     /// Whether this tile was discarded as a part of declaring Riichi (立直, リーチ).

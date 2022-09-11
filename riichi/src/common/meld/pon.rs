@@ -19,7 +19,6 @@ pub struct Pon {
     pub called: Tile,
 
     /// (discarding player - self) mod 4
-    #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
     pub dir: Player,
 }
 

@@ -5,7 +5,7 @@ use super::agari::AgariKind;
 
 /// Conclusion of an action-reaction cycle.
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type", content = "details"))]
 pub enum ActionResult {
     #[default]
@@ -14,10 +14,7 @@ pub enum ActionResult {
 
     /// A meld (Chii/Pon/Daiminkan) has been called by another player.
     /// Note that Kakan/Ankan does not count.
-    CalledBy(
-        #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
-        Player
-    ),
+    CalledBy(Player),
 
     /// At least one player has won, either by steal (ロン和ガリ) or by self-draw (ツモ和ガリ).
     Agari(AgariKind),
