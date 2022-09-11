@@ -263,7 +263,24 @@ impl Tile {
             "0m", "0p", "0s", //
         ][self.encoding() as usize]
     }
+
+    /// Returns the corresponding codepoint in the Unicode Mahjong Tiles section (1F000 ~ 1F02F)
+    ///
+    /// NOTE: The ordering in Unicode is differerent from Japanese Riichi Mahjong conventions.
+    pub const fn unicode(self) -> char {
+        debug_assert!(self.is_valid());
+        [
+            '\u{1f007}', '\u{1f008}', '\u{1f009}', '\u{1f00a}', '\u{1f00b}', '\u{1f00c}', '\u{1f00d}', '\u{1f00e}', '\u{1f00f}',  // 1-9m
+            '\u{1f019}', '\u{1f01a}', '\u{1f01b}', '\u{1f01c}', '\u{1f01d}', '\u{1f01e}', '\u{1f01f}', '\u{1f020}', '\u{1f021}',  // 1-9p
+            '\u{1f010}', '\u{1f011}', '\u{1f012}', '\u{1f013}', '\u{1f014}', '\u{1f015}', '\u{1f016}', '\u{1f017}', '\u{1f018}',  // 1-9s
+            '\u{1f000}', '\u{1f001}', '\u{1f002}', '\u{1f003}',  // 1-4z
+            '\u{1f006}', '\u{1f005}', '\u{1f004}',  // 5-7z (this is the correct order!)
+            '\u{1f00b}', '\u{1f01d}', '\u{1f014}',  // 0mps (char has no color, same as 5mps)
+        ][self.encoding() as usize]
+    }
 }
+
+pub const UNICODE_TILE_BACK: char = '\u{1f02B}';
 
 impl FromStr for Tile {
     type Err = bool;  // This circumvents an arbitrary Serde limitation for `()`.
@@ -298,6 +315,11 @@ impl Display for Tile {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }
+}
+
+/// Represents `Some(tile)` as [`Tile::unicode()`] and `None` as [`UNICODE_TILE_BACK`]
+pub const fn tile_unicode(tile: Option<Tile>) -> char {
+    if let Some(tile) = tile { tile.unicode() } else { UNICODE_TILE_BACK }
 }
 
 /// Parse shorthand for a list of tiles.
@@ -463,5 +485,16 @@ mod tests {
         let deserialized = serde_json::from_value::<Tile>(json.clone()).unwrap();
         assert_json_eq!(serialized, json);
         assert_eq!(deserialized, tile);
+    }
+
+    #[test]
+    fn print_tile_unicode() {
+        for r in [0..9, 9..18, 18..27, 27..34, 34..37] {
+            for enc in r {
+                print!("{}", Tile(enc).unicode());
+            }
+            println!();
+        }
+        println!("{}", UNICODE_TILE_BACK);
     }
 }
