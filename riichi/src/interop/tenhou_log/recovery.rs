@@ -13,30 +13,30 @@ use super::{
 
 #[derive(Clone, Debug)]
 pub struct RecoveredRound {
-    pub begin: RoundBegin,
+    pub history: RoundHistoryLite,
     pub known_wall: PartialWall,
-    pub action_reactions: Vec<ActionReaction>,
     pub final_result: ActionResult,
-    pub multi_ron: [bool; 4],
 }
 
 pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
     let mut recovered = RecoveredRound {
-        begin: RoundBegin {
-            ruleset: Default::default(),
-            round_id: round.round_id_and_pot.round_id(),
-            wall: wall::make_dummy_wall(),  // TODO(summivox): offer reconstruction for this
-            pot: round.round_id_and_pot.pot_count as GamePoints * 1000,
-            points: round.points,
+        history: RoundHistoryLite {
+            begin: RoundBegin {
+                ruleset: Default::default(),
+                round_id: round.round_id_and_pot.round_id(),
+                wall: wall::make_dummy_wall(),  // TODO(summivox): offer reconstruction for this
+                pot: round.round_id_and_pot.pot_count as GamePoints * 1000,
+                points: round.points,
+            },
+            action_reactions: vec![],
+            ron: [false; 4],
         },
         known_wall: [None; 136],
-        action_reactions: vec![],
         final_result: round.end_info.result,
-        multi_ron: [false; 4],
     };
     // reveal the initial deal
     let deal = [&round.deal0, &round.deal1, &round.deal2, &round.deal3];
-    let button = recovered.begin.round_id.button();
+    let button = recovered.history.begin.round_id.button();
     for i in 0..4 {
         let player_i = button.add(Player::new(i as u8)).to_usize();
         if deal[player_i].len() != 13 { return None; }
@@ -63,7 +63,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
     let outgoing = [&round.outgoing0, &round.outgoing1, &round.outgoing2, &round.outgoing3];
     let mut in_iter = incoming.map(|x| x.iter().peekable());
     let mut out_iter = outgoing.map(|x| x.iter());
-    let mut actor = recovered.begin.round_id.button();
+    let mut actor = recovered.history.begin.round_id.button();
     let mut num_drawn_front = 52;
     let mut num_drawn_back = 0;
     let mut kan = false;
@@ -94,12 +94,12 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                 // The round has ended due to RonAgari or an end-of-turn abort condition.
                 if round.end_info.result == ActionResult::Agari(AgariKind::Ron) {
                     // backfill (multi-)ron reaction(s)
-                    if let Some(last) = recovered.action_reactions.last_mut() {
+                    if let Some(last) = recovered.history.action_reactions.last_mut() {
                         for agari in round.end_info.agari.iter() {
                             if last.reactor_reaction.is_none() {
                                 last.reactor_reaction = Some((agari.winner, Reaction::RonAgari));
                             }
-                            recovered.multi_ron[agari.winner.to_usize()] = true;
+                            recovered.history.ron[agari.winner.to_usize()] = true;
                         }
                     } else { return None; }
                 }
@@ -130,7 +130,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                             .map(|reaction| (reactor, reaction));
                     }
                 }
-                recovered.action_reactions.push(ActionReaction {
+                recovered.history.action_reactions.push(ActionReaction {
                     actor,
                     action: Action::Discard(discard),
                     reactor_reaction,
@@ -138,7 +138,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                 actor = next_actor;
             }
             Some(&TenhouOutgoing::KakanAnkan(meld)) => {
-                recovered.action_reactions.push(ActionReaction {
+                recovered.history.action_reactions.push(ActionReaction {
                     actor,
                     action: Action::from_meld(&meld)?,
                     reactor_reaction: None,
@@ -148,7 +148,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             _ => {
                 // The round has ended due to TsumoAgari or NineKinds, both requiring a final
                 // explicit action (and no possible reaction).
-                recovered.action_reactions.push(ActionReaction {
+                recovered.history.action_reactions.push(ActionReaction {
                     actor,
                     action: match recovered.final_result {
                         ActionResult::Agari(AgariKind::Tsumo) => Action::TsumoAgari(draw?),
@@ -161,8 +161,8 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             }
         }
         log::debug!("[{}] = {}",
-            recovered.action_reactions.len() - 1,
-            recovered.action_reactions.last().unwrap());
+            recovered.history.action_reactions.len() - 1,
+            recovered.history.action_reactions.last().unwrap());
     }
     // At this point we should have walked through all entries; there shouldn't be any more.
     if !in_iter.iter_mut().all(|it| it.peek() == None) {
@@ -176,18 +176,11 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
     Some(recovered)
 }
 
-// Pretty printer for debugging only
 impl Display for RecoveredRound {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "kyoku={}, honba={}, pot={}, points={:?}, result={:?}, multi_ron={:?}",
-                 self.begin.round_id.kyoku,
-                 self.begin.round_id.honba,
-                 self.begin.pot,
-                 self.begin.points,
-                 self.final_result,
-                 self.multi_ron,
-        )?;
+        writeln!(f, "RecoveredRound result={:?} wall:", self.final_result)?;
         // TODO(summivox): dedupe with `wall::print_partial`
+        writeln!(f, "-----------------------")?;
         for x in &self.known_wall.iter().chunks(8) {
             for y in x {
                 if let Some(tile) = y {
@@ -198,10 +191,8 @@ impl Display for RecoveredRound {
             }
             writeln!(f)?;
         }
-        for action_reaction in self.action_reactions.iter() {
-            writeln!(f, "{}", action_reaction)?;
-        }
-        Ok(())
+        writeln!(f, "-----------------------")?;
+        writeln!(f, "{}", self.history)
     }
 }
 

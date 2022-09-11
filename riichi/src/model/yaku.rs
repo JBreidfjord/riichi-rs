@@ -129,6 +129,8 @@ pub const fn get_blocked_yaku(yaku: Yaku) -> &'static [Yaku] {
     }
 }
 
+// TODO(summivox): set of standard Yaku's
+
 pub type YakuValues = HashMap<Yaku, i8>;
 
 #[derive(Debug, Default)]

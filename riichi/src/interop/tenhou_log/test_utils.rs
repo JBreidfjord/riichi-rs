@@ -8,10 +8,11 @@ use super::*;
 /// Fully simulate/replay a [`RecoveredRound`] through our [`Engine`], validating the states along
 /// the way. Useful for cross-checking the implementation of our [`Engine`].
 pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &TenhouEndInfo) {
-    println!("\n\n{:?}", recovered.begin.round_id);
+    let history = &recovered.history;
+    println!("\n\n{:?}", history.begin.round_id);
     let mut engine = Engine::new();
 
-    let mut begin = recovered.begin.clone();
+    let mut begin = history.begin.clone();
     let mut missing_tiles = wall::get_missing_tiles_in_partial_wall(
         &recovered.known_wall, num_reds);
     missing_tiles[..].shuffle(&mut thread_rng());
@@ -23,7 +24,7 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
 
     engine.begin_round(begin);
     let mut step = None;
-    for (seq, action_reaction) in recovered.action_reactions.iter().enumerate() {
+    for (seq, action_reaction) in history.action_reactions.iter().enumerate() {
         // println!("{}", engine.state().core);
         // println!("{}", action_reaction);
         assert_eq!(engine.state().core.seq, seq as u8);
@@ -32,9 +33,9 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
         if let Some((reactor, reaction)) = action_reaction.reactor_reaction {
             engine.register_reaction(reactor, reaction).unwrap();
         }
-        if seq == recovered.action_reactions.len() - 1 {
+        if seq == history.action_reactions.len() - 1 {
             // handle multi-ron
-            let mut multi_ron = recovered.multi_ron;
+            let mut multi_ron = history.ron;
             if recovered.final_result == ActionResult::Abort(AbortReason::TripleRon) {
                 for p in other_players_after(action_reaction.actor) {
                     multi_ron[p.to_usize()] = true;

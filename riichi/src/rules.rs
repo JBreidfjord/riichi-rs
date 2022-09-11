@@ -2,8 +2,12 @@
 //!
 //! Even though the Japanese Riichi Mahjong is more standardized than other variants of Mahjong,
 //! there are detailed rules that may be interpreted in different ways, affecting the validity of
-//! certain actions and/or the outcome of the game. This crate attempts to handle most common
-//! variations on an arbitrarily-decided "standard" interpretation.
+//! certain actions and/or the outcome of the game. There are also naturally "flexible" variations,
+//! such as the number of each red 5 tiles in the wall, and how many "normal" kyoku's are allowed
+//! (i.e. "East Only" vs. "East-South").
+//!
+//! This crate attempts to handle most commonly used variations on an arbitrarily-decided "standard"
+//! interpretation.
 //!
 
 use std::collections::HashSet;
@@ -15,11 +19,22 @@ use serde_with::{
     As, DisplayFromStr
 };
 
-use crate::model::Yaku;
+use crate::{
+    common::*,
+    model::Yaku,
+};
 
 /// Ruleset of a game.
 ///
-/// The [`Default::default()`] ruleset is arbitrarily defined as our "standard" rules.
+/// The [`Default::default()`] ruleset represents our "standard" rules.
+///
+///
+/// ## Key exceptions
+///
+/// - The number of red tiles is implied by the wall composition, therefore excluded from Ruleset.
+/// - The starting points of each player is encoded in [`crate::model::RoundBegin`], therefore
+///   excluded from Ruleset.
+///
 ///
 /// ## Semantic versioning
 ///
@@ -33,6 +48,7 @@ use crate::model::Yaku;
 ///   done with a Major increment.
 ///
 /// This ensures that any persisted games are reproduceable by a compatibly-versioned game engine.
+///
 ///
 /// ## Optional `serde` support
 ///
@@ -54,19 +70,42 @@ pub struct Ruleset {
     #[cfg_attr(feature = "serde", serde(with = "As::<DisplayFromStr>"))]
     pub version: Version,
 
+    /// The Kyoku index of the "all-last" round.
+    ///
+    /// - For "East Only" games, `kyoku_max_soft == 3` (i.e. East 4 Kyoku, any Honba).
+    /// - For "East-South" games, `kyoku_max_soft == 7` (i.e. South 4 Kyoku, any Honba).
+    ///
+    /// Other fields control the behavior of game beyond the "all-last" round.
+    ///
+    /// See [`crate::model::RoundId`] for definitions of "Kyoku" and "Honba".
+    pub kyoku_max_soft: u8,
+
+    /// The absolute maximum Kyoku a game allows.
+    /// At the next attempt to increment the Kyoku number, the game must end.
+    pub kyoku_max_hard: u8,
+
+    /// The minimum points any player need to hold for the game to end at or after the "all-last"
+    /// round (see `kyoku_max_soft`).
+    pub points_min_qualify: GamePoints,
+
+    /// Extra non-standard [`Yaku`]'s to enable (in addition to the standard ones).
     pub yaku_extra: HashSet<Yaku>,
+
+    /// Standard [`Yaku`]'s to disable.
     pub yaku_block: HashSet<Yaku>,
 
     // TODO
 }
 
-impl Ruleset {
-}
-
 impl Default for Ruleset {
     fn default() -> Self {
-        Self{
+        Self {
             version: crate::VERSION.clone(),
+
+            kyoku_max_soft: 7,  // East-South (South 4 Kyoku)
+            kyoku_max_hard: 15,  // North 4 Kyoku
+            points_min_qualify: 30000,
+
             yaku_extra: Default::default(),
             yaku_block: Default::default(),
             // TODO
@@ -87,10 +126,15 @@ mod tests {
         fn ruleset_example() {
             let ruleset = Ruleset {
                 yaku_block: HashSet::from([Yaku::Iipeikou]),
+                kyoku_max_soft: 3,
+                kyoku_max_hard: 7,
                 ..Ruleset::default()
             };
             let json = serde_json::json!({
                 "version": crate::VERSION_STR,
+                "kyoku_max_soft": 3,
+                "kyoku_max_hard": 7,
+                "points_min_qualify": 30000,
                 "yaku_extra": [],
                 "yaku_block": ["Iipeikou"]
             });

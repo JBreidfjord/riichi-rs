@@ -103,6 +103,21 @@ pub struct RoundHistoryLite {
     pub ron: [bool; 4],
 }
 
+impl Display for RoundHistoryLite {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "{:?}, pot={}, points={:?}, multi_ron={:?}",
+                 self.begin.round_id,
+                 self.begin.pot,
+                 self.begin.points,
+                 self.ron,
+        )?;
+        for action_reaction in self.action_reactions.iter() {
+            writeln!(f, "{}", action_reaction)?;
+        }
+        Ok(())
+    }
+}
+
 // Reconstruction of the full state from core
 impl State {
     /// Current full [`State`] + [`Action`] + next [`StateCore`] => next full [`State`].
