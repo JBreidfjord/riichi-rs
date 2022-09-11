@@ -56,14 +56,12 @@ pub struct State {
 
 /// Essential state variables.
 ///
-/// These variables, together with the previous turn's actions and reactions, imply the delta of
-/// all other variables from the previous [`State`] to the current.
-///
-/// Expressed in forward form: `state + {action, reactions, next state core} => next state`.
-///
-/// This means that the history of full states can be derived by folding the initial state with
-/// each consecutive `{action, reactions, next state core}` triplet, which is effectively a
-/// more space-efficient representation of the same information.
+/// Reasons for separating these out: Hands, discards, and melds are big arrays. If we are to store
+/// all states in a round, they take up a lot of space. Fortunately, all 3 can be reconstructed by
+/// aggregating actions and "core" variables from the initial full state. This means we can instead
+/// only store `{action, next state core}` for each turn and obtain a more space-efficient
+/// representation of the same information. Reconstruction of any full state is effectively a `fold`
+/// operation.
 ///
 /// See [mod-level docs](crate::model) for the details of modeling.
 ///
@@ -95,7 +93,7 @@ pub struct StateCore {
     pub num_drawn_head: u8,
 
     /// Number of tiles drawn from the tail of the double-stacked cut wall, as a result of forming
-    /// (any kind of) kan. Same as the number of completed kan.
+    /// (any kind of) Kan's. Same as the number of completed Kan's.
     /// **Publicly visible.**
     ///
     /// Due to the double-stacking (see [`wall`]), the order of tiles drawing from the tail

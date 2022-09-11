@@ -144,7 +144,9 @@ impl Engine {
     /// Resolves the cached actions and reactions into the conclusion of this turn, then updates
     /// the state to the beginning of the next turn, or determines the end-of-round conclusions if
     /// the round has ended.
-    pub fn step(&mut self) -> ActionResult {
+    ///
+    /// Either way, assembles then returns the [`GameStep`] of this turn.
+    pub fn step(&mut self) -> GameStep {
         let actor = self.state.core.actor;
         let action = self.action.unwrap();
         let (action_result, reactor_reaction) =
@@ -153,22 +155,36 @@ impl Engine {
             ActionResult::Pass | ActionResult::CalledBy(_) => {
                 let next_core = next_normal(
                     &self.begin, &self.state, action, action_result, &self.cache);
-                self.state.apply_step(&GameStep {
+                self.state.evolve(action, next_core);
+                GameStep {
                     actor,
                     action,
                     reactor_reaction,
                     action_result,
-                    next: Some(next_core),
-                });
+                    next_state_core: Some(next_core),
+                }
             }
             ActionResult::Agari(agari_kind) => {
                 self.end = Some(next_agari(
                     &self.begin, &self.state, action, &self.reactions, agari_kind, &self.cache));
+                GameStep {
+                    actor,
+                    action,
+                    reactor_reaction: None,
+                    action_result,
+                    next_state_core: None,
+                }
             }
             ActionResult::Abort(abort_reason) => {
                 self.end = Some(next_abort(&self.begin, &self.state, abort_reason, &self.cache));
+                GameStep {
+                    actor,
+                    action,
+                    reactor_reaction: None,
+                    action_result,
+                    next_state_core: None,
+                }
             }
         }
-        action_result
     }
 }

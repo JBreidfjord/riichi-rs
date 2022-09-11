@@ -8,7 +8,7 @@ use super::Discard;
 ///
 /// ## Optional `serde` support
 ///
-/// [`Action`] has custom serialization `{type, tile?, riichi?, tsumokiri?}` to help with ergonomics.
+/// [`Action`] adopts a custom layout `{type, tile?, riichi?, tsumokiri?}` to help with ergonomics.
 ///
 /// - The `"tile"` field is defined the same as [`Action::tile()`].
 /// - Only for [`Action::Discard`]: optionally add `"tsumokiri"` and `"riichi"` flags if set.
@@ -192,9 +192,6 @@ mod action_serde {
         }
     }
 }
-
-#[cfg(feature = "serde")]
-pub use action_serde::*;
 
 #[cfg(test)]
 mod tests {

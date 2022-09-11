@@ -158,6 +158,3 @@ mod player_serde {
         }
     }
 }
-
-#[cfg(feature = "serde")]
-pub use player_serde::*;

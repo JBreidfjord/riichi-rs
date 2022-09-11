@@ -58,7 +58,7 @@ impl Display for IrregularWait {
     }
 }
 
-/// Detect which irregular waiting patterns match the supplied hand (octal-[packed][]).
+/// Detect which irregular waiting patterns match the supplied hand (octal-[packed]).
 ///
 /// [packed]: TileSet34::packed_34
 pub fn detect_irregular_wait(keys: [u32; 4]) -> Option<IrregularWait> {

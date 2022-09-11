@@ -70,7 +70,8 @@ impl RoundId {
         Wind::from(player.sub(self.button()))
     }
 
-    /// TODO(summivox): doc
+    /// Returns the "real" actual round. This happens when the current round ends in a win, and the
+    /// button player is not among the winner(s).
     pub const fn next_kyoku(self) -> Self {
         Self {
             kyoku: self.kyoku + 1,
@@ -78,7 +79,16 @@ impl RoundId {
         }
     }
 
-    /// TODO(summivox): doc
+    /// Returns the next sub-round. This happens when the button player wins (`renchan == true`;
+    /// 連荘) or the current round ends in an abortion.
+    ///
+    /// Additionally, for [`WallExhausted`] or [`NagashiMangan`], if the button player has a waiting
+    /// hand at the end, then the `kyoku` number will remain the same. This condition is also
+    /// indicated by `renchan == true` (連荘).
+    ///
+    /// [`WallExhausted`]: super::AbortReason::WallExhausted
+    /// [`NagashiMangan`]: super::AbortReason::NagashiMangan
+    ///
     pub const fn next_honba(self, renchan: bool) -> Self {
         Self {
             kyoku: if renchan { self.kyoku } else { self.kyoku + 1 },
@@ -98,7 +108,7 @@ impl RoundId {
 pub struct RoundBegin {
     pub rules: Rules,
 
-    /// Kyoku-honba that identifies this round.
+    /// Kyoku-Honba that identifies this round.
     pub round_id: RoundId,
 
     /// The tile wall right after shuffling and cutting (full 136 tiles).  Drawing and revealing
@@ -107,7 +117,7 @@ pub struct RoundBegin {
     pub wall: Wall,
 
     /// Points left on the table (供託), up for grabs by the next winner.
-    /// Commonly 1000-pt sticks from riichi.
+    /// Commonly 1000-pt sticks from Riichi.
     ///
     /// Ref:
     /// - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E3%81%AE%E7%82%B9#%E4%BE%9B%E8%A8%97>
@@ -131,12 +141,12 @@ impl Default for RoundBegin {
 
 /// Details of how a round concluded, including the points differences and the breakdown of each
 /// winning hand.
-/// 
+///
 /// ## Optional `serde` support
-/// 
-/// Serialization only. 
+///
+/// Serialization only.
 /// Straightforward struct mapping of all fields.
-/// 
+///
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct RoundEnd {

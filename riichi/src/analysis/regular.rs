@@ -14,7 +14,7 @@ use riichi_decomp_table::{
 /// - Exactly `N` hand groups with at most one incomplete.
 /// - A complete pair (雀頭) or a [Tanki (単騎)][Tanki] waiting pattern (= incomplete pair).
 ///
-/// Note that there is exactly one waiting pattern, either a [Tanki][] or an incomplete group.
+/// Note that there is exactly one waiting pattern, either a [Tanki] or an incomplete group.
 ///
 /// [Tanki]: WaitingKind::Tanki
 ///

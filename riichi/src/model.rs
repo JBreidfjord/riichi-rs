@@ -70,7 +70,7 @@
 //! - The post-action state is simply the concatenation of the pre-action state and the action.
 //! - The state after any resolved reaction is likewise the concatenation of the pre-action state,
 //!   the action, and the resolved reaction.
-//! - From the post-reaction state, we can automatically determine either the next pre-action state,
+//! - From the post-reaction state, the engine determines either the next pre-action state,
 //!   or the end of the round.
 //!
 //! This design has the desirable property of only one state per turn, making the "round history"
@@ -81,169 +81,20 @@ mod action;
 mod action_result;
 mod agari;
 mod boundary;
+mod discard;
+mod history;
 mod reaction;
 mod state;
 mod yaku;
-
-use std::fmt::{Display, Formatter};
-
-use itertools::Itertools;
-
-use crate::common::*;
 
 pub use self::{
     action::*,
     action_result::*,
     agari::*,
     boundary::*,
+    discard::*,
+    history::*,
     reaction::*,
     state::*,
     yaku::*,
 };
-
-/// A discarded tile.
-/// This has (mostly) the same representation in both [`Action`] and [`State`].
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Discard {
-    /// The discarded tile.
-    pub tile: Tile,
-
-    /// If called by another player, that player; otherwise the player who discarded this tile.
-    /// Since this is unknown at the time the action is made, it is ignored in [`Action::Discard`].
-    pub called_by: Player,
-
-    /// Whether this tile was discarded as a part of declaring Riichi (立直, リーチ).
-    pub declares_riichi: bool,
-
-    /// Whether this tile was discarded immediately after being drawn (ツモ切り).
-    pub is_tsumokiri: bool,
-}
-
-impl Display for Discard {
-    // NOTE: we won't be showing `called_by` here; most of the time it's redundant
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        if self.declares_riichi {
-            write!(f, "RIICHI!({}{})",
-                   self.tile,
-                   if self.is_tsumokiri { "*" } else { " " })
-        } else {
-            write!(f, "discard({}{})",
-                   self.tile,
-                   if self.is_tsumokiri { "*" } else { " " })
-        }
-    }
-}
-
-/// Bundle of a turn's action and any reaction.
-#[derive(Copy, Clone, Debug)]
-pub struct ActionReaction {
-    pub actor: Player,
-    pub action: Action,
-    pub reactor_reaction: Option<(Player, Reaction)>,
-}
-
-impl Display for ActionReaction {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "P{}:{}", self.actor, self.action)?;
-        if let Some((reactor, reaction)) = self.reactor_reaction {
-            write!(f, " => P{}:{}", reactor, reaction)?;
-        }
-        Ok(())
-    }
-}
-
-/// Bundle of a turn's action, any reaction, and results.
-#[derive(Clone, Debug)]
-pub struct GameStep {
-    pub actor: Player,
-    pub action: Action,
-    pub reactor_reaction: Option<(Player, Reaction)>,
-    pub action_result: ActionResult,
-    pub next: Option<StateCore>,
-}
-
-impl State {
-    // Reason this is in `model` instead of `engine`: This defines the relationship between
-    // `State` and `StateCore` fields and is a rather straightforward transformation based on the
-    // assumptions of each state variable.
-    pub fn apply_step(&mut self, game_step: &GameStep) {
-        if let Some(next) = game_step.next {
-            let actor = game_step.actor;
-            let actor_i = actor.to_usize();
-            let next_actor = next.actor;
-            let next_actor_i = next_actor.to_usize();
-            assert_eq!(self.core.actor, actor);
-
-            // Merge the self draw of this turn into the closed hand (it had been kept separate).
-            if let Some(draw) = self.core.draw {
-                self.closed_hands[actor_i][draw] += 1;
-
-                log::debug!("P{}:Draw({}) => hand={}",
-                    actor_i, draw, self.closed_hands[actor_i]);
-            }
-
-            // Move the discard of this turn from the closed hand to the discard section.
-            match game_step.action {
-                Action::Discard(mut discard) => {
-                    discard.called_by = actor;
-                    self.closed_hands[actor_i][discard.tile] -= 1;
-
-                    log::debug!("P{}:{} => hand={}", actor_i, discard, self.closed_hands[actor_i]);
-
-                    if let Some((reactor, reaction)) = game_step.reactor_reaction {
-                        assert_eq!(reactor, next_actor);
-                        assert_ne!(reaction, Reaction::RonAgari);
-                        discard.called_by = reactor;
-                    }
-                    self.discards[actor_i].push(discard);
-                    self.discard_sets[actor_i].set(discard.tile);
-                }
-                Action::Kakan(_) | Action::Ankan(_) => {}  // No-op, but valid.
-                _ => panic!("inconsistent")
-            }
-
-            // Move the meld of this turn from the closed hand to the meld section.
-            // Same handling for both Kakan/Ankan (action) and Chii/Pon/Daiminkan (reaction).
-            if let Some(meld) = next.incoming_meld {
-                meld.consume_from_hand(&mut self.closed_hands[next_actor_i]);
-
-                log::debug!("P{}:{} => hand={}", next_actor_i, meld, self.closed_hands[next_actor_i]);
-
-                if let Meld::Kakan(kakan) = meld {
-                    // Kakan will replace the existing Pon.
-                    let (pon_i, _) = self.melds[next_actor_i].iter()
-                        .find_position(|&&meld| meld == Meld::Pon(kakan.pon))
-                        .unwrap();
-                    self.melds[next_actor_i][pon_i] = meld;
-                } else {
-                    // Chii/Pon/Daiminkan/Ankan all introduce a new meld.
-                    self.melds[next_actor_i].push(meld);
-                }
-            }
-
-            // finally replace core wholesale
-            self.core = next;
-        }
-    }
-
-    pub fn apply_steps<'a>(&mut self, game_step: impl IntoIterator<Item=&'a GameStep>) {
-        for step in game_step {
-            self.apply_step(step);
-        }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn round_id_computes_correct_self_wind() {
-        let round_id = RoundId { kyoku: 6, honba: 0 };
-        assert_eq!(round_id.self_wind_for_player(P2), Wind::new(0));
-        assert_eq!(round_id.self_wind_for_player(P3), Wind::new(1));
-        assert_eq!(round_id.self_wind_for_player(P0), Wind::new(2));
-        assert_eq!(round_id.self_wind_for_player(P1), Wind::new(3));
-    }
-}

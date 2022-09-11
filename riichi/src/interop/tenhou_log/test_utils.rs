@@ -22,7 +22,7 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
     }
 
     engine.begin_round(begin);
-    let mut action_result = ActionResult::Pass;
+    let mut step = None;
     for (seq, action_reaction) in recovered.action_reactions.iter().enumerate() {
         // println!("{}", engine.state().core);
         // println!("{}", action_reaction);
@@ -49,30 +49,32 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
                 }
             }
         }
-        action_result = engine.step();
+        step = Some(engine.step());
     }
-    match action_result {
-        ActionResult::Abort(abort_reason) => {
-            log::info!("engine says: {:?}", abort_reason);
-        }
-        ActionResult::Agari(agari_kind) => {
-            log::info!("engine says: {:?}", agari_kind);
-
-            let end = engine.end().clone().unwrap();
-            println!("{:?}", end.agari_result);
-
-            // Deduct newly added pot from players under riichi.
-            // They are not included anyway.
-            let mut delta = end.points_delta;
-            let pot_delta = calc_pot_delta(&engine.state().core.riichi);
-            for i in 0..4 { delta[i] -= pot_delta[i]; }
-
-            // Exclude cases where Pao / Liability apply.
-            if end_info.agari.iter().all(|x| x.liable_player == x.winner) {
-                assert_eq!(delta, end_info.overall_delta);
+    if let Some(step) = step {
+        match step.action_result {
+            ActionResult::Abort(abort_reason) => {
+                log::info!("engine says: {:?}", abort_reason);
             }
+            ActionResult::Agari(agari_kind) => {
+                log::info!("engine says: {:?}", agari_kind);
+
+                let end = engine.end().clone().unwrap();
+                println!("{:?}", end.agari_result);
+
+                // Deduct newly added pot from players under riichi.
+                // They are not included anyway.
+                let mut delta = end.points_delta;
+                let pot_delta = calc_pot_delta(&engine.state().core.riichi);
+                for i in 0..4 { delta[i] -= pot_delta[i]; }
+
+                // Exclude cases where Pao / Liability apply.
+                if end_info.agari.iter().all(|x| x.liable_player == x.winner) {
+                    assert_eq!(delta, end_info.overall_delta);
+                }
+            }
+            _ => {}
         }
-        _ => {}
+        assert_eq!(step.action_result, recovered.final_result);
     }
-    assert_eq!(action_result, recovered.final_result);
 }
