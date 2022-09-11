@@ -56,7 +56,7 @@ impl RoundId {
     /// - west-wind player == button + 2
     /// - north-wind player == button + 3
     pub fn player_with_self_wind(self, wind: Wind) -> Player {
-        Player::new(self.kyoku + wind.to_u8())
+        self.button().wrapping_add(wind)
     }
 
     /// Index of the self wind (自風).

@@ -88,26 +88,32 @@ mod state;
 mod yaku;
 
 use std::fmt::{Display, Formatter};
+
 use itertools::Itertools;
-pub use action::*;
-pub use action_result::*;
-pub use agari::*;
-pub use boundary::*;
-pub use reaction::*;
-pub use state::*;
-pub use yaku::*;
 
 use crate::common::*;
+
+pub use self::{
+    action::*,
+    action_result::*,
+    agari::*,
+    boundary::*,
+    reaction::*,
+    state::*,
+    yaku::*,
+};
 
 /// A discarded tile.
 /// This has (mostly) the same representation in both [`Action`] and [`State`].
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Discard {
     /// The discarded tile.
     pub tile: Tile,
 
     /// If called by another player, that player; otherwise the player who discarded this tile.
     /// Since this is unknown at the time the action is made, it is ignored in [`Action::Discard`].
+    #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
     pub called_by: Player,
 
     /// Whether this tile was discarded as a part of declaring Riichi (立直, リーチ).
@@ -177,7 +183,7 @@ impl State {
                 self.closed_hands[actor_i][draw] += 1;
 
                 log::debug!("P{}:Draw({}) => hand={}",
-                    next_actor_i, draw, self.closed_hands[next_actor_i]);
+                    actor_i, draw, self.closed_hands[actor_i]);
             }
 
             // Move the discard of this turn from the closed hand to the discard section.

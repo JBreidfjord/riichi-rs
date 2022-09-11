@@ -75,3 +75,22 @@ impl U2Traits for u2 {
     fn to_u8(self) -> u8 { u8::from(self) }
     fn to_usize(self) -> usize { self.to_u8() as usize }
 }
+
+// Hack to provide serde impls for u2
+#[cfg(feature = "serde")]
+mod u2_serde {
+    use serde::*;
+    use super::*;
+    #[derive(Serialize, Deserialize)]
+    #[serde(remote = "u2")]
+    pub struct U2Serde(
+        #[serde(getter = "u2_to_u8")]
+        u8
+    );
+    impl Into<u2> for U2Serde {
+        fn into(self) -> u2 { u2::new(self.0) }
+    }
+    pub fn u2_to_u8(u2: &u2) -> u8 { u8::from(*u2) }
+}
+#[cfg(feature = "serde")]
+pub use u2_serde::*;

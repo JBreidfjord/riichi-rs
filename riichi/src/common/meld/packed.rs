@@ -25,7 +25,7 @@ pub(crate) struct PackedMeld {
     /// Packed red fields; see comments below
     #[bits(4)]
     pub red: u8,
-
+ 
     #[bits(3)]
     pub kind: u8,
 

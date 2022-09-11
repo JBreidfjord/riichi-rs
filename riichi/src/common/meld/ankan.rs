@@ -11,6 +11,7 @@ use super::packed::{PackedMeld, PackedMeldKind, normalize_ankan};
 ///
 /// Declaring Ankan does not _technically_ open one's hand, although it _is_ revealed to others.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub struct Ankan {
     pub own: [Tile; 4],

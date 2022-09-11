@@ -30,10 +30,11 @@ pub use pon::Pon;
 pub use kakan::Kakan;
 pub use daiminkan::Daiminkan;
 pub use ankan::Ankan;
-pub use utils::*;
 
 /// Sum type of all kinds of melds (副露).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum Meld {
     /// See [`Chii`].
     Chii(Chii),
@@ -125,32 +126,89 @@ impl Display for Meld {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::t;
 
     #[test]
     fn chii_example() {
         let chii = Chii::from_tiles(
-            "4s".parse().unwrap(),
-            "6s".parse().unwrap(),
-            "0s".parse().unwrap()).unwrap();
+            t!("4s"), t!("6s"), t!("0s")).unwrap();
         let meld = Meld::Chii(chii);
-        assert_eq!(Meld::from_packed(0x1155), Some(meld));
-        assert_eq!(meld.packed(), 0x1155);
+        let packed = 0x1155;
+        assert_eq!(Meld::from_packed(packed), Some(meld));
+        assert_eq!(meld.packed(), packed);
         assert_eq!(chii.to_string(), "C046s");
         assert_eq!(meld.to_string(), "C046s");
+
+        assert_eq!(meld.called(), Some(t!("0s")));
+        assert_eq!(meld.dir(), Some(P3));
+        assert_eq!(meld.to_equivalent_group(), HandGroup::Shuntsu(t!("4s")));
     }
 
     #[test]
     fn pon_example() {
         let pon = Pon::from_tiles_dir(
-            "5p".parse().unwrap(),
-            "0p".parse().unwrap(),
-            "0p".parse().unwrap(),
-            P2).unwrap();
+            t!("5p"), t!("0p"), t!("0p"), P2).unwrap();
         let meld = Meld::Pon(pon);
-        assert_eq!(Meld::from_packed(0x258D), Some(meld));
-        assert_eq!(meld.packed(), 0x258D);
+        let packed = 0x258D;
+        assert_eq!(Meld::from_packed(packed), Some(meld));
+        assert_eq!(meld.packed(), packed);
         assert_eq!(pon.to_string(), "0P05p");
         assert_eq!(meld.to_string(), "0P05p");
+
+        assert_eq!(meld.called(), Some(t!("0p")));
+        assert_eq!(meld.dir(), Some(P2));
+        assert_eq!(meld.to_equivalent_group(), HandGroup::Koutsu(t!("5p")));
+    }
+
+    #[test]
+    fn kakan_example() {
+        let kakan = Kakan::from_pon_added(
+            Pon::from_tiles_dir(
+                t!("5p"), t!("0p"), t!("0p"), P1).unwrap(),
+            t!("5p"),
+        ).unwrap();
+        let meld = Meld::Kakan(kakan);
+        let packed = 0x354D;
+        assert_eq!(Meld::from_packed(packed), Some(meld));
+        assert_eq!(meld.packed(), packed);
+        assert_eq!(kakan.to_string(), "05K(5/0)p");
+        assert_eq!(meld.to_string(), "05K(5/0)p");
+
+        assert_eq!(meld.called(), Some(t!("0p")));
+        assert_eq!(meld.dir(), Some(P1));
+        assert_eq!(meld.to_equivalent_group(), HandGroup::Koutsu(t!("5p")));
+    }
+
+    #[test]
+    fn daiminkan_example() {
+        let daiminkan = Daiminkan::from_tiles_dir(
+            [t!("5s"), t!("0s"), t!("5s")], t!("0s"), P3).unwrap();
+        let meld = Meld::Daiminkan(daiminkan);
+        let packed = 0x49D6;
+        assert_eq!(Meld::from_packed(packed), Some(meld));
+        assert_eq!(meld.packed(), packed);
+        assert_eq!(daiminkan.to_string(), "D0055s");
+        assert_eq!(meld.to_string(), "D0055s");
+
+        assert_eq!(meld.called(), Some(t!("0s")));
+        assert_eq!(meld.dir(), Some(P3));
+        assert_eq!(meld.to_equivalent_group(), HandGroup::Koutsu(t!("5s")));
+    }
+
+    #[test]
+    fn ankan_example() {
+        let ankan = Ankan::from_tiles(
+            [t!("4z"), t!("4z"), t!("4z"), t!("4z")]).unwrap();
+        let meld = Meld::Ankan(ankan);
+        let packed = 0x501E;
+        assert_eq!(Meld::from_packed(packed), Some(meld));
+        assert_eq!(meld.packed(), packed);
+        assert_eq!(ankan.to_string(), "A4444z");
+        assert_eq!(meld.to_string(), "A4444z");
+
+        assert_eq!(meld.called(), None);
+        assert_eq!(meld.dir(), None);
+        assert_eq!(meld.to_equivalent_group(), HandGroup::Koutsu(t!("4z")));
     }
 
     #[test]
@@ -166,5 +224,73 @@ mod test {
                  std::mem::size_of::<Option<Meld>>(),
                  std::mem::align_of::<Option<Meld>>(),
         );
+    }
+
+    #[cfg(feature = "serde")]
+    mod serde_tests{
+        use super::*;
+        use assert_json_diff::assert_json_eq;
+        #[test]
+        fn serde_chii() {
+            let meld = Meld::Chii(Chii::from_tiles(
+                t!("4s"), t!("6s"), t!("0s")).unwrap());
+            let json = serde_json::json!(
+                {"type": "Chii", "own": ["4s", "6s"], "called": "0s", "min": "4s"});
+            let serialized = serde_json::to_value(meld).unwrap();
+            let deserialized = serde_json::from_value::<Meld>(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, meld);
+        }
+
+        #[test]
+        fn serde_pon() {
+            let meld = Meld::Pon(Pon::from_tiles_dir(
+                t!("5p"), t!("0p"), t!("0p"), P2).unwrap());
+            let json = serde_json::json!(
+                {"type": "Pon", "own": ["0p", "5p"], "called": "0p", "dir": 2});
+            let serialized = serde_json::to_value(meld).unwrap();
+            let deserialized = serde_json::from_value::<Meld>(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, meld);
+        }
+
+        #[test]
+        fn serde_kakan() {
+            let meld = Meld::Kakan(Kakan::from_pon_added(
+                Pon::from_tiles_dir(
+                    t!("5p"), t!("0p"), t!("0p"), P1).unwrap(),
+                t!("5p"),
+            ).unwrap());
+            let json = serde_json::json!(
+                {"type": "Kakan", "own": ["0p", "5p"], "called": "0p", "dir": 1, "added": "5p"});
+            let serialized = serde_json::to_value(meld).unwrap();
+            let deserialized = serde_json::from_value::<Meld>(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, meld);
+        }
+
+        #[test]
+        fn serde_daiminkan() {
+            let meld = Meld::Daiminkan(Daiminkan::from_tiles_dir(
+                [t!("5s"), t!("0s"), t!("5s")], t!("0s"), P3).unwrap());
+            let json = serde_json::json!(
+                {"type": "Daiminkan", "own": ["0s", "5s", "5s"], "called": "0s", "dir": 3});
+            let serialized = serde_json::to_value(meld).unwrap();
+            let deserialized = serde_json::from_value::<Meld>(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, meld);
+        }
+
+        #[test]
+        fn serde_ankan() {
+            let meld = Meld::Ankan(Ankan::from_tiles(
+                [t!("4z"), t!("4z"), t!("4z"), t!("4z")]).unwrap());
+            let json = serde_json::json!(
+                {"type": "Ankan", "own": ["4z", "4z", "4z", "4z"]});
+            let serialized = serde_json::to_value(meld).unwrap();
+            let deserialized = serde_json::from_value::<Meld>(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, meld);
+        }
     }
 }

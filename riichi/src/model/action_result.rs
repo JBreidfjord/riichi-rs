@@ -5,6 +5,8 @@ use super::agari::AgariKind;
 
 /// Conclusion of an action-reaction cycle.
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "details"))]
 pub enum ActionResult {
     #[default]
     /// The action has successfully taken place without any reaction.
@@ -12,7 +14,10 @@ pub enum ActionResult {
 
     /// A meld (Chii/Pon/Daiminkan) has been called by another player.
     /// Note that Kakan/Ankan does not count.
-    CalledBy(Player),
+    CalledBy(
+        #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
+        Player
+    ),
 
     /// At least one player has won, either by steal (ロン和ガリ) or by self-draw (ツモ和ガリ).
     Agari(AgariKind),
@@ -23,6 +28,7 @@ pub enum ActionResult {
 
 /// The reason why the round has ended without a win.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AbortReason {
     /// The round has been aborted due to the player in action declaring "nine kinds of terminals"
     /// (九種九牌).

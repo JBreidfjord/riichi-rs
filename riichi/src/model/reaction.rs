@@ -9,6 +9,7 @@ use crate::common::*;
 ///
 /// Variants are ordered by their priority (`Chii` is the lowest, `RonAgari` the highest).
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Reaction {
     /// Declare a [`Chii`] (チー) on the recent discard with the specified own tiles.
     Chii(Tile, Tile),
@@ -68,6 +69,32 @@ mod tests {
         ];
         for (low, high) in reactions.into_iter().tuple_windows() {
             assert!(low < high);
+        }
+    }
+
+    #[cfg(feature = "serde")]
+    mod serde_tests {
+        use assert_json_diff::assert_json_eq;
+        use super::*;
+
+        #[test]
+        fn serde_two_args() {
+            let reaction = Reaction::Chii(t!("1s"), t!("2s"));
+            let json = serde_json::json!({"Chii": ["1s", "2s"]});
+            let serialized = serde_json::to_value(reaction).unwrap();
+            let deserialized: Reaction = serde_json::from_value(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, reaction);
+        }
+
+        #[test]
+        fn serde_no_args() {
+            let reaction = Reaction::RonAgari;
+            let json = serde_json::json!("RonAgari");
+            let serialized = serde_json::to_value(reaction).unwrap();
+            let deserialized: Reaction = serde_json::from_value(json.clone()).unwrap();
+            assert_json_eq!(serialized, json);
+            assert_eq!(deserialized, reaction);
         }
     }
 }

@@ -9,6 +9,7 @@ use super::packed::{PackedMeld, PackedMeldKind, normalize_pon};
 /// An open group of 3 identical (ignoring red) tiles (ポン / 明刻).
 /// May be called from any other player's discard.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub struct Pon {
     /// The calling player's own 2 tiles.
@@ -18,6 +19,7 @@ pub struct Pon {
     pub called: Tile,
 
     /// (discarding player - self) mod 4
+    #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
     pub dir: Player,
 }
 

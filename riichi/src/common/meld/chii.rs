@@ -8,6 +8,7 @@ use super::packed::{PackedMeld, PackedMeldKind};
 /// An open group of 3 consecutive tiles (チー / 明順).
 /// The called tile may only come from the previous player's discard.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub struct Chii {
     /// The calling player's own 2 tiles.
@@ -16,7 +17,7 @@ pub struct Chii {
     /// The called tile.
     pub called: Tile,
 
-    /// Smallest tile (ignoring red) in the group.
+    /// The smallest tile (ignoring red) in the group.
     pub min: Tile,
 }
 

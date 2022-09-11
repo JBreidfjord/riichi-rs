@@ -30,6 +30,8 @@ use super::typedefs::*;
 /// Details of this encoding is significant and implicitly assumed across the crate.
 /// It should never be changed.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(try_from = "String", into = "&str"))]
 pub struct Tile(u8);
 
 impl Tile {
@@ -124,7 +126,10 @@ impl Tile {
     pub const fn to_red(self) -> Self { Self(self.red_encoding()) }
 
     /// Converts to the corresponding wind (ESWN) if this is a wind tile.
-    pub fn wind(self) -> Option<Wind> { self.is_wind().then(|| Wind::new(self.0 - 27)) }
+    pub const fn wind(self) -> Option<Wind> {
+        // Not using `Option::then` because it cannot be used in `const fn` (yet).
+        if self.is_wind() { Some(Wind::new(self.0 - 27)) } else { None }
+    }
 
     /// Converts tile to an internal ordering key where:
     /// 1m < ... < 4m < 0m < 5m < ... < 9m < 1p < ... < 9p < 1s < ... < 9s < 1z < ... < 7z
@@ -230,6 +235,8 @@ pub(crate) const fn char_from_suit(suit: u8) -> Option<char> {
     }
 }
 
+// Concrete impls for conversion to/from strings.
+
 impl Tile {
     /// Returns the "suit" part of the shorthand (0, 1, 2, 3 for m, p, s, z respectively)
     pub fn suit_char(self) -> char {
@@ -251,14 +258,32 @@ impl Tile {
 }
 
 impl FromStr for Tile {
-    type Err = ();
-    fn from_str(pai_str: &str) -> Result<Self, ()> {
-        if let [num_char, suit_char] = pai_str.chars().collect::<Vec<_>>()[..] {
-            let num = num_char.to_digit(10).ok_or(())? as u8;
-            let suit = suit_from_char(suit_char).ok_or(())?;
-            Self::from_num_suit(num, suit).ok_or(())
-        } else { Err(()) }
+    type Err = bool;  // This circumvents an arbitrary Serde limitation for `()`.
+    fn from_str(pai_str: &str) -> Result<Self, Self::Err> {
+        if pai_str.len() != 2 { return Err(false); }
+        let mut chars = pai_str.chars();
+        if let (Some(num_char), Some(suit_char)) = (chars.next(), chars.next()) {
+            let num = num_char.to_digit(10).ok_or(false)? as u8;
+            let suit = suit_from_char(suit_char).ok_or(false)?;
+            Self::from_num_suit(num, suit).ok_or(false)
+        } else { Err(false) }
     }
+}
+
+// Blanket adaptors for various ways of converting to/from strings.
+
+impl TryFrom<&str> for Tile {
+    type Error = bool;
+    fn try_from(value: &str) -> Result<Self, Self::Error> { value.parse() }
+}
+
+impl TryFrom<String> for Tile {
+    type Error = bool;
+    fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() }
+}
+
+impl Into<&str> for Tile {
+    fn into(self) -> &'static str { self.as_str() }
 }
 
 impl Display for Tile {
@@ -310,6 +335,7 @@ pub use t;
 
 #[cfg(test)]
 mod tests {
+    use assert_json_diff::assert_json_eq;
     use super::*;
 
     #[test]
@@ -418,5 +444,16 @@ mod tests {
         for enc in 31..37 {
             assert_eq!(Tile::from_encoding(enc).unwrap().wind(), None);
         }
+    }
+
+    #[cfg(feature = "serde")]
+    #[test]
+    fn tile_serde_string() {
+        let tile = t!("0p");
+        let json = serde_json::json!("0p");
+        let serialized = serde_json::to_value(tile).unwrap();
+        let deserialized = serde_json::from_value::<Tile>(json.clone()).unwrap();
+        assert_json_eq!(serialized, json);
+        assert_eq!(deserialized, tile);
     }
 }

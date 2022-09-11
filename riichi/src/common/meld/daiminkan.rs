@@ -10,6 +10,7 @@ use super::utils::*;
 /// "Big Open Kan" formed by calling 1 with 3 of the same kind in the closed hand (大明槓).
 /// Similar to [Pon](super::Pon), may be called from any other player's discard.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub struct Daiminkan {
     /// The calling player's own 3 tiles.
@@ -19,6 +20,7 @@ pub struct Daiminkan {
     pub called: Tile,
 
     /// (discarding player - self) mod 4
+    #[cfg_attr(feature = "serde", serde(with = "U2Serde"))]
     pub dir: Player,
 }
 

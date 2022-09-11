@@ -38,6 +38,7 @@ impl AgariResult {
 
 /// RonAgari (ロン) or Tsumo (ツモ和ガリ).
 #[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum AgariKind {
     #[default]
