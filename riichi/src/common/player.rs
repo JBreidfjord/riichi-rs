@@ -1,76 +1,105 @@
-// TODO(summivox): If we are already doing so much to write down the entire API surface, then
-// perhaps we should simply re-implement this?
-
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Sub};
 use derive_more::{From, Into};
-use ux::u2;
 
 /// Player index -- 0, 1, 2, 3 => player assigned east, south, west, north in the initial round.
 ///
 /// This is forced to mod-4 arithmetic, and can represent both the absolute player index or
 /// the difference between player indices ("relative player").
 ///
+/// Reason for reinventing the wheel instead of using `ux`, `bare_metal_modulo` etc.:
+/// This is trivial, and these don't support `serde`.
+///
 /// ## Optional `serde` support
 ///
 /// Serializes as the underlying number. When deserialized, automatically takes mod 4.
 ///
 #[derive(Copy, Clone, Default, Eq, PartialEq, Hash, From, Into)]
-pub struct Player(pub u2);
+pub struct Player(u8);
+
+pub const P0: Player = Player(0);
+pub const P1: Player = Player(1);
+pub const P2: Player = Player(2);
+pub const P3: Player = Player(3);
+pub const ALL_PLAYERS: [Player; 4] = [P0, P1, P2, P3];
 
 impl Player {
-    pub const fn new(x: u8) -> Self { Player(u2::new(x % 4)) }
+    pub const fn new(x: u8) -> Self { Player(x & 3) }
     
-    pub fn wrapping_add(self, other: Player) -> Player {
-        Player(self.0.wrapping_add(other.0))
+    pub const fn add(self, other: Player) -> Player {
+        Player(self.0.wrapping_add(other.0) & 3)
     }
 
-    pub fn wrapping_sub(self, other: Player) -> Player {
-        Player(self.0.wrapping_sub(other.0))
+    pub const fn add_u8(self, other: u8) -> Player {
+        Player(self.0.wrapping_add(other) & 3)
     }
 
-    pub fn to_u8(self) -> u8 { u8::from(self.0) }
-    pub fn to_usize(self) -> usize { self.to_u8() as usize }
+    pub const fn sub(self, other: Player) -> Player {
+        Player(self.0.wrapping_sub(other.0) & 3)
+    }
+
+    pub const fn sub_u8(self, other: u8) -> Player {
+        Player(self.0.wrapping_sub(other) & 3)
+    }
+
+    pub const fn to_u8(self) -> u8 { self.0 }
+    pub const fn to_usize(self) -> usize { self.0 as usize }
+
+    /// Returns the player 1 turn after me, a.k.a. Successor, Shimocha (下家).
+    /// In a physical game, said player would sit to the right of me (CCW).
+    pub const fn succ(self) -> Self { self.add(P1) }
+
+    /// Returns the player 2 turns after me, a.k.a. Opposing, Toimen (対面).
+    /// In a physical game, said player would sit across the table from me.
+    pub const fn oppo(self) -> Self { self.add(P2) }
+
+    /// Returns the player 1 turn before me, a.k.a. Predecessor, Kamicha (上家).
+    /// In a physical game, said player would sit to the left of me (CW).
+    pub const fn pred(self) -> Self { self.add(P3) }
 }
 
-impl From<u8> for Player {
-    fn from(x: u8) -> Self { Self::new(x) }
-}
 impl From<usize> for Player {
     fn from(x: usize) -> Self { Self::new(x as u8) }
 }
 
+impl Into<usize> for Player {
+    fn into(self) -> usize { self.0 as usize }
+}
+
 impl Add for Player {
     type Output = Player;
-    fn add(self, rhs: Self) -> Self::Output { Player(self.0.wrapping_add(rhs.0)) }
+    fn add(self, rhs: Self) -> Self::Output { self.add(rhs) }
+}
+
+impl Add<u8> for Player {
+    type Output = Player;
+    fn add(self, rhs: u8) -> Self::Output { self.add_u8(rhs) }
 }
 
 impl Sub for Player {
     type Output = Player;
-    fn sub(self, rhs: Self) -> Self::Output { Player(self.0.wrapping_sub(rhs.0)) }
+    fn sub(self, rhs: Self) -> Self::Output { self.sub(rhs) }
+}
+
+impl Sub<u8> for Player {
+    type Output = Player;
+    fn sub(self, rhs: u8) -> Self::Output { self.sub_u8(rhs) }
 }
 
 impl Debug for Player {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Player({})", self.to_u8())
+        write!(f, "Player({})", self.0)
     }
 }
 
 impl Display for Player {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_u8())
+        write!(f, "{}", self.0)
     }
 }
 
-pub const P0: Player = Player::new(0);
-pub const P1: Player = Player::new(1);
-pub const P2: Player = Player::new(2);
-pub const P3: Player = Player::new(3);
-
-/// Returns the array of all players, in numerical order.
-pub const fn all_players() -> [Player; 4] {
-    [P0, P1, P2, P3]
-}
+/// Shorthand for [`Player::new`].
+pub const fn player(i: u8) -> Player { Player::new(i) }
 
 /// Returns an array of all players, starting from the given player, in natural turn order.
 ///
@@ -79,25 +108,9 @@ pub const fn all_players() -> [Player; 4] {
 /// use riichi::common::*;
 /// assert_eq!(all_players_from(P2), [P2, P3, P0, P1]);
 /// ```
-pub fn all_players_from(player: Player) -> [Player; 4] {
-    [
-        P0.wrapping_add(player),
-        P1.wrapping_add(player),
-        P2.wrapping_add(player),
-        P3.wrapping_add(player),
-    ]
+pub const fn all_players_from(player: Player) -> [Player; 4] {
+    [player.add(P0), player.add(P1), player.add(P2), player.add(P3)]
 }
-/// Returns the next player after the given player in natural turn order, a.k.a. Successor.
-/// In a physical game, this player would sit to the right of the given player (CCW).
-pub fn player_succ(player: Player) -> Player { P1.wrapping_add(player) }
-
-/// Returns the player 2 turns after the given player in natural turn order, a.k.a. Opposing.
-/// In a physical game, this player would sit across the table from the given player.
-pub fn player_oppo(player: Player) -> Player { P2.wrapping_add(player) }
-
-/// Returns the previous player before the given player in natural turn order, a.k.a. Predecessor.
-/// In a physical game, this player would sit to the left of the given player (CW).
-pub fn player_pred(player: Player) -> Player { P3.wrapping_add(player) }
 
 /// Returns an array of the 3 players after the given player, in natural turn order.
 ///
@@ -106,12 +119,8 @@ pub fn player_pred(player: Player) -> Player { P3.wrapping_add(player) }
 /// use riichi::common::*;
 /// assert_eq!(other_players_after(P2), [P3, P0, P1]);
 /// ```
-pub fn other_players_after(player: Player) -> [Player; 3] {
-    [
-        P1.wrapping_add(player),
-        P2.wrapping_add(player),
-        P3.wrapping_add(player),
-    ]
+pub const fn other_players_after(player: Player) -> [Player; 3] {
+    [player.add(P1), player.add(P2), player.add(P3)]
 }
 
 #[cfg(feature = "serde")]
@@ -139,7 +148,7 @@ mod player_serde {
 
                 fn visit_u64<E>(self, v: u64) -> Result<Self::Value, E> where E: Error {
                     if (0..=3).contains(&v) {
-                        Ok(Player(u2::new(v as u8)))
+                        Ok(Player(v as u8))
                     } else {
                         Err(E::custom("out of range"))
                     }

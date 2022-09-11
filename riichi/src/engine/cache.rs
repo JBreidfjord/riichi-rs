@@ -36,7 +36,7 @@ impl EngineCache {
     }
 
     pub fn init_wait_cache(&mut self, hands: &[TileSet37; 4]) {
-        for player in all_players() {
+        for player in ALL_PLAYERS {
             self.wait[player.to_usize()] = WaitingInfo::from_keys(
                 &mut self.decomposer,
                 &hands[player.to_usize()].packed_34());

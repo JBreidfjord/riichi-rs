@@ -66,7 +66,7 @@ pub fn next_normal(
 
             if caller == actor {
                 // No one called. Next turn is the next player (surprise!).
-                next.actor = player_succ(actor);
+                next.actor = actor.succ();
                 next.incoming_meld = None;
                 next.draw = Some(begin.wall[state.core.num_drawn_head as usize]);
                 next.num_drawn_head += 1;
@@ -130,7 +130,7 @@ pub fn next_normal(
 
     // Any kind of meld will forcefully break any active riichi ippatsu.
     if next.incoming_meld.is_some() {
-        for player in all_players() {
+        for player in ALL_PLAYERS {
             next.riichi[player.to_usize()].is_ippatsu = false;
         }
     }

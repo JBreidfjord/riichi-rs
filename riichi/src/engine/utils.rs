@@ -125,7 +125,7 @@ pub fn is_nagashi_mangan(state: &State, player: Player) -> bool {
 /// players.
 /// Assuming [`is_last_draw`].
 pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
-    all_players().into_iter().any(|player| is_nagashi_mangan(state, player))
+    ALL_PLAYERS.into_iter().any(|player| is_nagashi_mangan(state, player))
 }
 
 /// Checks if [`AbortReason::FourWind`] applies (during end-of-turn resolution).
@@ -194,7 +194,7 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
     // TODO(summivox): rules (nagashi-mangan-points)
 
     let mut delta = [0; 4];
-    for player in all_players() {
+    for player in ALL_PLAYERS {
         if is_nagashi_mangan(state, player) {
             if player == button {
                 delta[player.to_usize()] += 12000 + 4000;

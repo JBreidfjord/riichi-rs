@@ -38,7 +38,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
     let deal = [&round.deal0, &round.deal1, &round.deal2, &round.deal3];
     let button = recovered.begin.round_id.button();
     for i in 0..4 {
-        let player_i = button.wrapping_add(Player::new(i as u8)).to_usize();
+        let player_i = button.add(Player::new(i as u8)).to_usize();
         if deal[player_i].len() != 13 { return None; }
         for (j, draw) in deal[player_i].iter().enumerate() {
             if let &TenhouIncoming::Draw(tile) = draw {
@@ -114,7 +114,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                 continue;
             }
             Some(&TenhouOutgoing::Discard(mut discard)) => {
-                let mut next_actor = player_succ(actor);
+                let mut next_actor = actor.succ();
                 let mut reactor_reaction = None;
                 if discard.is_tsumokiri { discard.tile = draw?; }
                 for reactor in other_players_after(actor) {
@@ -122,7 +122,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
                     if let Some(TenhouIncoming::ChiiPonDaiminkan(meld)) = in_iter[reactor_i].peek() {
                         if meld.called() != Some(discard.tile) { continue; }
                         if let Some(dir) = meld.dir() {
-                            if reactor.wrapping_add(dir) != actor { continue; }
+                            if reactor.add(dir) != actor { continue; }
                         } else { continue; }
                         next_actor = reactor;
                         discard.called_by = reactor;

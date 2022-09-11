@@ -62,12 +62,12 @@ impl RoundId {
     /// - west-wind player == button + 2
     /// - north-wind player == button + 3
     pub fn player_with_self_wind(self, wind: Wind) -> Player {
-        self.button().wrapping_add(wind)
+        self.button().add(wind)
     }
 
     /// Index of the self wind (自風).
     pub fn self_wind_for_player(self, player: Player) -> Wind {
-        Wind::from(player.wrapping_sub(self.button()))
+        Wind::from(player.sub(self.button()))
     }
 
     /// TODO(summivox): doc

@@ -73,7 +73,7 @@ pub fn check_reaction(
         Reaction::Chii(own0, own1) => {
             if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
-            if player_succ(actor) != reactor {
+            if actor.succ() != reactor {
                 return Err(CanOnlyChiiPrevPlayer);
             }
             if let Action::Discard(discard) = action {
@@ -98,7 +98,7 @@ pub fn check_reaction(
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
-                let dir = actor.wrapping_sub(reactor);
+                let dir = actor.sub(reactor);
                 // TODO(summivox): rust (if-let-chain)
                 if let Some(pon) = Pon::from_tiles_dir(own0, own1, called, dir) {
                     if pon.is_in_hand(hand) {
@@ -119,7 +119,7 @@ pub fn check_reaction(
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
-                let dir = actor.wrapping_sub(reactor);
+                let dir = actor.sub(reactor);
                 if let Some(daiminkan) = Daiminkan::from_hand_dir(hand, called, dir) {
                     cache.meld[reactor_i] = Some(Meld::Daiminkan(daiminkan));
                 } else {

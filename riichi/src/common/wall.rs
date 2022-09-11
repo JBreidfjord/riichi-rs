@@ -119,7 +119,7 @@ pub fn deal(wall: &Wall, button: Player) -> [TileSet37; 4] {
     ];
     for i in 0..4 {
         for wall_index in DEAL_INDEX[i] {
-            let p = button.wrapping_add(Player::new(i as u8));
+            let p = button.add(Player::new(i as u8));
             hists[p.to_usize()][wall[wall_index].encoding() as usize] += 1;
         }
     }
