@@ -23,7 +23,7 @@ pub struct RecoveredRound {
 pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
     let mut recovered = RecoveredRound {
         begin: RoundBegin {
-            rules: Default::default(),
+            ruleset: Default::default(),
             round_id: round.round_id_and_pot.round_id(),
             wall: wall::make_dummy_wall(),  // TODO(summivox): offer reconstruction for this
             pot: round.round_id_and_pot.pot_count as GamePoints * 1000,

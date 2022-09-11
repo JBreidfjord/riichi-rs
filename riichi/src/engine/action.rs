@@ -195,7 +195,7 @@ pub fn check_action(
                 actor,
                 actor,
             );
-            let candidates = agari_candidates(&begin.rules, &agari_input);
+            let candidates = agari_candidates(&begin.ruleset, &agari_input);
             if candidates.is_empty() { return Err(CannotTsumoAgari); }
             cache.win[actor_i] = candidates;
         }

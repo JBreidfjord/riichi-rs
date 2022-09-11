@@ -2,7 +2,7 @@
 
 use crate::{
     common::*,
-    rules::Rules,
+    rules::Ruleset,
 };
 use super::{
     ActionResult,
@@ -38,7 +38,7 @@ pub struct RoundId {
     /// The "sub round" number (本場数), commonly represented as the number of 100-pt sticks placed
     /// on the table.
     ///
-    /// NOTE: There are no real limits in the rules, so theoretically this can grow towards +inf.
+    /// NOTE: There are no real limits in the ruleset, so theoretically this can grow towards +inf.
     /// Saturation arithmetic should be used to ensure sanity.
     pub honba: u8,
 }
@@ -106,7 +106,7 @@ impl RoundId {
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RoundBegin {
-    pub rules: Rules,
+    pub ruleset: Ruleset,
 
     /// Kyoku-Honba that identifies this round.
     pub round_id: RoundId,
@@ -130,7 +130,7 @@ pub struct RoundBegin {
 impl Default for RoundBegin {
     fn default() -> Self {
         Self {
-            rules: Default::default(),
+            ruleset: Default::default(),
             round_id: Default::default(),
             wall: wall::make_dummy_wall(),
             pot: 0,

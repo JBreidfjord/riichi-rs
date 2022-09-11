@@ -3,11 +3,11 @@ use crate::{
     analysis::{IrregularWait, Wait},
     common::*,
     model::*,
-    rules::Rules,
+    rules::Ruleset,
 };
 
 pub fn calc_scoring(
-    rules: &Rules,
+    ruleset: &Ruleset,
     yaku_values: &YakuValues,
     wait: Wait,
     dora_hits: DoraHits,
@@ -30,7 +30,7 @@ pub fn calc_scoring(
             dora_hits,
             fu: match wait {
                 Wait::Irregular(IrregularWait::SevenPairs(_)) => 25,
-                _ => calc_regular_fu(rules, agari_kind, is_closed, extra_fu),
+                _ => calc_regular_fu(ruleset, agari_kind, is_closed, extra_fu),
             },
         }
     } else { panic!() }
@@ -51,7 +51,7 @@ pub fn calc_scoring(
 /// Each transaction between two players is separately rounded up to the nearest 100 points.
 /// Note that this is the _only_ rounding step for points --- basic points are _not_ rounded.
 pub fn distribute_points(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     round_id: RoundId,
     take_pot: bool,
     winner: Player,
@@ -59,7 +59,7 @@ pub fn distribute_points(
     basic_points: GamePoints,
 ) -> [GamePoints; 4] {
     let button = round_id.button();
-    // TODO(summivox): rules (atama-hane), rules (basengo)
+    // TODO(summivox): ruleset (atama-hane), ruleset (basengo)
     let honba = if take_pot { round_id.honba as GamePoints } else { 0 };
     let k_honba = 100;
 
@@ -115,7 +115,7 @@ fn round_points_up(points: GamePoints) -> GamePoints { (points + 99) / 100 * 100
 
 /// See: <https://riichi.wiki/Fu>
 fn calc_regular_fu(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     agari_kind: AgariKind,
     is_closed: bool,
     extra_fu: u8,
@@ -140,38 +140,38 @@ mod tests {
 
     #[test]
     fn distribute_points_examples() {
-        let rules = Rules::default();
+        let ruleset = Ruleset::default();
         let basic_points = fu_han_formula(30, 4);
         assert_eq!(basic_points, 1920);
         
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 0, honba: 0 },
+            distribute_points(&ruleset, RoundId { kyoku: 0, honba: 0 },
                               true, P1, P1, basic_points),
             [-3900, 7900, -2000, -2000]);
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 0, honba: 2 },
+            distribute_points(&ruleset, RoundId { kyoku: 0, honba: 2 },
                               true, P1, P1, basic_points),
             [-4100, 8500, -2200, -2200]);
 
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 0, honba: 0 },
+            distribute_points(&ruleset, RoundId { kyoku: 0, honba: 0 },
                               true, P1, P2, basic_points),
             [0, 7700, -7700, 0]);
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 0, honba: 1 },
+            distribute_points(&ruleset, RoundId { kyoku: 0, honba: 1 },
                               true, P1, P2, basic_points),
             [0, 8000, -8000, 0]);
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 0, honba: 0 },
+            distribute_points(&ruleset, RoundId { kyoku: 0, honba: 0 },
                               true, P1, P0, basic_points),
             [-7700, 7700, 0, 0]);
 
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 2, honba: 0 },
+            distribute_points(&ruleset, RoundId { kyoku: 2, honba: 0 },
                               true, P2, P2, basic_points),
             [-3900, -3900, 11700, -3900]);
         assert_eq!(
-            distribute_points(&rules, RoundId { kyoku: 2, honba: 0 },
+            distribute_points(&ruleset, RoundId { kyoku: 2, honba: 0 },
                               true, P2, P3, basic_points),
             [0, 0, 11600, -11600]);
     }

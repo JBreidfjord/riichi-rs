@@ -35,7 +35,7 @@ pub fn next_normal(
     // - **Information**: This solely relies on the result of the previous turn. Actions and
     //   reactions during this turn has no effect on this.
     //
-    // TODO(summivox): rules (kan-dora)
+    // TODO(summivox): ruleset (kan-dora)
     if let Some(Meld::Kakan(_)) | Some(Meld::Daiminkan(_)) = state.core.incoming_meld {
         next.num_dora_indicators += 1;
     }
@@ -119,7 +119,7 @@ pub fn next_normal(
             // Only for Ankan: reveal the next dora indicator immediately.
             // For Kakan, it will only be revealed at the end of the next turn, in the same way
             // as Daiminkan (see above).
-            // TODO(summivox): rules (kan-dora)
+            // TODO(summivox): ruleset (kan-dora)
             if let Action::Ankan(_) = action {
                 next.num_dora_indicators += 1;
             }
@@ -141,7 +141,7 @@ pub fn next_normal(
     // - Immediately enters permanent miss state if under riichi
     // TODO(summivox): ankan should only affect kokushi-tenpai here, although kakan is treated
     //     the same as Ron.
-    // TODO(summivox): rules (kokushi-ankan)
+    // TODO(summivox): ruleset (kokushi-ankan)
     let action_tile = action.tile().unwrap();
     for other_player in other_players_after(actor) {
         let other_player_i = other_player.to_usize();
@@ -205,7 +205,7 @@ pub fn next_agari(
         }
 
         AgariKind::Ron => {
-            // TODO(summivox): rules (atama-hane)
+            // TODO(summivox): ruleset (atama-hane)
             let contributor = state.core.actor;
             let winning_tile = action.tile().unwrap();
             let mut take_pot = true;
@@ -279,7 +279,7 @@ fn finalize_agari(
     }).unwrap().clone();
     best_candidate.scoring.dora_hits = dora_hits;
     let mut delta = distribute_points(
-        &begin.rules,
+        &begin.ruleset,
         begin.round_id,
         take_pot,
         winner,
@@ -292,7 +292,7 @@ fn finalize_agari(
     AgariResult {
         winner,
         contributor,
-        liable_player: winner,  // TODO(summivox): rules (pao)
+        liable_player: winner,  // TODO(summivox): ruleset (pao)
         points_delta: delta,
         details: best_candidate,
     }

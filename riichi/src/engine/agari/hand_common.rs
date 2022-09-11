@@ -2,7 +2,7 @@
 use crate::{
     common::*,
     engine::utils::get_all_tiles,
-    rules::Rules,
+    rules::Ruleset,
 };
 use super::{
     AgariKind,
@@ -18,7 +18,7 @@ pub struct HandCommon {
     pub is_closed: bool,
 }
 
-pub fn calc_hand_common(_rules: &Rules, input: &AgariInput) -> HandCommon {
+pub fn calc_hand_common(_ruleset: &Ruleset, input: &AgariInput) -> HandCommon {
     let agari_kind =
         if input.contributor == input.winner { AgariKind::Tsumo } else { AgariKind::Ron };
     let all_tiles = get_all_tiles(

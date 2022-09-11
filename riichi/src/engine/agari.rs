@@ -11,7 +11,7 @@ use crate::{
         utils::*,
     },
     model::*,
-    rules::Rules,
+    rules::Ruleset,
 };
 use super::{
     scoring::*,
@@ -76,16 +76,16 @@ impl<'a> AgariInput<'a> {
 }
 
 pub fn agari_candidates(
-    rules: &Rules,
+    ruleset: &Ruleset,
     input: &AgariInput,
 ) -> Vec<AgariCandidate> {
-    let hand_common = calc_hand_common(rules, input);
+    let hand_common = calc_hand_common(ruleset, input);
 
     let regular_waits = input.waiting_info.regular.iter()
         .filter(|wait|
             wait.waiting_tile == input.winning_tile.to_normal())
         .map(|wait|
-            (wait, calc_regular_wait_common(rules, input, &hand_common, wait)));
+            (wait, calc_regular_wait_common(ruleset, input, &hand_common, wait)));
 
     let irregular_wait = input.waiting_info.irregular.filter(|irregular|
         match irregular {
@@ -96,27 +96,27 @@ pub fn agari_candidates(
 
     let mut candidates = regular_waits
         .filter_map(|(regular_wait, wait_common)|
-            calc_regular_agari_candidate(rules, input, &hand_common, regular_wait, &wait_common))
+            calc_regular_agari_candidate(ruleset, input, &hand_common, regular_wait, &wait_common))
         .collect_vec();
     candidates.extend(irregular_wait
         .and_then(|irregular|
-            calc_irregular_agari_candidate(rules, input, &hand_common, irregular)));
+            calc_irregular_agari_candidate(ruleset, input, &hand_common, irregular)));
     candidates
 }
 
 fn calc_regular_agari_candidate(
-    rules: &Rules,
+    ruleset: &Ruleset,
     input: &AgariInput,
     hand_common: &HandCommon,
     regular_wait: &RegularWait,
     wait_common: &RegularWaitCommon,
 ) -> Option<AgariCandidate> {
     let mut yaku_builder = YakuBuilder::new();
-    detect_yakus_for_regular(rules, &mut yaku_builder,
+    detect_yakus_for_regular(ruleset, &mut yaku_builder,
                              input, hand_common, regular_wait, wait_common);
     let yaku_values = yaku_builder.build();
     if yaku_values.is_empty() { return None; }
-    let scoring = calc_scoring(rules,
+    let scoring = calc_scoring(ruleset,
                                &yaku_values,
                                Wait::Regular(*regular_wait),
                                DoraHits::default(),  // ignored for now
@@ -131,17 +131,17 @@ fn calc_regular_agari_candidate(
 }
 
 fn calc_irregular_agari_candidate(
-    rules: &Rules,
+    ruleset: &Ruleset,
     input: &AgariInput,
     hand_common: &HandCommon,
     irregular: IrregularWait,
 ) -> Option<AgariCandidate> {
     let mut yaku_builder = YakuBuilder::new();
-    detect_yakus_for_irregular(rules, &mut yaku_builder,
+    detect_yakus_for_irregular(ruleset, &mut yaku_builder,
                                input, hand_common, irregular);
     let yaku_values = yaku_builder.build();
     if yaku_values.is_empty() { return None; }
-    let scoring = calc_scoring(rules,
+    let scoring = calc_scoring(ruleset,
                                &yaku_values,
                                Wait::Irregular( input.waiting_info.irregular.unwrap()),
                                DoraHits::default(),  // ignored for now

@@ -4,7 +4,7 @@ use crate::{
     common::*,
     engine::utils::*,
     model::*,
-    rules::Rules
+    rules::Ruleset
 };
 use crate::analysis::IrregularWait;
 use super::{
@@ -14,67 +14,67 @@ use super::{
 };
 
 pub fn detect_yakus_for_regular(
-    rules: &Rules,
+    ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     input: &AgariInput,
     hand_common: &HandCommon,
     regular_wait: &RegularWait,
     wait_common: &RegularWaitCommon,
 ) {
-    detect_pinfu(rules, yaku_builder,
+    detect_pinfu(ruleset, yaku_builder,
                  wait_common.extra_fu,
                  hand_common.is_closed);
-    detect_riichi(rules, yaku_builder,
+    detect_riichi(ruleset, yaku_builder,
                   &input.riichi_flags);
-    detect_mentsumo(rules, yaku_builder,
+    detect_mentsumo(ruleset, yaku_builder,
                     hand_common.agari_kind,
                     input.melds);
-    detect_rinshan(rules, yaku_builder,
+    detect_rinshan(ruleset, yaku_builder,
                    hand_common.agari_kind,
                    input.incoming_is_kan);
-    detect_chankan(rules, yaku_builder,
+    detect_chankan(ruleset, yaku_builder,
                    input.action_is_kan,
                    hand_common.agari_kind);
-    detect_last_draw(rules, yaku_builder,
+    detect_last_draw(ruleset, yaku_builder,
                      hand_common.agari_kind,
                      input.is_last_draw);
-    detect_first_chance(rules, yaku_builder,
+    detect_first_chance(ruleset, yaku_builder,
                         input.winner,
                         input.round_id.button(),
                         input.is_first_chance,
                         hand_common.agari_kind);
-    detect_hand_only_yakus(rules, yaku_builder,
+    detect_hand_only_yakus(ruleset, yaku_builder,
                            &hand_common.all_tiles,
                            hand_common.is_closed);
-    detect_winds(rules, yaku_builder,
+    detect_winds(ruleset, yaku_builder,
                  &hand_common.all_tiles,
                  input.round_id,
                  input.winner);
-    detect_chuuren(rules, yaku_builder,
+    detect_chuuren(ruleset, yaku_builder,
                    &hand_common.all_tiles_packed,
                    input.winning_tile,
                    hand_common.is_closed);
-    detect_ankou(rules, yaku_builder,
+    detect_ankou(ruleset, yaku_builder,
                  hand_common.agari_kind,
                  input.melds,
                  regular_wait,
                  wait_common.wait_group);
-    detect_kan(rules, yaku_builder,
+    detect_kan(ruleset, yaku_builder,
                input.melds);
-    detect_toitoi(rules, yaku_builder,
+    detect_toitoi(ruleset, yaku_builder,
                   input.melds,
                   regular_wait,
                   wait_common.wait_group);
-    detect_shuntsu(rules, yaku_builder,
+    detect_shuntsu(ruleset, yaku_builder,
                    input.melds,
                    regular_wait,
                    wait_common.wait_group,
                    hand_common.is_closed);
-    detect_sanshokudoukou(rules, yaku_builder,
+    detect_sanshokudoukou(ruleset, yaku_builder,
                           input.melds,
                           regular_wait,
                           wait_common.wait_group);
-    detect_chanta(rules, yaku_builder,
+    detect_chanta(ruleset, yaku_builder,
                   input.melds,
                   &hand_common.all_tiles,
                   regular_wait,
@@ -83,40 +83,40 @@ pub fn detect_yakus_for_regular(
 }
 
 pub fn detect_yakus_for_irregular(
-    rules: &Rules,
+    ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     input: &AgariInput,
     hand_common: &HandCommon,
     irregular: IrregularWait,
 ) {
-    detect_irregular(rules, yaku_builder,
+    detect_irregular(ruleset, yaku_builder,
                      irregular);
-    detect_riichi(rules, yaku_builder,
+    detect_riichi(ruleset, yaku_builder,
                   &input.riichi_flags);
-    detect_mentsumo(rules, yaku_builder,
+    detect_mentsumo(ruleset, yaku_builder,
                     hand_common.agari_kind,
                     input.melds);
-    detect_rinshan(rules, yaku_builder,
+    detect_rinshan(ruleset, yaku_builder,
                    hand_common.agari_kind,
                    input.incoming_is_kan);
-    detect_chankan(rules, yaku_builder,
+    detect_chankan(ruleset, yaku_builder,
                    input.action_is_kan,
                    hand_common.agari_kind);
-    detect_last_draw(rules, yaku_builder,
+    detect_last_draw(ruleset, yaku_builder,
                      hand_common.agari_kind,
                      input.is_last_draw);
-    detect_first_chance(rules, yaku_builder,
+    detect_first_chance(ruleset, yaku_builder,
                         input.winner,
                         input.round_id.button(),
                         input.is_first_chance,
                         hand_common.agari_kind);
-    detect_hand_only_yakus(rules, yaku_builder,
+    detect_hand_only_yakus(ruleset, yaku_builder,
                            &hand_common.all_tiles,
                            hand_common.is_closed);
 }
 
 fn detect_pinfu(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     extra_fu: u8,
     is_closed: bool,
@@ -128,7 +128,7 @@ fn detect_pinfu(
 }
 
 fn detect_irregular(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     irregular: IrregularWait,
 ) {
@@ -137,14 +137,14 @@ fn detect_irregular(
             yaku_builder.add(Yaku::Chiitoitsu, 2),
         IrregularWait::ThirteenOrphans(_) =>
             yaku_builder.add(Yaku::Kokushi, -1),
-        // TODO(summivox): rules (double yakuman)
+        // TODO(summivox): ruleset (double yakuman)
         IrregularWait::ThirteenOrphansAll =>
             yaku_builder.add(Yaku::Kokushi13, -1),
     }
 }
 
 fn detect_riichi(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     riichi_flags: &RiichiFlags,
 ) {
@@ -161,7 +161,7 @@ fn detect_riichi(
 }
 
 fn detect_mentsumo(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
     melds: &[Meld],
@@ -172,7 +172,7 @@ fn detect_mentsumo(
 }
 
 fn detect_rinshan(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
     incoming_is_kan: bool,
@@ -183,7 +183,7 @@ fn detect_rinshan(
 }
 
 fn detect_chankan(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     action_is_kan: bool,
     agari_kind: AgariKind,
@@ -195,7 +195,7 @@ fn detect_chankan(
 }
 
 fn detect_last_draw(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
     is_last_draw: bool,
@@ -210,7 +210,7 @@ fn detect_last_draw(
 }
 
 fn detect_first_chance(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     winner: Player,
     button: Player,
@@ -220,7 +220,7 @@ fn detect_first_chance(
     if is_init_abortable {
         match agari_kind {
             AgariKind::Ron => {
-                // TODO(summivox): rules (renhou)
+                // TODO(summivox): ruleset (renhou)
             }
             AgariKind::Tsumo => {
                 if winner == button {
@@ -234,7 +234,7 @@ fn detect_first_chance(
 }
 
 fn detect_hand_only_yakus(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     all_tiles: &TileSet37,
     is_closed: bool,
@@ -248,7 +248,7 @@ fn detect_hand_only_yakus(
     if green_count(all_tiles) == num_tiles {
         yaku_builder.add(Yaku::Ryuuiisou, -1);
     } else if num_z + one_nine == 0 {
-        // TODO(summivox): rules (kui-tan)
+        // TODO(summivox): ruleset (kui-tan)
         yaku_builder.add(Yaku::Tanyaochuu, 1);
     } else if num_z == num_tiles {
         yaku_builder.add(Yaku::Tsuuiisou, -1);
@@ -291,7 +291,7 @@ fn detect_hand_only_yakus(
 }
 
 fn detect_winds(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     all_tiles: &TileSet37,
     round_id: RoundId,
@@ -314,7 +314,7 @@ fn detect_winds(
 }
 
 fn detect_chuuren(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     all_tiles_packed: &[u32; 4],
     winning_tile: Tile,
@@ -329,7 +329,7 @@ fn detect_chuuren(
     assert!(r.is_power_of_two());
     let r_pos = r.trailing_zeros() as u8 / 3;
     if r_pos == winning_tile.normal_num() - 1 {
-        // TODO(summivox): rules (double yakuman)
+        // TODO(summivox): ruleset (double yakuman)
         yaku_builder.add(Yaku::Junseichuurenpoutou, -1);
     } else {
         yaku_builder.add(Yaku::Chuurenpoutou, -1);
@@ -337,7 +337,7 @@ fn detect_chuuren(
 }
 
 fn detect_ankou(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
     melds: &[Meld],
@@ -357,7 +357,7 @@ fn detect_ankou(
     match num_ankou_complete {
         4 => {
             if regular_wait.waiting_kind == WaitingKind::Tanki {
-                // TODO(summivox): rules (double yakuman)
+                // TODO(summivox): ruleset (double yakuman)
                 yaku_builder.add(Yaku::SuuankouTanki, -1);
             } else {
                 yaku_builder.add(Yaku::Suuankou, -1);
@@ -369,7 +369,7 @@ fn detect_ankou(
 }
 
 fn detect_kan(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     melds: &[Meld],
 ) {
@@ -382,7 +382,7 @@ fn detect_kan(
 }
 
 fn detect_toitoi(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     melds: &[Meld],
     regular_wait: &RegularWait,
@@ -397,7 +397,7 @@ fn detect_toitoi(
 }
 
 fn detect_shuntsu(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     melds: &[Meld],
     regular_wait: &RegularWait,
@@ -454,7 +454,7 @@ fn detect_shuntsu(
 }
 
 fn detect_sanshokudoukou(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     melds: &[Meld],
     regular_wait: &RegularWait,
@@ -484,7 +484,7 @@ fn detect_sanshokudoukou(
 }
 
 fn detect_chanta(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     melds: &[Meld],
     all_tiles: &TileSet37,

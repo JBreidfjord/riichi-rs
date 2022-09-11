@@ -4,7 +4,7 @@
 //!
 //! The main game engine is encapsulated as [`engine::Engine`], which drives the
 //! [state-action-reaction representation](model) of each round of the game, which in turn consists
-//! of [building blocks](common) like [Tile][]s, [HandGroup][]s, [Meld][]s, etc.
+//! of [building blocks](common) like [Tile]s, [HandGroup]s, [Meld]s, etc.
 //!
 //! [Tile]: common::Tile
 //! [HandGroup]: common::HandGroup
@@ -41,6 +41,9 @@
 //! - <https://en.wikipedia.org/wiki/Mahjong>
 //! - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80>
 
+use once_cell::sync::Lazy;
+use semver::Version;
+
 pub mod analysis;
 pub mod common;
 pub mod engine;
@@ -54,6 +57,12 @@ pub mod prelude {
         common::*,
         model::*,
         engine::Engine,
-        rules::Rules,
+        rules::Ruleset,
     };
 }
+
+/// Version of this crate (as a string).
+const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
+
+/// Version of this crate (parsed).
+static VERSION: Lazy<Version> = Lazy::new(|| VERSION_STR.parse().unwrap());

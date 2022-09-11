@@ -5,7 +5,7 @@ use riichi_decomp_table::WaitingKind;
 use crate::{
     common::*,
     model::*,
-    rules::Rules,
+    rules::Ruleset,
 };
 use super::{AgariKind, AgariInput, HandCommon, RegularWait};
 
@@ -16,7 +16,7 @@ pub struct RegularWaitCommon {
 }
 
 pub fn calc_regular_wait_common(
-    _rules: &Rules,
+    _ruleset: &Ruleset,
     input: &AgariInput,
     hand_common: &HandCommon,
     wait: &RegularWait,

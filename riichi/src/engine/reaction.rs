@@ -148,7 +148,7 @@ pub fn check_reaction(
                 reactor,
                 actor,
             );
-            let candidates = agari_candidates(&begin.rules, &agari_input);
+            let candidates = agari_candidates(&begin.ruleset, &agari_input);
             if candidates.is_empty() { return Err(CannotRonAgari); }
             cache.win[reactor_i] = candidates;
         }
@@ -191,7 +191,7 @@ pub fn resolve_reaction(
 
         // Ron takes precedence over everything else at this point.
         Some((_reactor, Reaction::RonAgari)) => {
-            // TODO(summivox): rules (double/triple ron)
+            // TODO(summivox): ruleset (double/triple ron)
             let num_rons = reactions.iter().filter(|&&reaction|
                 reaction == Some(Reaction::RonAgari)).count();
             return if num_rons == 3 {
@@ -210,7 +210,7 @@ pub fn resolve_reaction(
     if is_aborted_four_riichi(state, action) {
         return (ActionResult::Abort(AbortReason::FourRiichi), None);
     }
-    // TODO(summivox): rules (4-kan judgment point)
+    // TODO(summivox): ruleset (4-kan judgment point)
     if is_aborted_four_kan(
         state, action, reactor_reaction.map(|(_reactor, reaction)| reaction)) {
         return (ActionResult::Abort(AbortReason::FourKan), None);
