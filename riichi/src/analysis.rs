@@ -1,4 +1,18 @@
-pub mod decomp;
+//! Analysis of a player's closed hand.
+//!
+//! ## Waiting Hand Decomposition
+//!
+//! A 3N+1 closed hand is considered "waiting" (1 tile away from winning) if it matches:
+//!
+//! - [One or more regular waiting pattern(s)](regular::RegularWait).
+//! - [An irregular waiting pattern](irregular::IrregularWait).
+//!
+//! This module provides [`WaitingInfo`], which can be calculated to show all the ways for a closed
+//! hand to be considered waiting. It uses [`decomposer::Decomposer`] behind the scenes to iterate
+//! through all regular waiting patterns.
+
+pub mod decomposer;
+pub mod regular;
 pub mod irregular;
 
 use std::fmt::{Display, Formatter};
@@ -9,22 +23,44 @@ use crate::{
     common::*,
 };
 pub use self::{
-    decomp::{Decomposer, RegularWait},
+    decomposer::Decomposer,
+    regular::RegularWait,
     irregular::{IrregularWait, detect_irregular_wait},
 };
 
+/// One waiting pattern, either [`RegularWait`] or [`IrregularWait`].
+///
+/// ## Optional `serde` support
+///
+/// Serialization only. `{type, wait}` (adjacently tagged).
+///
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]  // due to `RegularWait`
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "wait"))]
 pub enum Wait {
     Regular(RegularWait),
     Irregular(IrregularWait),
 }
 
 // TODO(summivox): better name
+/// All the ways a player's closed hand can be considered waiting, regular and/or irregular.
+///
+/// ## Optional `serde` support
+///
+/// Serialization only.
+/// Straightforward struct mapping of fields.
+///
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WaitingInfo {
+    /// The set of all waiting tiles in all different ways of waiting.
     pub waiting_set: TileMask34,
+
+    /// Regular waiting patterns (groups and a pair).
     pub regular: Vec<RegularWait>,
+
+    /// Irregular waiting pattern (seven pairs, thirteen orphans).
     pub irregular: Option<IrregularWait>,
 }
 

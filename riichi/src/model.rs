@@ -1,11 +1,9 @@
-//! State-Action-Reaction representation
+//! State-Action-Reaction representation of a round of game.
 //!
 //! This module defines the data models, their relationships, and helpers of a structured
 //! representation of a round of game.
 //!
 //! ## The original state machine diagram
-//!
-//! <!-- TODO: show the 4-kan abort -->
 //!
 //! ```asciiart
 //!    ┌──────┐
@@ -18,7 +16,7 @@
 //!    ┌────────┐ Draw=Y    ┌────────────┐           ┌─────────────┐ Nothing   │
 //!    │DrawHead├──────────►│            │           │             ├───────────┤
 //!    └────────┘ Meld=N    │            │  Discard  │             │           │
-//!    #3                   │            ├──────────►│             │  #3       ▼
+//!    #4                   │            ├──────────►│             │  #3       ▼
 //!                         │            │  Riichi   │             │  ┌─────────────────┐
 //!                         │  In-turn   │           │ Resolved    │  │ Forced abortion │
 //!                         │  player's  │           │ declaration │  └─────────────────┘

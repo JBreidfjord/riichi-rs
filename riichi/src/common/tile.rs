@@ -5,6 +5,7 @@
 //! ## Ref
 //! - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C>
 //! - <https://en.wikipedia.org/wiki/Mahjong_tiles>
+//! - <https://riichi.wiki/Mahjong_equipment>
 
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
@@ -29,6 +30,13 @@ use super::typedefs::*;
 ///
 /// Details of this encoding is significant and implicitly assumed across the crate.
 /// It should never be changed.
+///
+///
+/// ## Optional `serde` support
+///
+/// The common string shorthand (e.g. `"1m"`, `"0p"`, `"7z"`) is used as the serialization format.
+/// This ensures readability and interoperability.
+///
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(try_from = "String", into = "&str"))]

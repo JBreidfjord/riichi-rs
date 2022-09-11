@@ -66,8 +66,14 @@ pub struct State {
 /// more space-efficient representation of the same information.
 ///
 /// See [mod-level docs](crate::model) for the details of modeling.
+///
+/// ## Optional `serde` support
+///
+/// Straightforward struct mapping of all fields.
+///
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(test, derive(type_layout::TypeLayout))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateCore {
     /// Sequence number of this state, defined as the total number of closed actions since the
     /// beginning of this round.
@@ -180,7 +186,15 @@ impl Display for StateCore {
 /// NOTE: Not implemented as an `Option<(bool, bool)>` due to bad ergonomics.
 ///
 /// <https://riichi.wiki/Riichi>
+///
+/// ## Optional `serde` support
+///
+/// Straightforward struct mapping of all fields.
+///
+/// TODO(summivox): RiichiFlags serialization format is too verbose.
+///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RiichiFlags {
     /// Player is under active riichi (リーチ).
     pub is_active: bool,
@@ -220,7 +234,15 @@ impl Display for RiichiFlags {
 /// either temporarily (by discard or missed chance) or permanently (by missed chance under riichi).
 ///
 /// <https://riichi.wiki/Furiten>
+///
+/// ## Optional `serde` support
+///
+/// Straightforward struct mapping of all fields.
+///
+/// TODO(summivox): FuritenFlags serialization format is too verbose.
+///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct FuritenFlags {
     /// At least one tile in the player's waiting set had been discarded by the player before.
     /// This penalty is considered temporary as the player's waiting set might change.

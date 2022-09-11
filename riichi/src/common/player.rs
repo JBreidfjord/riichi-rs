@@ -10,6 +10,11 @@ use ux::u2;
 ///
 /// This is forced to mod-4 arithmetic, and can represent both the absolute player index or
 /// the difference between player indices ("relative player").
+///
+/// ## Optional `serde` support
+///
+/// Serializes as the underlying number. When deserialized, automatically takes mod 4.
+///
 #[derive(Copy, Clone, Default, Eq, PartialEq, Hash, From, Into)]
 pub struct Player(pub u2);
 
@@ -53,7 +58,7 @@ impl Debug for Player {
 
 impl Display for Player {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "P{}", self.to_u8())
+        write!(f, "{}", self.to_u8())
     }
 }
 

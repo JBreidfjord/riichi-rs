@@ -10,6 +10,7 @@ use std::fmt::{Display, Formatter};
 use super::tile::Tile;
 
 /// A group of 3 tiles within a player's _closed_ hand, a.k.a. Mentsu 面子.
+///
 /// Can be either:
 /// - Koutsu (暗)刻子: 3 of a kind (ignoring red); e.g. `222z`, `055m`
 /// - Shuntsu (暗)順子: 3 consecutives (ignoring red); e.g. `789m`, `406s`
@@ -23,7 +24,13 @@ use super::tile::Tile;
 ///
 /// - `[5:4]`: suit (0/1/2/3 = m/p/s/z)
 ///
+/// ## Optional `serde` support
+///
+/// `{type, tile}` where `type` is `"Shuntsu"` or `"Koutsu"`.
+///
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "tile"))]
 pub enum HandGroup {
     Koutsu(Tile),
     Shuntsu(Tile),

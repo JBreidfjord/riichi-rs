@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
     Copy, Clone, Debug, Eq, PartialEq, Hash,
     num_enum::TryFromPrimitive, num_enum::IntoPrimitive,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 #[repr(u16)]
 pub enum Yaku {

@@ -8,14 +8,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use crate::{
-    common::{
-        HandGroup,
-        Tile,
-        TileSet37,
-        typedefs::*
-    }
-};
+use crate::common::*;
 
 mod chii;
 mod pon;
@@ -32,6 +25,22 @@ pub use daiminkan::Daiminkan;
 pub use ankan::Ankan;
 
 /// Sum type of all kinds of melds (副露).
+///
+/// This is one of: [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`].
+///
+///
+/// ## Optional `serde` support
+///
+/// `{type, ...}` where `...` represents the flattened fields of the actual meld.
+///
+/// Examples:
+///
+/// - `{"type": "Chii", "own": ["4s", "6s"], "called": "0s", "min": "4s"}`
+/// - `{"type": "Pon", "own": ["0p", "5p"], "called": "0p", "dir": 2}`
+/// - `{"type": "Kakan", "own": ["0p", "5p"], "called": "0p", "dir": 1, "added": "5p"}`
+/// - `{"type": "Daiminkan", "own": ["0s", "5s", "5s"], "called": "0s", "dir": 3}`
+/// - `{"type": "Ankan", "own": ["4z", "4z", "4z", "4z"]}`
+///
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]

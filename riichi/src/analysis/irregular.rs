@@ -5,7 +5,15 @@ use crate::common::*;
 /// Represents one of the irregular waiting hand patterns.
 ///
 /// Note that they are mutually exclusive --- one hand can fit at most one of these patterns.
+///
+/// ## Optional `Serde` support
+///
+/// `{type, wait?}` (adjacently tagged, in serde terms).
+/// Examples: `{"type": "SevenPairs", "wait": "9s"}`, `{"type": "ThirteenOrphansAll"}`
+///
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "wait"))]
 pub enum IrregularWait {
     /// Seven Pairs (七対子)
     ///
@@ -52,7 +60,7 @@ impl Display for IrregularWait {
 
 /// Detect which irregular waiting patterns match the supplied hand (octal-[packed][]).
 ///
-/// [packed]: TileSet34::packed
+/// [packed]: TileSet34::packed_34
 pub fn detect_irregular_wait(keys: [u32; 4]) -> Option<IrregularWait> {
     if let Some(tile) = detect_seven_pairs(keys) {
         Some(IrregularWait::SevenPairs(tile))

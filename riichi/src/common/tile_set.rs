@@ -227,6 +227,8 @@ impl TileSet34 {
     BitAnd, BitOr, BitXor,
     BitAndAssign, BitOrAssign, BitXorAssign,
 )]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent))]  // TODO(summivox): don't cheat
 pub struct TileMask34(pub u64);
 
 impl TileMask34 {

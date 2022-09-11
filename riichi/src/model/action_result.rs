@@ -4,6 +4,18 @@ use crate::common::*;
 use super::agari::AgariKind;
 
 /// Conclusion of an action-reaction cycle.
+///
+/// ## Optional `serde` support
+///
+/// `{type, details?}` (adjacently tagged, in serde terms).
+///
+/// Examples:
+///
+/// - `{"type": "Pass"}`
+/// - `{"type": "CalledBy", "details": 3}`
+/// - `{"type": "Agari", "details": "Tsumo"}`
+/// - `{"type": "Abort", "details": "NagashiMangan"}`
+///
 #[derive(Copy, Clone, Debug, Default, Eq, Hash, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type", content = "details"))]

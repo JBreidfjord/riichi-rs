@@ -9,29 +9,22 @@ pub use w_table::{WTable, WTableStatic, WaitingPattern, WaitingKind, make_w_tabl
 mod tests {
     use super::*;
     use itertools::Itertools;
-    use once_cell::sync::OnceCell;
+    use once_cell::sync::Lazy;
 
-    fn get_c_table() -> &'static CTable {
-        static C_TABLE: OnceCell<CTable> = OnceCell::new();
-        C_TABLE.get_or_init(make_c_table)
-    }
-
-    fn get_w_table() -> &'static WTable {
-        static W_TABLE: OnceCell<WTable> = OnceCell::new();
-        W_TABLE.get_or_init(|| make_w_table(get_c_table()))
-    }
+    static C_TABLE: Lazy<CTable> = Lazy::new(make_c_table);
+    static W_TABLE: Lazy<WTable> = Lazy::new(|| make_w_table(&C_TABLE));
 
     #[test]
     fn check_num_keys() {
-        let c_table = get_c_table();
-        let w_table = get_w_table();
+        let c_table = &C_TABLE;
+        let w_table = &W_TABLE;
         assert_eq!(c_table.len(), c_table::C_TABLE_NUM_KEYS);
         assert_eq!(w_table.len(), w_table::W_TABLE_NUM_KEYS);
     }
 
     #[test]
     fn check_c_trivial_entries() {
-        let c_table = get_c_table();
+        let c_table = &C_TABLE;
 
         let key = 0o000020000;
         let &value = c_table.get(&key).unwrap();

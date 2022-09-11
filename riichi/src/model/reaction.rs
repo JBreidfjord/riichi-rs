@@ -8,8 +8,17 @@ use crate::common::*;
 /// The lack of reaction / "pass" / unknown reaction can be represented by `Option<Reaction>`.
 ///
 /// Variants are ordered by their priority (`Chii` is the lowest, `RonAgari` the highest).
+///
+/// ## Optional `serde` support
+///
+/// `{type, tiles?}` (adjacently tagged, in serde terms)
+///
+/// - [`Reaction::Chii`], [`Reaction::Pon`] <=> `{"type": "Chii", "tiles": ["1s", "2s"]}`
+/// - [`Reaction::Daiminkan`], [`Reaction::RonAgari`] <=> `{"type": "RonAgari"}`
+///
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "tiles"))]
 pub enum Reaction {
     /// Declare a [`Chii`] (チー) on the recent discard with the specified own tiles.
     Chii(Tile, Tile),
@@ -80,7 +89,7 @@ mod tests {
         #[test]
         fn serde_two_args() {
             let reaction = Reaction::Chii(t!("1s"), t!("2s"));
-            let json = serde_json::json!({"Chii": ["1s", "2s"]});
+            let json = serde_json::json!({"type": "Chii", "tiles": ["1s", "2s"]});
             let serialized = serde_json::to_value(reaction).unwrap();
             let deserialized: Reaction = serde_json::from_value(json.clone()).unwrap();
             assert_json_eq!(serialized, json);
@@ -90,7 +99,7 @@ mod tests {
         #[test]
         fn serde_no_args() {
             let reaction = Reaction::RonAgari;
-            let json = serde_json::json!("RonAgari");
+            let json = serde_json::json!({"type": "RonAgari"});
             let serialized = serde_json::to_value(reaction).unwrap();
             let deserialized: Reaction = serde_json::from_value(json.clone()).unwrap();
             assert_json_eq!(serialized, json);

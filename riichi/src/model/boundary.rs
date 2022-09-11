@@ -11,11 +11,17 @@ use super::{
 
 /// Kyoku-Honba (局-本場) pair that uniquely identifies a round in a game.
 ///
-/// Ref:
+/// ## Optional `serde` support
+///
+/// Straightforward struct mapping of all fields: `{"kyoku": 7, "honba": 2}`.
+///
+/// ## Ref
+///
 /// - <https://riichi.wiki/Kyoku>
 /// - <https://riichi.wiki/Honba>
 /// - <https://ja.wikipedia.org/wiki/%E9%80%A3%E8%8D%98>
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RoundId {
     /// Index of the wind-round (局), enumerated in combination with the prevailing wind:
     ///
@@ -81,7 +87,14 @@ impl RoundId {
     }
 }
 
+/// Meta-states at the beginning of the round.
+///
+/// ## Optional `serde` suppport
+///
+/// Straightforward struct mapping of all fields.
+///
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RoundBegin {
     pub rules: Rules,
 
@@ -90,6 +103,7 @@ pub struct RoundBegin {
 
     /// The tile wall right after shuffling and cutting (full 136 tiles).  Drawing and revealing
     /// (of dora indicators) are "virtual", always referring to this original wall.
+    #[cfg_attr(feature = "serde", serde(with = "serde_big_array::BigArray"))]
     pub wall: Wall,
 
     /// Points left on the table (供託), up for grabs by the next winner.
@@ -115,7 +129,16 @@ impl Default for RoundBegin {
     }
 }
 
+/// Details of how a round concluded, including the points differences and the breakdown of each
+/// winning hand.
+/// 
+/// ## Optional `serde` support
+/// 
+/// Serialization only. 
+/// Straightforward struct mapping of all fields.
+/// 
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct RoundEnd {
     /// The result of the round; equal to the last `ActionResult` before round ended.
     /// Guaranteed to be "terminal" (agari or abort).

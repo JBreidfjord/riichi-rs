@@ -18,6 +18,7 @@ phf = { version = "0.11", features = ["macros"] }  # should agree with phf_codeg
 rand = { version = "0.8", optional = true }
 regex = { version = "1.6.0", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
+serde-big-array = { version = "0.4", optional = true }
 serde_json = { version = "1.0", optional = true }
 serde_tuple = { version = "0.5.0", optional = true }
 serde_with = { version = "2.0", optional = true }
@@ -47,7 +48,7 @@ riichi-decomp-table = { path = "../riichi-decomp-table" }
 
 [features]
 default = ["serde", "tenhou-log"]
-serde = ["dep:serde", "dep:serde_json", "dep:serde_tuple", "dep:serde_with"]
+serde = ["dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serde_tuple", "dep:serde_with"]
 tenhou-log = ["dep:rand", "dep:regex", "serde"]
 
 [[bin]]

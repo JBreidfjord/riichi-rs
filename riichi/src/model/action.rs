@@ -5,6 +5,23 @@ use crate::common::*;
 use super::Discard;
 
 /// Action by the in-turn player.
+///
+/// ## Optional `serde` support
+///
+/// [`Action`] has custom serialization `{type, tile?, riichi?, tsumokiri?}` to help with ergonomics.
+///
+/// - The `"tile"` field is defined the same as [`Action::tile()`].
+/// - Only for [`Action::Discard`]: optionally add `"tsumokiri"` and `"riichi"` flags if set.
+///
+/// Examples:
+///
+/// - [`Action::Discard`] <=> `{"type": "Discard", "tile": "1m", "riichi": true, "tsumo": true}`
+/// - [`Action::Ankan`], [`Action::Kakan`], [`Action::TsumoAgari`] <=>
+///   `{"type": "TsumoAgari", "tile": "5z"}`
+/// - [`Action::AbortNineKinds`] <=> `{"type": "AbortNineKinds"}`
+///
+/// Note that the `called_by` field of [`Discard`] is deliberately excluded.
+///
 #[derive(Copy, Clone, Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum Action {
@@ -28,6 +45,7 @@ pub enum Action {
 }
 
 impl Action {
+    /// Construct the action corresponding to [`Meld::Kakan`] / [`Meld::Ankan`].
     pub fn from_meld(meld: &Meld) -> Option<Self> {
         match meld {
             Meld::Kakan(kakan) => Some(Action::Kakan(kakan.added)),
@@ -36,6 +54,8 @@ impl Action {
         }
     }
 
+    /// Returns the tile argument of each kind of action, except [`Action::AbortNineKinds`] for
+    /// which `None` is returned.
     pub fn tile(self) -> Option<Tile> {
         match self {
             Action::Discard(discard) => Some(discard.tile),
@@ -46,10 +66,12 @@ impl Action {
         }
     }
 
+    /// Does this action end the round?
     pub fn is_terminal(self) -> bool {
         matches!(self, Action::TsumoAgari(_) | Action::AbortNineKinds)
     }
 
+    /// Returns whether this action produces a Kan.
     pub fn is_kan(self) -> bool {
         matches!(self, Action::Ankan(_)| Action::Kakan(_))
     }
@@ -67,15 +89,6 @@ impl Display for Action {
     }
 }
 
-/// Custom JSON serialization format for action:
-///
-/// - `{"type": "Discard", "tile": "1m", "riichi": true, "tsumokiri": true}`
-/// - `{"type": "Ankan", "tile": "2s"}` (same for [`Action::Kakan`], [`Action::TsumoAgari`]).
-/// - `{"type": "AbortNineKinds"}`
-///
-/// Serialization of [`Action::Discard`] will skip `called_by` and any `false`-valued field(s).
-///
-/// Deserialization is permissive --- extra fields are ignored.
 #[cfg(feature = "serde")]
 mod action_serde {
     use serde::{
@@ -89,8 +102,7 @@ mod action_serde {
         fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
             match self {
                 Action::Discard(discard) => {
-                    let mut st = s.serialize_struct(
-                        "Action", 4)?;
+                    let mut st = s.serialize_struct("Action", 4)?;
                     st.serialize_field("type", "Discard")?;
                     st.serialize_field("tile", &discard.tile)?;
                     if discard.declares_riichi {
@@ -102,29 +114,25 @@ mod action_serde {
                     st.end()
                 }
                 Action::Ankan(t) => {
-                    let mut st = s.serialize_struct(
-                        "Action", 2)?;
+                    let mut st = s.serialize_struct("Action", 2)?;
                     st.serialize_field("type", "Ankan")?;
                     st.serialize_field("tile", &t)?;
                     st.end()
                 }
                 Action::Kakan(t) => {
-                    let mut st = s.serialize_struct(
-                        "Action", 2)?;
+                    let mut st = s.serialize_struct("Action", 2)?;
                     st.serialize_field("type", "Kakan")?;
                     st.serialize_field("tile", &t)?;
                     st.end()
                 }
                 Action::TsumoAgari(t) => {
-                    let mut st = s.serialize_struct(
-                        "Action", 2)?;
+                    let mut st = s.serialize_struct("Action", 2)?;
                     st.serialize_field("type", "TsumoAgari")?;
                     st.serialize_field("tile", &t)?;
                     st.end()
                 }
                 Action::AbortNineKinds => {
-                    let mut st = s.serialize_struct(
-                        "Action", 1)?;
+                    let mut st = s.serialize_struct("Action", 1)?;
                     st.serialize_field("type", "AbortNineKinds")?;
                     st.end()
                 }

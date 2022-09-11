@@ -5,8 +5,15 @@ use crate::{
 use super::{ActionResult, YakuValues};
 
 /// Describes a finalized winning hand.
+///
+/// ## Optional `serde` support
+///
+/// Serialization only.
+/// Straightforward struct mapping of all fields.
+///
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]  // due to `RegularWait`
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct AgariResult {
     /// Who won?
     pub winner: Player,
@@ -37,6 +44,11 @@ impl AgariResult {
 }
 
 /// RonAgari (ロン) or Tsumo (ツモ和ガリ).
+///
+/// ## Optional `serde` support
+///
+/// As a string (`"Ron"` or `"Tsumo"`).
+///
 #[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
@@ -55,8 +67,15 @@ impl AgariKind {
 }
 
 /// Describes one possible way a hand can win.
+///
+/// ## Optional `serde` support
+///
+/// Serialization only.
+/// Straightforward struct mapping of all fields.
+///
 #[derive(Clone, Debug)]
 #[cfg_attr(test, derive(Eq, PartialEq))]  // due to `RegularWait`
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct AgariCandidate {
     /// Waiting pattern for this hand --- regular or irregular, based on which this hand is being
     /// considered for a win.
@@ -71,7 +90,13 @@ pub struct AgariCandidate {
 }
 
 /// Scoring components for a hand.
+///
+/// ## Optional `serde` support
+///
+/// Straightforward struct mapping of all fields.
+///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Scoring {
     /// The total "plies" of Yakuman (役満); e.g. 1 => single Yakuman, 2 => double Yakuman, ...
     ///
@@ -100,7 +125,13 @@ impl Scoring {
 }
 
 /// Number of Dora's (ドラ) counted in a hand.
+///
+/// ## Optional `serde` support
+///
+/// Straightforward struct mapping of all fields.
+///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DoraHits {
     /// Number of Dora's as indicated by the indicator(s) revealed on the top of the wall (ドラ).
     /// This may include the effect of any additional indicators revealed through Kan (カンドラ).

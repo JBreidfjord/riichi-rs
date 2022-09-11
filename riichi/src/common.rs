@@ -11,7 +11,7 @@ pub mod wall;
 
 pub use hand_group::*;
 pub use meld::*;
-// pub use player::*;
+pub use player::*;
 pub use tile::*;
 pub use tile_set::*;
 pub use typedefs::*;

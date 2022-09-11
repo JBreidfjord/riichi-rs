@@ -49,13 +49,8 @@
 //! - <https://riichi.wiki/Yama>
 
 use itertools::Itertools;
-use crate::{
-    common::{
-        tile::*,
-        tile_set::*,
-        typedefs::*,
-    },
-};
+
+use crate::common::*;
 
 /// The wall of tiles.
 /// See [module-level docs](self).
