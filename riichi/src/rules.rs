@@ -123,7 +123,7 @@ pub struct Ruleset {
     /// - `ron_first_only == false`: They all win. (most common)
     /// - `ron_first_only == true`: Only the first player (CCW from the contributor) wins.
     ///
-    /// **Default: all can win**.
+    /// **Default: all can win (`false`)**.
     #[derivative(Default(value = "false"))]
     pub ron_first_only: bool,
 

@@ -204,7 +204,6 @@ pub fn next_agari(
         }
 
         AgariKind::Ron => {
-            // TODO(summivox): ruleset (atama-hane)
             let contributor = state.core.actor;
             let winning_tile = action.tile().unwrap();
             let mut take_pot = true;
@@ -218,6 +217,9 @@ pub fn next_agari(
                     for i in 0..4 { delta[i] += agari_result_one.points_delta[i]; }
                     agari_result[winner.to_usize()] = Some(agari_result_one);
                     take_pot = false;
+                    if begin.ruleset.ron_first_only {
+                        break;
+                    }
                 }
             }
         }
