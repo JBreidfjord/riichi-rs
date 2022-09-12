@@ -67,14 +67,18 @@ mod tenhou_log_tests {
         for json_path in sample_json_paths() {
             println!("\n\n\n\n\n\n\n\n\n\n\n\n");
             println!("testing: {}", json_path.file_name().unwrap().to_str().unwrap());
-            let json_str = std::fs::read_to_string(json_path).unwrap();
+            let json_str = std::fs::read_to_string(&json_path).unwrap();
             let json_value = serde_json::Value::from_str(&json_str).unwrap();
             let deserialized = serde_json::from_value::<TenhouLog>(json_value.clone()).unwrap();
             let num_reds = deserialized.rule.num_reds();
             for round in deserialized.rounds.iter() {
                 let recovered = recover_round(round).unwrap();
                 // println!("{}", recovered);
-                run_a_round(num_reds, &recovered, &round.end_info);
+                let full_history = run_a_round(num_reds, &recovered, &round.end_info);
+                let full_history_str = serde_json::to_string_pretty(&full_history).unwrap();
+                std::fs::write(
+                    json_path.clone().with_extension("txt"),
+                    full_history_str).unwrap();
             }
         }
     }

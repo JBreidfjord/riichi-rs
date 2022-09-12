@@ -7,12 +7,17 @@ use super::*;
 
 /// Fully simulate/replay a [`RecoveredRound`] through our [`Engine`], validating the states along
 /// the way. Useful for cross-checking the implementation of our [`Engine`].
-pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &TenhouEndInfo) {
-    let history = &recovered.history;
-    println!("\n\n{:?}", history.begin.round_id);
+pub fn run_a_round(
+    num_reds: [u8; 3],
+    recovered: &RecoveredRound,
+    end_info: &TenhouEndInfo
+) -> RoundHistory {
+    let lite = &recovered.history;
+    println!("\n{:?}", lite.begin.round_id);
+
     let mut engine = Engine::new();
 
-    let mut begin = history.begin.clone();
+    let mut begin = lite.begin.clone();
     let mut missing_tiles = wall::get_missing_tiles_in_partial_wall(
         &recovered.known_wall, num_reds);
     missing_tiles[..].shuffle(&mut thread_rng());
@@ -22,9 +27,15 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
         wall::print(&begin.wall);
     }
 
+    let mut full = RoundHistory {
+        begin: begin.clone(),
+        steps: vec![],
+        ron: lite.ron,
+    };
+
     engine.begin_round(begin);
-    let mut step = None;
-    for (seq, action_reaction) in history.action_reactions.iter().enumerate() {
+    let mut last_step = None;
+    for (seq, action_reaction) in lite.action_reactions.iter().enumerate() {
         // println!("{}", engine.state().core);
         // println!("{}", action_reaction);
         assert_eq!(engine.state().core.seq, seq as u8);
@@ -33,16 +44,16 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
         if let Some((reactor, reaction)) = action_reaction.reactor_reaction {
             engine.register_reaction(reactor, reaction).unwrap();
         }
-        if seq == history.action_reactions.len() - 1 {
+        if seq == lite.action_reactions.len() - 1 {
             // handle multi-ron
-            let mut multi_ron = history.ron;
+            let ron = &mut full.ron;
             if recovered.final_result == ActionResult::Abort(AbortReason::TripleRon) {
                 for p in other_players_after(action_reaction.actor) {
-                    multi_ron[p.to_usize()] = true;
+                    ron[p.to_usize()] = true;
                 }
             }
             for i in 0..4 {
-                if multi_ron[i] {
+                if ron[i] {
                     engine.register_reaction(
                         Player::new(i as u8),
                         Reaction::RonAgari,
@@ -50,9 +61,11 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
                 }
             }
         }
-        step = Some(engine.step());
+        let step = engine.step();
+        full.steps.push(step.clone());
+        last_step = Some(step);
     }
-    if let Some(step) = step {
+    if let Some(step) = last_step {
         match step.action_result {
             ActionResult::Abort(abort_reason) => {
                 log::info!("engine says: {:?}", abort_reason);
@@ -78,4 +91,5 @@ pub fn run_a_round(num_reds: [u8; 3], recovered: &RecoveredRound, end_info: &Ten
         }
         assert_eq!(step.action_result, recovered.final_result);
     }
+    full
 }

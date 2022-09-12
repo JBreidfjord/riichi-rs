@@ -4,8 +4,13 @@
 // use arrayvec::ArrayVec;  // TODO(summivox): use ArrayVec
 
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 use itertools::Itertools;
+#[cfg(feature = "serde")]
+use serde_with::{
+    serde_as, As, DisplayFromStr,
+};
 
 use crate::common::*;
 use super::{
@@ -71,6 +76,7 @@ pub struct State {
 ///
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(test, derive(type_layout::TypeLayout))]
+#[cfg_attr(feature = "serde", serde_as)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateCore {
     /// Sequence number of this state, defined as the total number of closed actions since the
@@ -125,6 +131,7 @@ pub struct StateCore {
 
     /// Riichi status for each player.
     /// **Publicly visible.**
+    #[cfg_attr(feature = "serde", serde(with = "As::<[DisplayFromStr; 4]>"))]
     pub riichi: [RiichiFlags; 4],
 }
 
@@ -187,12 +194,9 @@ impl Display for StateCore {
 ///
 /// ## Optional `serde` support
 ///
-/// Straightforward struct mapping of all fields.
-///
-/// TODO(summivox): RiichiFlags serialization format is too verbose.
+/// Deliberately not provided; [`StateCore`] uses [`DisplayFromStr`] to serialize this as a string.
 ///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RiichiFlags {
     /// Player is under active riichi (リーチ).
     pub is_active: bool,
@@ -210,15 +214,29 @@ pub struct RiichiFlags {
 }
 
 impl RiichiFlags {
-    /// Shorthand to help debugging.
     pub fn as_str(self) -> &'static str {
         match (self.is_active, self.is_double, self.is_ippatsu) {
-            (false, _, _) => "_",
+            (false, _, _) => "",
             (true, false, false) => "r",
             (true, false, true) => "R",
             (true, true, false) => "d",
             (true, true, true) => "D",
         }
+    }
+}
+
+impl FromStr for RiichiFlags {
+    type Err = bool;  // prevents serde complaints
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let r = match s {
+            "r" => RiichiFlags { is_active: true, is_double: false, is_ippatsu: false },
+            "R" => RiichiFlags { is_active: true, is_double: false, is_ippatsu: true },
+            "d" => RiichiFlags { is_active: true, is_double: true, is_ippatsu: false },
+            "D" => RiichiFlags { is_active: true, is_double: true, is_ippatsu: true },
+            _ => RiichiFlags { is_active: false, is_double: false, is_ippatsu: false },
+        };
+        Ok(r)
     }
 }
 
@@ -235,12 +253,12 @@ impl Display for RiichiFlags {
 ///
 /// ## Optional `serde` support
 ///
-/// Straightforward struct mapping of all fields.
+/// To reduce verbosity of outputs, this is serialized as `[discard, temp, permanent]` (untagged).
 ///
 /// TODO(summivox): FuritenFlags serialization format is too verbose.
 ///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", derive(serde_tuple::Serialize_tuple, serde_tuple::Deserialize_tuple))]
 pub struct FuritenFlags {
     /// At least one tile in the player's waiting set had been discarded by the player before.
     /// This penalty is considered temporary as the player's waiting set might change.

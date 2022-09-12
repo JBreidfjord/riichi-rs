@@ -195,9 +195,9 @@ pub fn resolve_reaction(
             let num_rons = reactions.iter().filter(|&&reaction|
                 reaction == Some(Reaction::RonAgari)).count();
             return if num_rons == 3 {
-                (ActionResult::Abort(AbortReason::TripleRon), None)
+                (ActionResult::Abort(AbortReason::TripleRon), reactor_reaction)
             } else {
-                (ActionResult::Agari(AgariKind::Ron), None)
+                (ActionResult::Agari(AgariKind::Ron), reactor_reaction)
             }
         }
 

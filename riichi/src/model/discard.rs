@@ -6,15 +6,18 @@ use crate::{
 
 /// A discarded tile with extra info.
 ///
-/// This is both an [`Action`] and an entry in a player's discard stream (see [`State`]).
+/// This is both an [Action] and an entry in a player's discard stream (see [State]).
 /// See `called_by` for the difference between the two usages.
 ///
 /// ## Optional `serde` support
 ///
 /// Straightforward struct mapping of all fields _with name remapping_.
 ///
-/// Note that [`Action`] will take over the serde format if part of it, so this impl is only for
-/// the discard stream in [`State`].
+/// Note that [Action] will take over the serde format if part of it, so this impl is only for
+/// the discard stream in [State].
+///
+/// [Action]: super::Action
+/// [State]: super::State
 ///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -23,7 +26,7 @@ pub struct Discard {
     pub tile: Tile,
 
     /// If called by another player, that player; otherwise the player who discarded this tile.
-    /// Since this is unknown at the time the action is made, it is ignored in [`Action::Discard`].
+    /// This is ignored if the `Discard` is nested in [`super::Action::Discard`].
     pub called_by: Player,
 
     /// Whether this tile was discarded as a part of declaring Riichi (立直, リーチ).

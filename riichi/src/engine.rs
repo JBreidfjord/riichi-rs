@@ -170,7 +170,7 @@ impl Engine {
                 GameStep {
                     actor,
                     action,
-                    reactor_reaction: None,
+                    reactor_reaction,
                     action_result,
                     next_state_core: None,
                 }
@@ -180,7 +180,7 @@ impl Engine {
                 GameStep {
                     actor,
                     action,
-                    reactor_reaction: None,
+                    reactor_reaction,
                     action_result,
                     next_state_core: None,
                 }

@@ -62,7 +62,7 @@ pub mod prelude {
 }
 
 /// Version of this crate (as a string).
-const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
+pub const VERSION_STR: &str = env!("CARGO_PKG_VERSION");
 
 /// Version of this crate (parsed).
-static VERSION: Lazy<Version> = Lazy::new(|| VERSION_STR.parse().unwrap());
+pub static VERSION: Lazy<Version> = Lazy::new(|| VERSION_STR.parse().unwrap());
