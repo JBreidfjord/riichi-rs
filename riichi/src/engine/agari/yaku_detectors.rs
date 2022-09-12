@@ -40,6 +40,7 @@ pub fn detect_yakus_for_regular(
                      input.is_last_draw);
     detect_first_chance(ruleset, yaku_builder,
                         input.winner,
+                        input.contributor,
                         input.round_id.button(),
                         input.is_first_chance,
                         hand_common.agari_kind);
@@ -51,9 +52,9 @@ pub fn detect_yakus_for_regular(
                  input.round_id,
                  input.winner);
     detect_chuuren(ruleset, yaku_builder,
-                   &hand_common.all_tiles_packed,
+                   &hand_common.all_tiles_packed,  // TODO(summivox): replace with `all_tiles`
                    input.winning_tile,
-                   hand_common.is_closed);
+                   input.melds);
     detect_ankou(ruleset, yaku_builder,
                  hand_common.agari_kind,
                  input.melds,
@@ -107,6 +108,7 @@ pub fn detect_yakus_for_irregular(
                      input.is_last_draw);
     detect_first_chance(ruleset, yaku_builder,
                         input.winner,
+                        input.contributor,
                         input.round_id.button(),
                         input.is_first_chance,
                         hand_common.agari_kind);
@@ -213,6 +215,7 @@ fn detect_first_chance(
     _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     winner: Player,
+    contributor: Player,
     button: Player,
     is_init_abortable: bool,
     agari_kind: AgariKind,
@@ -220,7 +223,9 @@ fn detect_first_chance(
     if is_init_abortable {
         match agari_kind {
             AgariKind::Ron => {
-                // TODO(summivox): ruleset (renhou)
+                if contributor.to_u8() < winner.to_u8() {
+                    yaku_builder.add(Yaku::Renhou, 4);
+                }
             }
             AgariKind::Tsumo => {
                 if winner == button {
@@ -234,7 +239,7 @@ fn detect_first_chance(
 }
 
 fn detect_hand_only_yakus(
-    _ruleset: &Ruleset,
+    ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     all_tiles: &TileSet37,
     is_closed: bool,
@@ -248,8 +253,9 @@ fn detect_hand_only_yakus(
     if green_count(all_tiles) == num_tiles {
         yaku_builder.add(Yaku::Ryuuiisou, -1);
     } else if num_z + one_nine == 0 {
-        // TODO(summivox): ruleset (kui-tan)
-        yaku_builder.add(Yaku::Tanyaochuu, 1);
+        if is_closed || ruleset.yaku_allow_open_tanyao {
+            yaku_builder.add(Yaku::Tanyaochuu, 1);
+        }
     } else if num_z == num_tiles {
         yaku_builder.add(Yaku::Tsuuiisou, -1);
     } else if one_nine == num_tiles {
@@ -318,21 +324,18 @@ fn detect_chuuren(
     yaku_builder: &mut YakuBuilder,
     all_tiles_packed: &[u32; 4],
     winning_tile: Tile,
-    is_closed: bool,
+    melds: &[Meld],
 ) {
-    if !is_closed || winning_tile.suit() == 3 { return }
-    let h = all_tiles_packed[winning_tile.suit() as usize];
-    // check h is at least 0o311111113 (all bins must apply)
-    if (h + 0o133333331) & 0o444444444 != 0o444444444 { return }
-    // subtract 0o311111113; now only 1 shall remain (full closed hand, n == 14)
-    let r = h - 0o311111113;
-    assert!(r.is_power_of_two());
-    let r_pos = r.trailing_zeros() as u8 / 3;
-    if r_pos == winning_tile.normal_num() - 1 {
-        // TODO(summivox): ruleset (double yakuman)
-        yaku_builder.add(Yaku::Junseichuurenpoutou, -1);
-    } else {
-        yaku_builder.add(Yaku::Chuurenpoutou, -1);
+    // NOTE: This is more strict than just `is_closed` --- Ankan is not even allowed.
+    if !melds.is_empty() || winning_tile.suit() == 3 { return }
+
+    if let Some(r_pos) = chuuren_agari(all_tiles_packed[winning_tile.suit() as usize]) {
+        if r_pos == winning_tile.normal_num() - 1 {
+            // TODO(summivox): ruleset (double yakuman)
+            yaku_builder.add(Yaku::Junseichuurenpoutou, -1);
+        } else {
+            yaku_builder.add(Yaku::Chuurenpoutou, -1);
+        }
     }
 }
 

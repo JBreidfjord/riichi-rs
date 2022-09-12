@@ -46,7 +46,7 @@ const RIICHI_POT: GamePoints = 1000;
 /// let mut engine = Engine::new();
 ///
 /// engine.begin_round(RoundBegin {
-///     rules: Default::default(),
+///     ruleset: Default::default(),
 ///     round_id: RoundId { kyoku: 0, honba: 0 },
 ///     wall: wall::make_sorted_wall([1, 1, 1]),
 ///     pot: 0,
@@ -58,7 +58,8 @@ const RIICHI_POT: GamePoints = 1000;
 /// engine.register_action(Action::Discard(Discard {
 ///     tile: t!("1m"), ..Discard::default()})).unwrap();
 ///
-/// assert_eq!(engine.step(), ActionResult::Pass);
+/// let step = engine.step();
+/// assert_eq!(step.action_result, ActionResult::Pass);
 ///
 /// assert_eq!(engine.state().core.seq, 1);
 /// assert_eq!(engine.state().core.actor, P1);
@@ -150,7 +151,7 @@ impl Engine {
         let actor = self.state.core.actor;
         let action = self.action.unwrap();
         let (action_result, reactor_reaction) =
-            resolve_reaction(&self.state, action, &self.reactions);
+            resolve_reaction(&self.begin.ruleset, &self.state, action, &self.reactions);
         match action_result {
             ActionResult::Pass | ActionResult::CalledBy(_) => {
                 let next_core = next_normal(

@@ -87,7 +87,7 @@ pub fn check_action(
     } else if let Some(meld @ Meld::Chii(_)) | Some(meld @ Meld::Pon(_)) = state.core.incoming_meld {
         // The only valid action right after Chii/Pon is to discard under swap-call restrictions.
         if let Action::Discard(discard) = action {
-            if is_forbidden_swap_call(meld, discard.tile) {
+            if is_forbidden_swap_call(&begin.ruleset, meld, discard.tile) {
                 return Err(NoSwapCalling(discard.tile, meld));
             }
         } else {
@@ -137,7 +137,13 @@ pub fn check_action(
             let tile = tile.to_normal();
             if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
             if under_riichi && !is_ankan_ok_under_riichi(
-                &cache.wait[actor_i].regular, tile) {
+                &begin.ruleset,
+                &mut cache.decomposer,
+                &hand,
+                &cache.wait[actor_i],
+                state.core.draw.unwrap_or(tile),
+                tile,
+            ) {
                 return Err(InvalidAnkanUnderRiichi(tile));
             }
 

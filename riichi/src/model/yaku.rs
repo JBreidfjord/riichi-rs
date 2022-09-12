@@ -1,8 +1,9 @@
-//! All [`Yaku`]'s (役) known to this package.
+//! All [`Yaku`]'s (役) known to this crate.
 
-use std::collections::{HashMap, HashSet};
+use once_cell::sync::Lazy;
+use rustc_hash::FxHashSet as HashSet;
 
-/// All Yaku's (役) known to this package.
+/// All Yaku's (役) known to this crate.
 ///
 /// This is intended to be used as a unifying key/symbol to uniquely represent each Yaku without
 /// having to use strings everywhere.
@@ -120,63 +121,60 @@ pub enum Yaku {
     Suukantsu,
 }
 
-pub const fn get_blocked_yaku(yaku: Yaku) -> &'static [Yaku] {
-    use Yaku::*;
-    match yaku {
-        Chinroutou | Honroutou => &[Junchantaiyaochuu, Honchantaiyaochuu],
-        Rinshankaihou | Chankan => &[Haiteiraoyue, Houteiraoyui],
-        _ => &[],
-    }
-}
-
-// TODO(summivox): set of standard Yaku's
-
-pub type YakuValues = HashMap<Yaku, i8>;
-
-#[derive(Debug, Default)]
-pub struct YakuBuilder {
-    yaku_values: YakuValues,
-    blocked_yaku: HashSet<Yaku>,
-    has_yakuman: bool,
-}
-
-impl YakuBuilder {
-    pub fn new() -> Self { Self::default() }
-    pub fn add(&mut self, yaku: Yaku, value: i8) {
-        if self.blocked_yaku.contains(&yaku) { return }
-        if self.has_yakuman && value > 0 { return }
-        self.yaku_values.insert(yaku, value);
-        for blocked in get_blocked_yaku(yaku) {
-            self.yaku_values.remove(blocked);
-            self.blocked_yaku.insert(*blocked);
-        }
-        if !self.has_yakuman && value < 0 {
-            self.has_yakuman = true;
-            self.yaku_values.retain(|_, other_value| *other_value < 0);
-        }
-    }
-
-    pub fn build(self) -> YakuValues { self.yaku_values }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_yaku_builder() {
-        use Yaku::*;
-
-        let mut x = YakuBuilder::new();
-        x.add(Chinroutou, -1);
-        x.add(Honchantaiyaochuu, 1);
-        let a = x.build();
-        assert_eq!(a, YakuValues::from([(Chinroutou, -1)]));
-
-        let mut x = YakuBuilder::new();
-        x.add(Honchantaiyaochuu, 1);
-        x.add(Chinroutou, -1);
-        let a = x.build();
-        assert_eq!(a, YakuValues::from([(Chinroutou, -1)]));
-    }
-}
+use Yaku::*;
+/// The set of _standard_ [`Yaku`]s, according to this crate.
+/// Serves as the definition of "standard" for the allow-/block-lists in [`crate::rules::Ruleset`].
+pub static STANDARD_YAKU: Lazy<HashSet<Yaku>> = Lazy::new(|| HashSet::from_iter([
+    Menzenchintsumohou,
+    Riichi,
+    Ippatsu,
+    Chankan,
+    Rinshankaihou,
+    Haiteiraoyue,
+    Houteiraoyui,
+    Pinfu,
+    Tanyaochuu,
+    Iipeikou,
+    JikazehaiE,
+    JikazehaiS,
+    JikazehaiW,
+    JikazehaiN,
+    BakazehaiE,
+    BakazehaiS,
+    BakazehaiW,
+    BakazehaiN,
+    SangenpaiHaku,
+    SangenpaiHatsu,
+    SangenpaiChun,
+    DoubleRiichi,
+    Chiitoitsu,
+    Honchantaiyaochuu,
+    Ikkitsuukan,
+    Sanshokudoujun,
+    Sanshokudoukou,
+    Sankantsu,
+    Toitoihou,
+    Sannankou,
+    Shousangen,
+    Honroutou,
+    Ryanpeikou,
+    Junchantaiyaochuu,
+    Honniisou,
+    Chinniisou,
+    Tenhou,
+    Chiihou,
+    // Renhou,
+    Daisangen,
+    Suuankou,
+    SuuankouTanki,
+    Tsuuiisou,
+    Ryuuiisou,
+    Chinroutou,
+    Chuurenpoutou,
+    Junseichuurenpoutou,
+    Kokushi,
+    Kokushi13,
+    Daisuushi,
+    Shousuushi,
+    Suukantsu,
+]));

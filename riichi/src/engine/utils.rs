@@ -5,7 +5,9 @@ use crate::{
     analysis::RegularWait,
     common::*,
     model::*,
+    rules::Ruleset
 };
+use crate::analysis::{Decomposer, WaitingInfo};
 
 // TODO(summivox): Consider porting these directly to `impl TileSet37`.
 
@@ -54,38 +56,131 @@ pub fn s_count(h: &TileSet37) -> u8 {
 /// Alias of `honor_count`.
 pub fn z_count(h: &TileSet37) -> u8 { honor_count(h) }
 
+
+// TODO(summivox): We don't actually need the pack --- convert this to use normal bins
+
+/// Determine whether a packed suit (3N+2) satisfies the [`Yaku::Chuurenpoutou`] form, i.e.
+/// `311111113` + any. If it does, then returns the _position_ of the winning tile (0..=8).
+pub fn chuuren_agari(x: u32) -> Option<u8> {
+    // check x is at least 0o311111113 (each bin must individually apply, without overflow)
+    if (x + 0o133333331) & 0o444444444 != 0o444444444 { return None; }
+    // subtract our target, and now only 1 shall remain (full closed hand, n == 14, target n = 13)
+    let r = x - 0o311111113;
+    // sanity check (what if we started with more than 14?)
+    if !r.is_power_of_two() { return None; }
+    Some(r.trailing_zeros() as u8 / 3)
+}
+
+/// Determines whether a _non-packed_ suit (3N+1) is 1 tile away from the [`Yaku::Chuurenpoutou`]
+/// form, i.e. `311111113` - some + other. If it does, then returns the _position_ of:
+///
+/// - the lacking tile
+/// - the over tile
+///
+/// Special case: `311111113` (pure chuuren) => `Some(0, 0)`
+pub fn chuuren_wait(h: &[u8]) -> Option<(u8, u8)> {
+    const TARGET: [i8; 9] = [3, 1, 1, 1, 1, 1, 1, 1, 3];
+    let mut lack = 100;
+    let mut over = 100;
+    for (i, (a, b)) in itertools::zip_eq(h, TARGET).enumerate() {
+        let x = *a as i8 - b;
+        match x {
+            -1 => {
+                if lack < 9 { return None; }
+                lack = i;
+            }
+            0 => {}
+            1 => {
+                if over < 9 { return None; }
+                over = i;
+            }
+            _ => return None,
+        }
+    }
+    if lack > 9 && over > 9 {
+        Some((0, 0))
+    } else if lack < 9 && over < 9 {
+        Some((lack as u8, over as u8))
+    } else {
+        None
+    }
+}
+
 /// Returns if this discard immediately after calling Chii/Pon constitutes a swap call (喰い替え),
-/// i.e. the discarded tile can form the same group as the meld. This is usually forbidden.
+/// i.e. the discarded tile can form a similar group as the meld. This is usually forbidden.
 ///
 /// Example:
-/// - Hand 456m; if 56m is used to call 7m, then 4m cannot be discarded.
-/// - Hand 678m; if 68m is used to call 7m, then the other 7m in hand cannot be discarded.
+/// - Hand 678m; if 78m is used to call 9m, then 6m cannot be discarded.
+/// - Hand 456m; if 46m is used to call (red) 0m, then the (normal) 5m in hand cannot be discarded.
 ///
 /// <https://riichi.wiki/Kuikae>
-pub fn is_forbidden_swap_call(meld: Meld, discard: Tile) -> bool {
-    // TODO(summivox): rules (kuikae)
+pub fn is_forbidden_swap_call(ruleset: &Ruleset, meld: Meld, discard: Tile) -> bool {
     let discard = discard.to_normal();
+    let (allow_same, allow_other) = (ruleset.swap_call_allow_same, ruleset.swap_call_allow_other);
     match meld {
         Meld::Chii(chii) => {
-            chii.called.to_normal() == discard ||
-                (chii.dir() == 0 && Some(discard) == chii.own[1].succ()) ||
-                (chii.dir() == 2 && Some(discard) == chii.min.pred())
+            (!allow_same && chii.called.to_normal() == discard) ||
+                (!allow_other && chii.dir() == 0 && Some(discard) == chii.own[1].succ()) ||
+                (!allow_other && chii.dir() == 2 && Some(discard) == chii.min.pred())
         }
         Meld::Pon(pon) => {
-            pon.called.to_normal() == discard
+            !allow_same && pon.called.to_normal() == discard
         }
         _ => false,
     }
 }
 
 /// <https://riichi.wiki/Kan#Kan_during_riichi>
-pub fn is_ankan_ok_under_riichi(decomps: &[RegularWait], ankan: Tile) -> bool {
-    // TODO(summivox): rules (ankan-riichi, okuri-kan, relaxed-ankan-riichi)
-    // TODO(summivox): okuri-kan (need to also check the discard)
-    // TODO(summivox): relaxed rule (sufficient to not change the set of waiting tiles)
+pub fn is_ankan_ok_under_riichi(
+    ruleset: &Ruleset,
+    decomposer: &mut Decomposer,
+    hand: &TileSet37,
+    waiting_info: &WaitingInfo,
+    draw: Tile,
+    ankan: Tile,
+) -> bool {
+    let draw = draw.to_normal();
     let ankan = ankan.to_normal();
-    decomps.iter().all(|decomp|
-        decomp.groups().any(|group| group == HandGroup::Koutsu(ankan)))
+    if ruleset.riichi_ankan_strict_mode {
+        is_ankan_ok_under_riichi_strict(hand, &waiting_info.regular, draw, ankan)
+    } else {
+        is_ankan_ok_under_riichi_relaxed(hand, decomposer, waiting_info, ankan)
+    }
+}
+
+pub fn is_ankan_ok_under_riichi_strict(
+    hand: &TileSet37,
+    regulars: &[RegularWait],
+    draw: Tile,
+    ankan: Tile,
+) -> bool {
+    // Okuri-Kan (送り槓) is not allowed under strict mode.
+    if draw != ankan { return false; }
+
+    // Every way of normal decomposition must include `ankan` as a Koutsu
+    if !regulars.iter().all(|regular|
+        regular.groups().any(|group| group == HandGroup::Koutsu(ankan))) {
+        return false;
+    }
+
+    // Must not destroy Chuuren form
+    let mut hand = hand.clone();
+    hand[ankan] -= 1;
+    let i = (ankan.suit() * 9) as usize;
+    if i == 3 { return true }
+    !chuuren_wait(&hand.0[i..(i + 9)]).is_some()
+}
+
+pub fn is_ankan_ok_under_riichi_relaxed(
+    hand: &TileSet37,
+    decomposer: &mut Decomposer,
+    waiting_info: &WaitingInfo,
+    ankan: Tile,
+) -> bool {
+    let mut hand = hand.clone();
+    hand[ankan] -= 1;
+    let new_waiting_info = WaitingInfo::from_keys(decomposer, &hand.packed_34());
+    waiting_info.waiting_set == new_waiting_info.waiting_set
 }
 
 /********/
@@ -253,21 +348,27 @@ pub fn get_all_tiles(
 }
 
 pub fn count_doras(
+    ruleset: &Ruleset,
     all_tiles: &TileSet37,
     num_dora_indicators: u8,
     wall: &Wall,
     is_riichi: bool,
 ) -> DoraHits {
     let all_tiles_normal = TileSet34::from(all_tiles);
-    let n = num_dora_indicators as usize;
+
+    let n = if ruleset.dora_allow_kan { num_dora_indicators as usize } else { 1 };
+    let n_ura = if ruleset.dora_allow_kan_ura { n } else { 1 };
+
     if log_enabled!(log::Level::Debug) {
-        log::debug!("count doras: n={} di={} udi={}, all_tiles={}",
+        log::debug!("count doras: n={} n_ura={} di={} udi={}, all_tiles={}",
             n,
+            n_ura,
             wall::dora_indicators(wall).iter().map(|t| t.as_str()).join(","),
             wall::ura_dora_indicators(wall).iter().map(|t| t.as_str()).join(","),
             all_tiles,
         );
     }
+
     DoraHits {
         dora:
         (&wall::dora_indicators(wall)[0..n])
@@ -276,13 +377,46 @@ pub fn count_doras(
             .sum(),
 
         ura_dora:
-        if is_riichi {
-            (&wall::ura_dora_indicators(wall)[0..n])
+        if is_riichi && ruleset.dora_allow_ura {
+            (&wall::ura_dora_indicators(wall)[0..n_ura])
                 .iter()
                 .map(|t| all_tiles_normal[t.indicated_dora()])
                 .sum()
         } else { 0 },
 
         aka_dora: all_tiles[34] + all_tiles[35] + all_tiles[36],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rustc_hash::FxHashSet as HashSet;
+    use super::*;
+
+    #[test]
+    fn chuuren_wait_exhaustive() {
+        let mut s: HashSet<[u8; 9]> = HashSet::default();
+
+        let target = [3, 1, 1, 1, 1, 1, 1, 1, 3];
+        s.insert(target);
+        assert_eq!(chuuren_wait(&target[..]), Some((0, 0)));
+
+        for lack in 0..9 {
+            for over in 0..9 {
+                if lack == over { continue; }
+                let mut x = target;
+                x[lack] -= 1;
+                x[over] += 1;
+                s.insert(x);
+                assert_eq!(chuuren_wait(&x[..]), Some((lack as u8, over as u8)));
+            }
+        }
+
+        for x in itertools::repeat_n(0..4, 9).multi_cartesian_product() {
+            let x: [u8; 9] = x.try_into().unwrap();
+            if !s.contains(&x) {
+                assert_eq!(chuuren_wait(&x), None);
+            }
+        }
     }
 }

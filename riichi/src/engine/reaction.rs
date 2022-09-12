@@ -1,10 +1,11 @@
 use thiserror::Error;
 
 use crate::{
+    analysis::IrregularWait,
     common::*,
     model::*,
+    rules::Ruleset
 };
-use crate::analysis::IrregularWait;
 use super::{
     agari::*,
     EngineCache,
@@ -157,6 +158,7 @@ pub fn check_reaction(
 }
 
 pub fn resolve_reaction(
+    ruleset: &Ruleset,
     state: &State,
     action: Action,
     reactions: &[Option<Reaction>; 4],
@@ -191,13 +193,17 @@ pub fn resolve_reaction(
 
         // Ron takes precedence over everything else at this point.
         Some((_reactor, Reaction::RonAgari)) => {
-            // TODO(summivox): ruleset (double/triple ron)
             let num_rons = reactions.iter().filter(|&&reaction|
                 reaction == Some(Reaction::RonAgari)).count();
-            return if num_rons == 3 {
-                (ActionResult::Abort(AbortReason::TripleRon), reactor_reaction)
+            if num_rons <= ruleset.ron_max_num_players as usize {
+                return (ActionResult::Agari(AgariKind::Ron), reactor_reaction);
             } else {
-                (ActionResult::Agari(AgariKind::Ron), reactor_reaction)
+                let reason = match num_rons {
+                    3 => AbortReason::TripleRon,
+                    2 => AbortReason::DoubleRon,
+                    _ => panic!("ruleset is invalid")
+                };
+                return (ActionResult::Abort(reason), reactor_reaction);
             }
         }
 

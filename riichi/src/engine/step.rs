@@ -35,9 +35,10 @@ pub fn next_normal(
     // - **Information**: This solely relies on the result of the previous turn. Actions and
     //   reactions during this turn has no effect on this.
     //
-    // TODO(summivox): ruleset (kan-dora)
-    if let Some(Meld::Kakan(_)) | Some(Meld::Daiminkan(_)) = state.core.incoming_meld {
-        next.num_dora_indicators += 1;
+    if begin.ruleset.dora_allow_kan {
+        if let Some(Meld::Kakan(_)) | Some(Meld::Daiminkan(_)) = state.core.incoming_meld {
+            next.num_dora_indicators += 1;
+        }
     }
 
     next.seq += 1;
@@ -119,9 +120,10 @@ pub fn next_normal(
             // Only for Ankan: reveal the next dora indicator immediately.
             // For Kakan, it will only be revealed at the end of the next turn, in the same way
             // as Daiminkan (see above).
-            // TODO(summivox): ruleset (kan-dora)
-            if let Action::Ankan(_) = action {
-                next.num_dora_indicators += 1;
+            if begin.ruleset.dora_allow_kan {
+                if let Action::Ankan(_) = action {
+                    next.num_dora_indicators += 1;
+                }
             }
         }
 
@@ -139,19 +141,17 @@ pub fn next_normal(
     // For another player who misses the chance to win (discard in waiting set):
     // - Immediately enters temporary miss state
     // - Immediately enters permanent miss state if under riichi
-    // TODO(summivox): ankan should only affect kokushi-tenpai here, although kakan is treated
-    //     the same as Ron.
-    // TODO(summivox): ruleset (kokushi-ankan)
     let action_tile = action.tile().unwrap();
     for other_player in other_players_after(actor) {
         let other_player_i = other_player.to_usize();
         let furiten = &mut next.furiten[other_player_i];
 
         if furiten.miss_permanent { continue; }
-        if let Action::Ankan(_) = action {
-            if matches!(cache.wait[other_player_i].irregular,
-                Some(IrregularWait::ThirteenOrphans(_)) |
-                Some(IrregularWait::ThirteenOrphansAll)) {
+        if let Action::Ankan(tile) = action {
+            // Handle kokushi-ankan interaction.
+            if begin.ruleset.kokushi_chankan_allow_ankan &&
+                cache.wait[other_player_i].irregular == Some(
+                    IrregularWait::ThirteenOrphans(tile)) {
                 furiten.miss_temporary = true;
                 furiten.miss_permanent = state.core.riichi[other_player_i].is_active;
             }
@@ -268,6 +268,7 @@ fn finalize_agari(
         &state.melds[winner_i],
     );
     let dora_hits = count_doras(
+        &begin.ruleset,
         &all_tiles,
         state.core.num_dora_indicators + extra_dora_indicator,
         &begin.wall,
@@ -292,7 +293,7 @@ fn finalize_agari(
     AgariResult {
         winner,
         contributor,
-        liable_player: winner,  // TODO(summivox): ruleset (pao)
+        liable_player: winner,  // TODO(summivox): Pao
         points_delta: delta,
         details: best_candidate,
     }

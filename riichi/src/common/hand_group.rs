@@ -32,7 +32,12 @@ use super::tile::Tile;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(tag = "type", content = "tile"))]
 pub enum HandGroup {
+    /// Koutsu (暗)刻子: 3 of a kind (ignoring red); e.g. `222z`, `055m`.
+    /// The tile argument is the repeated tile.
     Koutsu(Tile),
+
+    /// Shuntsu (暗)順子: 3 consecutives (ignoring red); e.g. `789m`, `406s`.
+    /// The tile argument is the minimum (normal) tile in the group.
     Shuntsu(Tile),
 }
 

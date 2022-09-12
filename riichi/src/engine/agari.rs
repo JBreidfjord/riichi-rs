@@ -111,7 +111,7 @@ fn calc_regular_agari_candidate(
     regular_wait: &RegularWait,
     wait_common: &RegularWaitCommon,
 ) -> Option<AgariCandidate> {
-    let mut yaku_builder = YakuBuilder::new();
+    let mut yaku_builder = YakuBuilder::new(ruleset);
     detect_yakus_for_regular(ruleset, &mut yaku_builder,
                              input, hand_common, regular_wait, wait_common);
     let yaku_values = yaku_builder.build();
@@ -136,7 +136,7 @@ fn calc_irregular_agari_candidate(
     hand_common: &HandCommon,
     irregular: IrregularWait,
 ) -> Option<AgariCandidate> {
-    let mut yaku_builder = YakuBuilder::new();
+    let mut yaku_builder = YakuBuilder::new(ruleset);
     detect_yakus_for_irregular(ruleset, &mut yaku_builder,
                                input, hand_common, irregular);
     let yaku_values = yaku_builder.build();
