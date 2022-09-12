@@ -20,7 +20,7 @@ fn main() {
             c_map_gen.entry(*k, &format!("{}u64", v));
         }
         write!(map_file,
-               "static C_TABLE: phf::Map<u32, u64> = \n{};\n",
+               "pub static C_TABLE: phf::Map<u32, u64> = \n{};\n",
                c_map_gen.build()).unwrap();
     }
     {
@@ -29,7 +29,7 @@ fn main() {
             w_map_gen.entry(*k, &format!("{}u64", v));
         }
         write!(map_file,
-               "static W_TABLE: phf::Map<u32, u64> = \n{};\n",
+               "pub static W_TABLE: phf::Map<u32, u64> = \n{};\n",
                w_map_gen.build()).unwrap();
     }
 

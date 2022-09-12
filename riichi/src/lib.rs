@@ -34,6 +34,19 @@
 //!
 //! See [`interop::tenhou_log`] mod-level docs for details.
 //!
+//! ### `static-lut`
+//!
+//! Default: disabled.
+//!
+//! Our implementation of [regular waiting hand decomposition][decomp] uses 2 lookup tables to
+//! accelerate the computation. These can either be generated on-demand (when [`Decomposer`][decomp]
+//! is first instantiated, using [`once_cell`]), or directly compiled into the binary as `static`
+//! variables (using [`phf`]).
+//!
+//! This optional feature enables the static compilation of these LUTs.
+//!
+//! [decomp]: crate::analysis::decomposer::Decomposer
+//!
 //!
 //! ## References
 //!

@@ -48,6 +48,8 @@ riichi-decomp-table = { path = "../riichi-decomp-table" }
 
 [features]
 default = ["serde", "tenhou-log"]
+
+static-lut = []
 serde = ["dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serde_tuple", "dep:serde_with"]
 tenhou-log = ["dep:rand", "dep:regex", "serde"]
 

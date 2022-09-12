@@ -1,13 +1,37 @@
+//! Regular waiting hand decomposition (LUT-accelerated).
+//!
+//! See doc on [`Decomposer`].
+
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 
 use crate::common::*;
 use super::RegularWait;
 
 use riichi_decomp_table::{
-    c_entry_iter, make_c_table, make_w_table, w_entry_iter, CTable, CompleteGrouping, WTable,
-    WaitingKind, WaitingPattern,
+    c_entry_iter, w_entry_iter,
+    CompleteGrouping, WaitingKind, WaitingPattern,
 };
+
+#[cfg(not(feature = "static-lut"))]
+use riichi_decomp_table::{CTable, WTable};
+#[cfg(feature = "static-lut")]
+use riichi_decomp_table::{CTableStatic as CTable, WTableStatic as WTable};
+
+#[cfg(not(feature = "static-lut"))]
+mod tables {
+    //! On-demand generated lookup tables.
+
+    use once_cell::sync::Lazy;
+    use riichi_decomp_table::{CTable, WTable, make_c_table, make_w_table};
+    pub static C_TABLE: Lazy<CTable> = Lazy::new(make_c_table);
+    pub static W_TABLE: Lazy<WTable> = Lazy::new(|| make_w_table(&C_TABLE));
+}
+#[cfg(feature = "static-lut")]
+mod tables {
+    //! Statically generated lookup tables (using the `phf` crate).
+    //! See `build.rs` for how this is generated.
+    include!(concat!(env!("OUT_DIR"), "/decomp_tables.rs"));
+}
 
 /// Helper for iterating all regular decompositions (i.e. [`RegularWait`]) of a waiting hand.
 ///
@@ -35,12 +59,9 @@ pub struct Decomposer<'a> {
 impl Decomposer<'_> {
     /// Creates a new decomposer. Note that this instance can be reused across multiple hands.
     pub fn new() -> Decomposer<'static> {
-        static C_TABLE: Lazy<CTable> = Lazy::new(make_c_table);
-        static W_TABLE: Lazy<WTable> = Lazy::new(|| make_w_table(&C_TABLE));
-
         Decomposer {
-            c_table: &C_TABLE,
-            w_table: &W_TABLE,
+            c_table: &tables::C_TABLE,
+            w_table: &tables::W_TABLE,
             keys: Default::default(),
             c_for_suit: Default::default(),
         }
