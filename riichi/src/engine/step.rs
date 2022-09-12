@@ -5,6 +5,7 @@ use crate::{
     engine::distribute_points,
     model::*
 };
+use crate::rules::Ruleset;
 use super::{
     utils::*,
     EngineCache,
@@ -233,12 +234,20 @@ pub fn next_agari(
     for i in 0..4 { points[i] += delta[i]; }
     let renchan = agari_result[begin.round_id.button().to_usize()].is_some();
 
-    // TODO(summivox): entire game termination (for now assume game will keep going on)
+    // determine the next round
     let next_round_id = if renchan {
-        Some(begin.round_id.next_honba(true))
+        begin.round_id.next_honba(true)
     } else {
-        Some(begin.round_id.next_kyoku())
+        begin.round_id.next_kyoku()
     };
+    // filter the game-end condition
+    let next_round_id_or_end = next_round_id_or_game_end(
+        &begin.ruleset,
+        &points,
+        begin.round_id.button(),
+        renchan,
+        next_round_id,
+    );
 
     RoundEnd {
         round_result: ActionResult::Agari(agari_kind),
@@ -246,7 +255,7 @@ pub fn next_agari(
         points,
         points_delta: delta,
         renchan,
-        next_round_id,
+        next_round_id: next_round_id_or_end,
         agari_result,
     }
 }
@@ -317,27 +326,125 @@ pub fn next_abort(
     // ugly syntax gets around array::map moving the Vec value
     let waiting = [0, 1, 2, 3].map(|i| cache.wait[i].waiting_set.any() as u8);
     let waiting_renchan = waiting[button.to_usize()] > 0;
+    let next_round_id;
     match abort_reason {
         AbortReason::WallExhausted => {
             end.points_delta = calc_wall_exhausted_delta(waiting);
             end.renchan = waiting_renchan;
-            end.next_round_id = Some(round_id.next_honba(waiting_renchan));
+            next_round_id = round_id.next_honba(waiting_renchan);
         }
         AbortReason::NagashiMangan => {
             end.points_delta = calc_nagashi_mangan_delta(state, button);
             end.renchan = waiting_renchan;
-            end.next_round_id = Some(round_id.next_honba(waiting_renchan));
+            next_round_id = round_id.next_honba(waiting_renchan);
         }
 
         AbortReason::NineKinds | AbortReason::FourKan | AbortReason::FourWind |
         AbortReason::FourRiichi | AbortReason::DoubleRon | AbortReason::TripleRon => {
             // force renchan with honba + 1
             end.renchan = true;
-            end.next_round_id = Some(round_id.next_honba(true));
+            next_round_id = round_id.next_honba(true);
         }
     }
 
     for i in 0..4 { end.points[i] += end.points_delta[i]; }
 
+    // filter the game-end condition
+    end.next_round_id = next_round_id_or_game_end(
+        &begin.ruleset,
+        &end.points,
+        begin.round_id.button(),
+        end.renchan,
+        next_round_id,
+    );
+
     end
+}
+
+fn next_round_id_or_game_end(
+    ruleset: &Ruleset,
+    points: &[GamePoints; 4],
+    button: Player,
+    renchan: bool,
+    next_round_id: RoundId,
+) -> Option<RoundId> {
+    if next_round_id.kyoku > ruleset.kyoku_max_hard {
+        // hard stop
+        None
+    } else if next_round_id.kyoku > ruleset.kyoku_max_soft {
+        // soft stop: sudden death
+        if points.iter().all(|p| *p < ruleset.points_min_qualify) {
+            Some(next_round_id)
+        } else {
+            None
+        }
+    } else if next_round_id.kyoku == ruleset.kyoku_max_soft && renchan &&
+        other_players_after(button).iter()
+            .all(|p| points[p.to_usize()] < points[button.to_usize()]) {
+        None
+    } else {
+        Some(next_round_id)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn game_end_condition_examples() {
+        let ruleset = &Ruleset {
+            kyoku_max_soft: 7,
+            kyoku_max_hard: 15,
+            points_min_qualify: 30000,
+            ..Ruleset::default()
+        };
+
+        assert_eq!(next_round_id_or_game_end(
+            ruleset,
+            &[26000, 24000, 26000, 24000],
+            P0,
+            true,
+            RoundId { kyoku: 15, honba: 3 },
+        ), Some(RoundId { kyoku: 15, honba: 3 }));
+        assert_eq!(next_round_id_or_game_end(
+            ruleset,
+            &[26000, 24000, 26000, 24000],
+            P0,
+            true,
+            RoundId { kyoku: 16, honba: 3 },
+        ), None);
+
+        assert_eq!(next_round_id_or_game_end(
+            ruleset,
+            &[30000, 20000, 26000, 24000],
+            P0,
+            true,
+            RoundId { kyoku: 15, honba: 3 },
+        ), None);
+
+        assert_eq!(next_round_id_or_game_end(
+            ruleset,
+            &[26000, 24000, 26000, 24000],
+            P3,
+            true,
+            RoundId { kyoku: 7, honba: 1 },
+        ), Some(RoundId { kyoku: 7, honba: 1 }));
+
+        assert_eq!(next_round_id_or_game_end(
+            ruleset,
+            &[26000, 24000, 20000, 30000],
+            P3,
+            false,
+            RoundId { kyoku: 7, honba: 0 },
+        ), Some(RoundId { kyoku: 7, honba: 0 }));
+
+        assert_eq!(next_round_id_or_game_end(
+            ruleset,
+            &[26000, 24000, 20000, 30000],
+            P3,
+            true,
+            RoundId { kyoku: 7, honba: 5 },
+        ), None);
+    }
 }
