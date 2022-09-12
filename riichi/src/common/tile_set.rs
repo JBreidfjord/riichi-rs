@@ -1,4 +1,4 @@
-//! Unordered multi-sets of tiles, represented as histograms.
+//! Unordered (multi-)sets of tiles, represented as histograms.
 //!
 //! - When red 5's are counted separately, use [`TileSet37`].
 //! - If red 5's are treated the same as normal 5's, use [`TileSet34`].

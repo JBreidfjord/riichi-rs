@@ -1,6 +1,4 @@
-//! Tile 牌
-//!
-//! See [`Tile`].
+//! [`Tile`] 牌
 //!
 //! ## Ref
 //! - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C>

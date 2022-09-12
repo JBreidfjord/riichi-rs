@@ -1,3 +1,5 @@
+//! [`Player`] newtype (mod-4 arithmetic).
+
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Sub};
 use derive_more::{From, Into};

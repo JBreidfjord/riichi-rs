@@ -63,7 +63,6 @@ pub struct GameStep {
 ///
 /// ## Optional `serde` support
 ///
-/// Serialization only (due to end results).
 /// Straightforward struct mapping of the fields.
 ///
 #[derive(Clone, Debug)]

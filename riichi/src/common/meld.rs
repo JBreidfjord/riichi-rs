@@ -1,4 +1,4 @@
-//! Meld 副露
+//! [`Meld`] 副露
 //!
 //! A [`Meld`] is one of: [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`].
 //!

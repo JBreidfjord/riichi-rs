@@ -1,4 +1,6 @@
-//! The wall of tiles.
+//! The wall of tiles, plus utilities for working with the wall.
+//!
+//! ## How we represent the wall
 //!
 //! ```ascii_art
 //!                          _______________      ______________
@@ -14,7 +16,7 @@
 //!  self draws |ura-dora indicators|rinshan|   |            initial deal             | self draws
 //! ```
 //!
-//! Table-top common practice:
+//! In a physical game, the following procedure is used to prepare the wall:
 //!
 //! 1.  Shuffle: 136 tiles => 4 sides x 17 stacks x 2 tiles per stack, treated as a ring.
 //!
@@ -43,7 +45,8 @@
 //! The split wall is indexed head-to-tail (major), top-to-bottom (minor). In the figure, this index
 //! is annotated as numbers next to the boxes (above/below).
 //!
-//! Ref:
+//! ## Ref
+//!
 //! - <https://ja.wikipedia.org/wiki/%E9%85%8D%E7%89%8C>
 //! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
 //! - <https://riichi.wiki/Yama>
@@ -53,7 +56,7 @@ use itertools::Itertools;
 use crate::common::*;
 
 /// The wall of tiles.
-/// See [module-level docs](self).
+/// See [mod-level docs](self).
 pub type Wall = [Tile; 136];
 
 /// Wall with some tiles unknown.

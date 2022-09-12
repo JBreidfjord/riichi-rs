@@ -1,6 +1,4 @@
-//! Hand Group, a.k.a. Mentsu 面子
-//!
-//! See [`HandGroup`].
+//! [Hand Group](HandGroup), a.k.a. Mentsu 面子
 //!
 //! ## Ref
 //! - <https://riichi.wiki/Mentsu>
