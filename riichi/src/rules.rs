@@ -163,12 +163,12 @@ pub struct Ruleset {
 
     /// Extra non-standard [`Yaku`]'s to enable (in addition to the standard ones).
     ///
-    /// **Default: none**
+    /// **Default: (none)**.
     pub yaku_extra: HashSet<Yaku>,
 
     /// Standard [`Yaku`]'s to disable.
     ///
-    /// **Default: none**
+    /// **Default: (none)**.
     pub yaku_block: HashSet<Yaku>,
 
 
@@ -241,7 +241,7 @@ pub struct Ruleset {
     ///
     /// - Must not change the _waiting set_ of the waiting hand.
     ///
-    /// [Ankan]: crate::model::action::Ankan
+    /// [Ankan]: crate::model::Action::Ankan
     /// [Koutsu]: crate::common::HandGroup::Koutsu
     ///
     /// <https://ja.wikipedia.org/wiki/立直#立直後の暗槓が認められないケース> (Japanese only)
