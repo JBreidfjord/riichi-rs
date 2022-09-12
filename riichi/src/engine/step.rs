@@ -13,8 +13,6 @@ use super::{
 };
 
 /// Process normal end-of-turn flow (no abort, no win).
-/// Each change to the state is processed in chronological order, gradually morphing the current
-/// state to the next. This avoids copying the entire state.
 pub fn next_normal(
     begin: &RoundBegin,
     state: &State,

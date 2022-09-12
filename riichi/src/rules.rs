@@ -235,7 +235,7 @@ pub struct Ruleset {
     ///   decompositions of the closed hand, there must be a [Koutsu] with the same tile as the
     ///   self draw.
     ///
-    /// - Special: Must not destroy the [`Yaku::Chuurenpoutou`] form. (TODO)
+    /// - Special: Must not destroy the [`Yaku::Chuurenpoutou`] form.
     ///
     /// The relaxed rule (`false`):
     ///
