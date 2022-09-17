@@ -319,7 +319,9 @@ pub fn get_all_tiles(
     melds: &[Meld],
 ) -> TileSet37 {
     let mut all_tiles = closed_hand.clone();
+    log::debug!("closed_hand: {}", all_tiles);
     all_tiles[winning_tile] += 1;
+    log::debug!("+winning   : {}", all_tiles);
     for meld in melds {
         match meld {
             Meld::Chii(chii) => {
@@ -344,6 +346,7 @@ pub fn get_all_tiles(
             }
         }
     }
+    log::debug!("+meld      : {}", all_tiles);
     all_tiles
 }
 
