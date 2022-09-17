@@ -164,8 +164,8 @@ pub fn is_ankan_ok_under_riichi_strict(
     }
 
     // Must not destroy Chuuren form
+    if ankan.suit() == 3 { return true }
     let i = (ankan.suit() * 9) as usize;
-    if i == 3 { return true }
     let mut hand = TileSet34::from(hand);
     hand[ankan] -= 1;
     !chuuren_wait(&hand.0[i..(i + 9)]).is_some()
