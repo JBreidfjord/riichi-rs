@@ -23,6 +23,7 @@ fn run_log_file(json_path: &Path) {
 }
 
 fn main() {
+    env_logger::init();
     let pattern = env!("TENHOU_LOG_GLOB");
     for path in glob::glob(pattern).unwrap() {
         run_log_file(&path.unwrap());

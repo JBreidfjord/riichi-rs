@@ -10,6 +10,7 @@ arrayvec = "0.7"
 bitfield-struct = "0.1.7"
 derivative = "2.2.0"
 derive_more = "0.99"
+env_logger = { version = "0.9", optional = true }
 glob = { version = "0.3", optional = true }
 itertools = "0.10.3"
 log = "0.4"
@@ -57,7 +58,7 @@ tenhou-log = ["dep:rand", "dep:regex", "serde"]
 
 [[bin]]
 name = "run_tenhou_logs"
-required-features = ["glob"]
+required-features = ["glob","env_logger"]
 
 [[bin]]
 name = "decomp"
