@@ -77,16 +77,21 @@ pub struct TenhouRule {
 
 impl TenhouRule {
     /// Returns the indicated number of red tiles in the (complete) wall.
+    /// Note that `raw_rule_str` may override whether reds are considered or not.
     pub fn num_reds(&self) -> [u8; 3] {
         if let (Some(m), Some(p), Some(s)) = (self.num_reds_0, self.num_reds_1, self.num_reds_2) {
             [m, p, s]
         } else if let Some(a) = self.num_reds_each {
             [a, a, a]
-        } else if self.raw_rule_str.contains("赤") {
-            [1, 1, 1]
         } else {
             [0, 0, 0]
         }
+    }
+
+    /// Returns `Some(true)` if reds are explicitly allowed, `Some(false)` if explicitly disallowed,
+    /// or `None` if unspecified.
+    pub fn allows_red(&self) -> Option<bool> {
+        (!self.raw_rule_str.is_empty()).then(|| self.raw_rule_str.contains("喰"))
     }
 
     /// Returns whether the Tanyao yaku is allowed in an open hand.
