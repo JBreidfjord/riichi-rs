@@ -31,11 +31,11 @@ impl Kakan {
     /// Constructs from an existing Pon and the closed hand.
     /// If the closed hand does not have the last remaining tile, returns `None`.
     pub fn from_pon_hand(pon: Pon, hand: &TileSet37) -> Option<Self> {
-        let added = pon.called.to_normal();
-        let (num_normal, num_red) = count_for_kan(hand, added);
+        let normal = pon.called.to_normal();
+        let (num_normal, num_red) = count_for_kan(hand, normal);
         match (num_normal, num_red) {
-            (1, 0) => Some(Kakan { pon, added }),
-            (0, 1) => Some(Kakan { pon, added: added.to_red() }),
+            (1, 0) => Some(Kakan { pon, added: normal }),
+            (0, 1) => Some(Kakan { pon, added: normal.to_red() }),
             _ => None,
         }
     }

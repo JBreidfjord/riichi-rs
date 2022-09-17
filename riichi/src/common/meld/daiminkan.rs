@@ -37,9 +37,10 @@ impl Daiminkan {
     /// Constructs from the closed hand for the called tile and
     /// the relative pos of the discarding player.
     pub fn from_hand_dir(hand: &TileSet37, called: Tile, dir: Player) -> Option<Self> {
-        let (num_normal, num_red) = count_for_kan(hand, called);
+        let normal = called.to_normal();
+        let (num_normal, num_red) = count_for_kan(hand, normal);
         if num_normal + num_red != 3 { return None; }
-        Self::from_tiles_dir(daiminkan_tiles(called, num_red), called, dir)
+        Self::from_tiles_dir(daiminkan_tiles(normal, num_red), called, dir)
     }
 
     /// Removes all own tiles from the hand (where this was constructed from).

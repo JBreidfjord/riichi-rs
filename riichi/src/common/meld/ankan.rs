@@ -32,9 +32,10 @@ impl Ankan {
 
     /// Constructs from the closed hand for the specified tile.
     pub fn from_hand(hand: &TileSet37, tile: Tile) -> Option<Self> {
-        let (num_normal, num_red) = count_for_kan(hand, tile);
+        let normal = tile.to_normal();
+        let (num_normal, num_red) = count_for_kan(hand, normal);
         if num_normal + num_red != 4 { return None; }
-        Self::from_tiles(ankan_tiles(tile, num_red))
+        Self::from_tiles(ankan_tiles(normal, num_red))
     }
 
     /// Removes all own tiles from the hand (where this was constructed from).
