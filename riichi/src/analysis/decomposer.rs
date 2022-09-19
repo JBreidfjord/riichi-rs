@@ -8,7 +8,6 @@ use crate::common::*;
 use super::RegularWait;
 
 use riichi_decomp_table::{
-    c_entry_iter, w_entry_iter,
     CompleteGrouping, WaitingKind, WaitingPattern,
 };
 
@@ -25,13 +24,22 @@ mod tables {
     use riichi_decomp_table::{CTable, WTable, make_c_table, make_w_table};
     pub static C_TABLE: Lazy<CTable> = Lazy::new(make_c_table);
     pub static W_TABLE: Lazy<WTable> = Lazy::new(|| make_w_table(&C_TABLE));
+    pub use riichi_decomp_table::{
+        c_entry_iter_alts as c_entry_iter,
+        w_entry_iter_alts as w_entry_iter,
+    };
 }
 #[cfg(feature = "static-lut")]
 mod tables {
     //! Statically generated lookup tables (using the `phf` crate).
     //! See `build.rs` for how this is generated.
     include!(concat!(env!("OUT_DIR"), "/decomp_tables.rs"));
+    pub use riichi_decomp_table::{
+        c_entry_iter,
+        w_entry_iter,
+    };
 }
+use tables::{c_entry_iter, w_entry_iter};
 
 /// Helper for iterating all regular decompositions (i.e. [`RegularWait`]) of a waiting hand.
 ///
@@ -160,7 +168,7 @@ impl RegularWait {
         }
         Some(RegularWait {
             raw_groups: extend_groups(self.raw_groups, suit, c),
-            num_groups: self.num_groups + c.num_groups,
+            num_groups: self.num_groups + c.groups.len() as u8,
             pair: extend_pair(self.pair, suit, c),
             ..*self
         })
@@ -226,7 +234,7 @@ fn extend_partial_iter<'a>(
 }
 
 fn extend_groups(groups: u32, suit: u8, c: &CompleteGrouping) -> u32 {
-    c.groups().fold(groups, |gs, g| (gs << 8) | ((g | (suit << 4)) as u32))
+    c.groups.fold(groups, |gs, g| (gs << 8) | ((g | (suit << 4)) as u32))
 }
 
 fn extend_pair(pair: Option<Tile>, suit: u8, c: &CompleteGrouping) -> Option<Tile> {

@@ -1,3 +1,4 @@
+use nanovec::NanoStackRadix;
 use rustc_hash::FxHashMap as HashMap;
 
 use crate::utils::*;
@@ -15,8 +16,10 @@ pub struct WEntry {
 // pub type WTable = HashMap<u32, Vec<WEntry>>;
  */
 
-pub type WTable = HashMap<u32, u64>;
+pub type WTable = HashMap<u32, WAlts>;
 pub type WTableStatic = phf::Map<u32, u64>;
+
+pub type WAlts = NanoStackRadix<u64, 55>;
 
 /// Since the WTable is statically determinable, we can check its number of keys to make sure that
 /// we have generated the correct table.
@@ -25,20 +28,19 @@ pub const W_TABLE_NUM_KEYS: usize = 66913;
 pub fn make_w_table(c_table: &super::c_table::CTable) -> WTable {
     let mut w_table = WTable::with_capacity_and_hasher(
         W_TABLE_NUM_KEYS, Default::default());
-    for (&key, &value) in c_table.iter() {
-        make_waiting_for_c_entry(&mut w_table, key, value);
+    for key in c_table.keys() {
+        make_waiting_for_c_entry(&mut w_table, *key);
     }
     w_table
 }
 
-fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
+fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32) {
     let num_tiles = key_sum(key);
-    let mid_len = num_tiles / 3;
+    let num_complete_groups = num_tiles / 3;
     let has_pair = (num_tiles % 3) == 2;
 
     let mut push = |new_key, pos: i8, waiting_kind: WaitingKind, _has_pair: bool| {
-        let x = w_table.entry(new_key).or_default();
-        *x = w_push(*x, pos, waiting_kind);
+        w_table.entry(new_key).or_default().push(pack_alt(waiting_kind, pos) as u64)
     };
 
     if !has_pair {
@@ -48,7 +50,7 @@ fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
             }
         }
     }
-    if mid_len <= 3 {
+    if num_complete_groups <= 3 {
         // only 3 or less mentsu in complete part
         // try add mentsu-based tenpai pattern
         for pos in 0..=8 {
@@ -64,7 +66,6 @@ fn make_waiting_for_c_entry(w_table: &mut WTable, key: u32, _c_value: u64) {
         for pos in 0..=7 {
             let key_low = check_pattern(key, 0o11, pos, -1);
             let key_high = check_pattern(key, 0o11, pos, 2);
-            // TODO(summivox): rust (if-let-chain)
             if key_low.is_some() && key_high.is_some() {
                 push(key_low.unwrap(), pos, WaitingKind::RyanmenBoth, has_pair);
             } else if let Some(key) = key_low {
@@ -103,44 +104,46 @@ impl WaitingKind {
         use WaitingKind::*;
         matches!(self, Kanchan | RyanmenHigh | RyanmenLow | RyanmenBoth)
     }
-}
 
-pub fn w_entry_iter(key: u32, value: u64) -> impl Iterator<Item = WaitingPattern> {
-    WaitingPatternIterator { key, value }
-}
-
-struct WaitingPatternIterator {
-    key: u32,
-    value: u64,
-}
-
-impl Iterator for WaitingPatternIterator {
-    type Item = WaitingPattern;
-
-    fn next(&mut self) -> Option<Self::Item> {
+    pub const fn pattern(self) -> u32 {
         use WaitingKind::*;
-
-        let (new_value, pos, waiting_kind) = w_pop(self.value)?;
-        let pattern = match waiting_kind {
+        match self {
             Tanki => 0o1,
             Shanpon => 0o2,
             Kanchan => 0o101,
             RyanmenHigh | RyanmenLow | RyanmenBoth => 0o11,
-        };
-        let complete_key = self.key - (pattern << ((pos as u32) * 3));
-        self.value = new_value;
-        Some(WaitingPattern{
-            complete_key,
-            waiting_kind,
-            pattern_pos: pos,
-        })
+        }
     }
+
+    pub const fn pattern_at(self, pos: u8) -> u32 {
+        self.pattern() << ((pos as u32) * 3)
+    }
+}
+
+pub fn w_entry_iter(key: u32, packed_alts: u64) -> impl Iterator<Item = WaitingPattern> {
+    w_entry_iter_alts(key, WAlts::from_packed(packed_alts))
+}
+
+pub fn w_entry_iter_alts(key: u32, alts: WAlts) -> impl Iterator<Item = WaitingPattern> {
+    alts
+        .map(|packed| unpack_alt(packed as u8))
+        .map(move |(waiting_kind, pos)| {
+            let complete_key = key - waiting_kind.pattern_at(pos);
+            WaitingPattern{
+                complete_key,
+                waiting_kind,
+                pattern_pos: pos,
+            }
+        })
 }
 
 pub(crate) mod details {
     use crate::utils::*;
     use super::*;
 
+    /// Attempts to place a waiting pattern at the position, and see if we are not attempting to use
+    /// more than 4 tiles of each kind, including the waiting tile. If this attempt is valid,
+    /// return `Some(new_key)`; otherwise `None`.
     pub fn check_pattern(key: u32, pattern: u8, pos: i8, waiting_offset: i8) -> Option<u32> {
         let new_key = key + ((pattern as u32) << ((pos as u32) * 3));
         let waiting_pos = pos + waiting_offset;
@@ -153,13 +156,21 @@ pub(crate) mod details {
         }
     }
 
-    pub fn w_push(w: u64, pos: i8, waiting_kind: WaitingKind) -> u64 {
-        w.checked_mul(56).unwrap() + (((pos as u8) + 1 + 9 * u8::from(waiting_kind)) as u64)
+    /// Encode (waiting_kind, pos) first into a "waiting alt" (1..55)
+    ///
+    /// Explained:
+    /// - `waiting kind`: 0..6
+    /// - `pos`: 0..9
+    /// Total combinations: 6*9 = 54
+    pub fn pack_alt(waiting_kind: WaitingKind, pos: i8) -> u8 {
+        9 * u8::from(waiting_kind) + (pos as u8) + 1
     }
 
-    pub fn w_pop(w: u64) -> Option<(u64, u8, WaitingKind)> {
-        if w == 0 { return None; }
-        let x = ((w % 56) as u8) - 1;
-        Some((w / 56, x % 9, WaitingKind::try_from(x / 9).unwrap()))
+    /// Decode (waiting_kind, pos) from a packed "waiting alt" (1..55)
+    ///
+    /// See [`pack_alt`].
+    pub fn unpack_alt(packed: u8) -> (WaitingKind, u8) {
+        let x = packed - 1;
+        (WaitingKind::try_from(x / 9).unwrap(), x % 9)
     }
 }

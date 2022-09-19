@@ -13,8 +13,8 @@ pub fn table_to_string(table: &CTable) -> String {
     ];
     let mut lines: Vec<String> = vec![];
     for (&key, &value) in table.iter() {
-        for grouping in c_entry_iter(key, value) {
-            let mid_str = grouping.groups()
+        for grouping in c_entry_iter_alts(key, value) {
+            let mid_str = grouping.groups
                 .map(|ks| GROUP_STR[ks as usize])
                 .sorted()
                 .join("");
@@ -44,14 +44,14 @@ fn main() -> io::Result<()> {
 
     let c_key = 0o333320000u32;
     let &c_value = c_table.get(&c_key).unwrap();
-    for x in c_entry_iter(c_key, c_value) {
+    for x in c_entry_iter_alts(c_key, c_value) {
         println!("{:?}", x);
     }
 
     println!();
     let w_key = 0o311111113u32;
     let &w_value = w_table.get(&w_key).unwrap();
-    for x in w_entry_iter(w_key, w_value) {
+    for x in w_entry_iter_alts(w_key, w_value) {
         println!("{:?}", x);
     }
 
@@ -60,7 +60,7 @@ fn main() -> io::Result<()> {
 
     let mut c_map_gen = phf_codegen::Map::<u32>::new();
     for (k, v) in c_table.iter() {
-        c_map_gen.entry(*k, &format!("{}u64", v));
+        c_map_gen.entry(*k, &format!("{}u64", v.packed()));
     }
     let mut map_file = BufWriter::new(File::create(PathBuf::from("data/c.rs"))?);
     write!(map_file,
