@@ -1,0 +1,3 @@
+# for use with cargo-release
+consolidate-commits = true
+consolidate-pushes = true

@@ -1,0 +1,2 @@
+# for use with cargo-release
+release = false
