@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DdlMappings">
+    <mapping uuid="611f61ce-eb22-44bb-a717-87a485c55a5a" name="tenhou Mapping">
+      <data-sources db="ff2343b7-f9a0-4cff-b5fa-675798414fc4" ddl="789262f7-8657-4156-bb5c-fd3772aa517a" />
+      <scope>
+        <node kind="database" negative="1">
+          <node kind="schema" negative="1" />
+        </node>
+      </scope>
+    </mapping>
+  </component>
+  <component name="SqlDataSourceStorage">
+    <option name="dataSources">
+      <list>
+        <State>
+          <option name="id" value="789262f7-8657-4156-bb5c-fd3772aa517a" />
+          <option name="name" value="tenhou-db.sqlite (DDL)" />
+          <option name="languageId" value="SQLite" />
+          <option name="urls">
+            <array>
+              <option value="file://$PROJECT_DIR$/tenhou-db/db_def.sql" />
+            </array>
+          </option>
+        </State>
+      </list>
+    </option>
+  </component>
+</project>

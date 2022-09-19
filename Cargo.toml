@@ -3,4 +3,5 @@
 members = [
     "riichi",
     "riichi-decomp-table",
+    "tenhou-db"
 ]
