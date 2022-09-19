@@ -6,7 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arrayvec = "0.7"
 bitfield-struct = "0.1.7"
 derivative = "2.2.0"
 derive_more = "0.99"
