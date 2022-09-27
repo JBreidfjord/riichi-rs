@@ -13,7 +13,7 @@ pub type CTableStatic = phf::Map<u32, u64>;
 /// we have generated the correct table.
 pub const C_TABLE_NUM_KEYS: usize = 21743;
 
-/// Each entry of the C-Table is 1..=4 "alternatives", each consists of 1..=4 [`Groups`].
+/// Each entry of the C-Table is 1..=4 "alternatives", each consists of 1..=4 [`CGroups`].
 ///
 /// Each alternative is stored as the bitwise inverse of the bit-packed groups array.
 /// Since `0xFFFF` is not a valid alternative, we can avoid storing its inverse, which is zero.

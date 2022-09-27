@@ -34,13 +34,17 @@ const RIICHI_POT: GamePoints = 1000;
 /// This has the following main functions:
 ///
 /// - Given [`State`], is some [`Action`] valid?
+///   ([`Engine::register_action`])
 /// - Given [`State`] and a valid [`Action`], is some [`Reaction`] valid?
+///   ([`Engine::register_reaction`])
 /// - Given [`State`] and valid [`Action`] and any valid [`Reaction`]s, proceed to the next state.
+///   ([`Engine::step`])
 ///
-/// For improved efficiency, valid [`Action`] and [`Reaction`]s, together with cached info from
-/// their validation, are cached here for deriving the next state.
+/// For improved efficiency, valid [`Action`] and [`Reaction`]s, together with intermediate results
+/// computed as a part of their validation, are cached here to help derive the next state.
 ///
-/// Example:
+/// ## Example
+///
 /// ```
 /// use riichi::prelude::*;  // includes `Engine`
 /// let mut engine = Engine::new();
@@ -56,7 +60,7 @@ const RIICHI_POT: GamePoints = 1000;
 /// assert_eq!(engine.state().core.actor, P0);
 ///
 /// engine.register_action(Action::Discard(Discard {
-///     tile: t!("1m"), ..Discard::default()})).unwrap();
+///     tile: t!("1m"), ..Discard::default()}))?;
 ///
 /// let step = engine.step();
 /// assert_eq!(step.action_result, ActionResult::Pass);
@@ -64,7 +68,10 @@ const RIICHI_POT: GamePoints = 1000;
 /// assert_eq!(engine.state().core.seq, 1);
 /// assert_eq!(engine.state().core.actor, P1);
 /// /* ... */
+///
+/// # Ok::<(), riichi::engine::ActionError>(())
 /// ```
+///
 #[derive(Default)]
 pub struct Engine {
     begin: RoundBegin,

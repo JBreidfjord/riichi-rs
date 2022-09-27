@@ -1,3 +1,11 @@
+//! History of a round of game, with or without intermediate states preserved.
+//!
+//! | whole round          | each turn          | action + reaction | end-of-turn state |
+//! |----------------------|--------------------|-------------------|-------------------|
+//! | [`RoundHistoryLite`] | [`ActionReaction`] | yes               | no                |
+//! | [`RoundHistory`]     | [`GameStep`]       | yes               | yes               |
+//!
+
 use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
@@ -14,7 +22,7 @@ use super::{
 
 /// Bundle of a turn's action and the resolved (highest-priority) reactor + reaction (if any).
 ///
-/// Note that Multi-Ron cannot be represented by this; additional info is needed.
+/// Note that Multi-Ron must be represented separately.
 ///
 /// ## Optional `serde` support
 ///
@@ -41,7 +49,7 @@ impl Display for ActionReaction {
 /// Bundle of a turn's action + reaction (if any) from the players, and resolved result + the next
 /// state from the game engine.
 ///
-/// Note that Multi-Ron cannot be represented by this; additional info is needed.
+/// Note that Multi-Ron must be represented separately.
 ///
 /// ## Optional `serde` support
 ///
@@ -117,7 +125,6 @@ impl Display for RoundHistoryLite {
     }
 }
 
-// Reconstruction of the full state from core
 impl State {
     /// Current full [`State`] + [`Action`] + next [`StateCore`] => next full [`State`].
     /// This _mutates_ the non-Core state variables, then absorbs the next Core.
