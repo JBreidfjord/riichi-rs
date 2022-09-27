@@ -36,7 +36,7 @@ impl<'a> AgariInput<'a> {
 
             winner: Default::default(),
             closed_hand: &hand.closed_hand,
-            riichi_flags: Default::default(),
+            riichi: Default::default(),
             melds: &hand.melds,
             waiting_info: &hand.waiting_info,
 
@@ -119,7 +119,7 @@ fn riichi_simple_example() {
     let agari_input = AgariInput {
         contributor: P1,
         winning_tile: t!("9p"),
-        riichi_flags: RiichiFlags { is_active: true, is_double: false, is_ippatsu: true },
+        riichi: Some(Riichi { is_double: false, is_ippatsu: true }),
         ..AgariInput::from_hand(&hand)
     };
     let candidates = agari_candidates(&Default::default(), &agari_input);

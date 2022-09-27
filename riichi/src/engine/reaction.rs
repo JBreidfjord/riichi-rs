@@ -72,7 +72,7 @@ pub fn check_reaction(
 
     match reaction {
         Reaction::Chii(own0, own1) => {
-            if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_some() { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if actor.succ() != reactor {
                 return Err(CanOnlyChiiPrevPlayer);
@@ -95,7 +95,7 @@ pub fn check_reaction(
         }
 
         Reaction::Pon(own0, own1) => {
-            if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_some() { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
@@ -116,7 +116,7 @@ pub fn check_reaction(
         }
 
         Reaction::Daiminkan => {
-            if state.core.riichi[reactor_i].is_active { return Err(OpenMeldUnderRiichi); }
+            if state.core.riichi[reactor_i].is_some() { return Err(OpenMeldUnderRiichi); }
             if is_last_draw(state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;

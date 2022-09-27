@@ -186,7 +186,7 @@ pub fn is_ankan_ok_under_riichi_relaxed(
 /********/
 
 pub fn num_active_riichi(state: &State) -> usize {
-    state.core.riichi.into_iter().filter(|flags| flags.is_active).count()
+    state.core.riichi.into_iter().flatten().count()
 }
 
 pub fn num_draws(state: &State) -> u8 {
@@ -305,8 +305,8 @@ pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 
 }
 
 /// Each player with active riichi must pay into the pot.
-pub fn calc_pot_delta(riichi: &[RiichiFlags; 4]) -> [GamePoints; 4] {
-    riichi.map(|r| if r.is_active { -super::RIICHI_POT } else { 0 })
+pub fn calc_pot_delta(riichi: &[Option<Riichi>; 4]) -> [GamePoints; 4] {
+    riichi.map(|r| if r.is_some() { -super::RIICHI_POT } else { 0 })
 }
 
 /// All tiles at win condition = closed hand + the winning tile + all tiles in melds .

@@ -29,7 +29,7 @@ pub struct AgariInput<'a> {
     // from the winner
     pub winner: Player,
     pub closed_hand: &'a TileSet37,
-    pub riichi_flags: RiichiFlags,
+    pub riichi: Option<Riichi>,
     pub melds: &'a [Meld],
     pub waiting_info: &'a WaitingInfo,
 
@@ -59,7 +59,7 @@ impl<'a> AgariInput<'a> {
 
             winner,
             closed_hand: &state.closed_hands[winner_i],
-            riichi_flags: state.core.riichi[winner_i],
+            riichi: state.core.riichi[winner_i],
             melds: &state.melds[winner_i],
             waiting_info,
 

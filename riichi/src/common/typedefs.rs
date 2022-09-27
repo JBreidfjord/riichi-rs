@@ -7,3 +7,8 @@ pub type GamePoints = i64;
 ///
 /// Note that this is _identical_ to [`Player`] --- see its definition.
 pub type Wind = Player;
+
+/// An error type without any details; useful for trivially satisfying [`std::error::Error`].
+#[derive(thiserror::Error, Debug)]
+#[error("Unspecified error.")]
+pub struct UnspecifiedError;

@@ -131,8 +131,8 @@ pub struct StateCore {
 
     /// Riichi status for each player.
     /// **Publicly visible.**
-    #[cfg_attr(feature = "serde", serde(with = "As::<[DisplayFromStr; 4]>"))]
-    pub riichi: [RiichiFlags; 4],
+    #[cfg_attr(feature = "serde", serde(with = "As::<[Option<DisplayFromStr>; 4]>"))]
+    pub riichi: [Option<Riichi>; 4],
 }
 
 impl State {
@@ -180,15 +180,13 @@ impl Display for StateCore {
                self.draw.map(|t| t.as_str()).unwrap_or("NA"),
                self.incoming_meld.map(|x| x.to_string()),
                self.num_dora_indicators,
-               self.riichi.into_iter().map(RiichiFlags::as_str).join(","),
+               self.riichi.into_iter().map(maybe_riichi_as_str).join(","),
                self.furiten.into_iter().map(|f| f.any() as u8).join(","),
         )
     }
 }
 
 /// Status regarding whether a player is under riichi (リーチ).
-///
-/// NOTE: Not implemented as an `Option<(bool, bool)>` due to bad ergonomics.
 ///
 /// <https://riichi.wiki/Riichi>
 ///
@@ -197,10 +195,7 @@ impl Display for StateCore {
 /// Deliberately not provided; [`StateCore`] uses [`DisplayFromStr`] to serialize this as a string.
 ///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
-pub struct RiichiFlags {
-    /// Player is under active riichi (リーチ).
-    pub is_active: bool,
-
+pub struct Riichi {
     /// Player declared riichi in one of the first 4 uninterrupted turns of the game (両立直).
     ///
     /// <https://riichi.wiki/Daburu_riichi>
@@ -213,34 +208,40 @@ pub struct RiichiFlags {
     pub is_ippatsu: bool,
 }
 
-impl RiichiFlags {
+impl Riichi {
     pub fn as_str(self) -> &'static str {
-        match (self.is_active, self.is_double, self.is_ippatsu) {
-            (false, _, _) => "",
-            (true, false, false) => "r",
-            (true, false, true) => "R",
-            (true, true, false) => "d",
-            (true, true, true) => "D",
+        match (self.is_double, self.is_ippatsu) {
+            (false, false) => "r",
+            (false, true) => "R",
+            (true, false) => "d",
+            (true, true) => "D",
         }
     }
 }
 
-impl FromStr for RiichiFlags {
-    type Err = bool;  // prevents serde complaints
+pub fn maybe_riichi_as_str(r: Option<Riichi>) -> &'static str {
+    match r {
+        Some(r) => r.as_str(),
+        None => "_",
+    }
+}
+
+impl FromStr for Riichi {
+    type Err = UnspecifiedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let r = match s {
-            "r" => RiichiFlags { is_active: true, is_double: false, is_ippatsu: false },
-            "R" => RiichiFlags { is_active: true, is_double: false, is_ippatsu: true },
-            "d" => RiichiFlags { is_active: true, is_double: true, is_ippatsu: false },
-            "D" => RiichiFlags { is_active: true, is_double: true, is_ippatsu: true },
-            _ => RiichiFlags { is_active: false, is_double: false, is_ippatsu: false },
+            "r" => Riichi { is_double: false, is_ippatsu: false },
+            "R" => Riichi { is_double: false, is_ippatsu: true },
+            "d" => Riichi { is_double: true, is_ippatsu: false },
+            "D" => Riichi { is_double: true, is_ippatsu: true },
+            _ => return Err(UnspecifiedError),
         };
         Ok(r)
     }
 }
 
-impl Display for RiichiFlags {
+impl Display for Riichi {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.as_str())
     }

@@ -281,27 +281,27 @@ impl Tile {
 pub const UNICODE_TILE_BACK: char = '\u{1f02B}';
 
 impl FromStr for Tile {
-    type Err = bool;  // This circumvents an arbitrary Serde limitation for `()`.
+    type Err = UnspecifiedError;
     fn from_str(pai_str: &str) -> Result<Self, Self::Err> {
-        if pai_str.len() != 2 { return Err(false); }
+        if pai_str.len() != 2 { return Err(UnspecifiedError); }
         let mut chars = pai_str.chars();
         if let (Some(num_char), Some(suit_char)) = (chars.next(), chars.next()) {
-            let num = num_char.to_digit(10).ok_or(false)? as u8;
-            let suit = suit_from_char(suit_char).ok_or(false)?;
-            Self::from_num_suit(num, suit).ok_or(false)
-        } else { Err(false) }
+            let num = num_char.to_digit(10).ok_or(UnspecifiedError)? as u8;
+            let suit = suit_from_char(suit_char).ok_or(UnspecifiedError)?;
+            Self::from_num_suit(num, suit).ok_or(UnspecifiedError)
+        } else { Err(UnspecifiedError) }
     }
 }
 
 // Blanket adaptors for various ways of converting to/from strings.
 
 impl TryFrom<&str> for Tile {
-    type Error = bool;
+    type Error = UnspecifiedError;
     fn try_from(value: &str) -> Result<Self, Self::Error> { value.parse() }
 }
 
 impl TryFrom<String> for Tile {
-    type Error = bool;
+    type Error = UnspecifiedError;
     fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() }
 }
 
@@ -316,7 +316,7 @@ impl Display for Tile {
 }
 
 /// Represents `Some(tile)` as [`Tile::unicode()`] and `None` as [`UNICODE_TILE_BACK`]
-pub const fn tile_unicode(tile: Option<Tile>) -> char {
+pub const fn maybe_tile_unicode(tile: Option<Tile>) -> char {
     if let Some(tile) = tile { tile.unicode() } else { UNICODE_TILE_BACK }
 }
 
@@ -414,7 +414,7 @@ mod tests {
         ];
         for window in correct_order.windows(2) {
             if let [a, b] = window {
-                assert!(Tile::from_str(a) < Tile::from_str(b));
+                assert!(Tile::from_str(a).unwrap() < Tile::from_str(b).unwrap());
             } else { panic!() }
         }
     }

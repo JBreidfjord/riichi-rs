@@ -45,10 +45,10 @@ pub enum TenhouPayout {
 }
 
 impl FromStr for TenhouScoring {
-    type Err = ();
+    type Err = UnspecifiedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_tenhou_scoring(s).ok_or(())
+        parse_tenhou_scoring(s).ok_or(UnspecifiedError)
     }
 }
 
@@ -82,7 +82,7 @@ pub fn parse_tenhou_scoring(s: &str) -> Option<TenhouScoring> {
         } else if let Some(button_match) = groups.get(5) {
             TenhouPayout::TsumoByButton(button_match.as_str().parse::<GamePoints>().ok()?)
         } else if let (Some(non_button_match), Some(button_match)) =
-                      (groups.get(6), groups.get(7)) {
+        (groups.get(6), groups.get(7)) {
             TenhouPayout::TsumoByNonButton {
                 non_button: non_button_match.as_str().parse::<GamePoints>().ok()?,
                 button: button_match.as_str().parse::<GamePoints>().ok()?,
@@ -104,7 +104,7 @@ impl Display for TenhouScoring {
         match self.payout {
             TenhouPayout::Ron(points) => write!(f, "{}点", points),
             TenhouPayout::TsumoByButton(points) => write!(f, "{}点∀", points),
-            TenhouPayout::TsumoByNonButton{non_button, button} =>
+            TenhouPayout::TsumoByNonButton { non_button, button } =>
                 write!(f, "{}-{}点", non_button, button),
         }
     }
@@ -121,10 +121,10 @@ pub enum YakuOrDora {
 }
 
 impl FromStr for YakuOrDora {
-    type Err = ();
+    type Err = UnspecifiedError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        parse_yaku_or_dora(s).ok_or(())
+        parse_yaku_or_dora(s).ok_or(UnspecifiedError)
     }
 }
 

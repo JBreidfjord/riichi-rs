@@ -25,7 +25,7 @@ pub fn detect_yakus_for_regular(
                  wait_common.extra_fu,
                  hand_common.is_closed);
     detect_riichi(ruleset, yaku_builder,
-                  &input.riichi_flags);
+                  input.riichi);
     detect_mentsumo(ruleset, yaku_builder,
                     hand_common.agari_kind,
                     input.melds);
@@ -93,7 +93,7 @@ pub fn detect_yakus_for_irregular(
     detect_irregular(ruleset, yaku_builder,
                      irregular);
     detect_riichi(ruleset, yaku_builder,
-                  &input.riichi_flags);
+                  input.riichi);
     detect_mentsumo(ruleset, yaku_builder,
                     hand_common.agari_kind,
                     input.melds);
@@ -148,15 +148,15 @@ fn detect_irregular(
 fn detect_riichi(
     _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
-    riichi_flags: &RiichiFlags,
+    riichi: Option<Riichi>,
 ) {
-    if riichi_flags.is_active {
-        if riichi_flags.is_double {
+    if let Some(riichi) = riichi {
+        if riichi.is_double {
             yaku_builder.add(Yaku::DoubleRiichi, 2);
         } else {
             yaku_builder.add(Yaku::Riichi, 1);
         }
-        if riichi_flags.is_ippatsu {
+        if riichi.is_ippatsu {
             yaku_builder.add(Yaku::Ippatsu, 1);
         }
     }

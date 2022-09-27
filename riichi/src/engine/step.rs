@@ -52,16 +52,15 @@ pub fn next_normal(
                 if let ActionResult::CalledBy(caller) = action_result { caller } else { actor };
 
             // Handle both existing and new riichi.
-            if state.core.riichi[actor_i].is_active {
+            if let Some(riichi) = &mut next.riichi[actor_i] {
                 // Ippatsu naturally expires after the first discard since declaring riichi.
-                next.riichi[actor_i].is_ippatsu = false;
+                riichi.is_ippatsu = false;
             } else if discard.declares_riichi {
                 // Round has not ended => the new riichi is successful.
-                next.riichi[actor_i] = RiichiFlags {
-                    is_active: true,
+                next.riichi[actor_i] = Some(Riichi {
                     is_ippatsu: caller == actor,  // no ippatsu if immediately called
                     is_double: is_first_chance(state),
-                }
+                })
             }
 
             if caller == actor {
@@ -131,9 +130,7 @@ pub fn next_normal(
 
     // Any kind of meld will forcefully break any active riichi ippatsu.
     if next.incoming_meld.is_some() {
-        for player in ALL_PLAYERS {
-            next.riichi[player.to_usize()].is_ippatsu = false;
-        }
+        next.riichi.iter_mut().flatten().for_each(|riichi| riichi.is_ippatsu = false);
     }
 
     // Check Furiten status for other players.
@@ -152,12 +149,12 @@ pub fn next_normal(
                 cache.wait[other_player_i].irregular == Some(
                     IrregularWait::ThirteenOrphans(tile)) {
                 furiten.miss_temporary = true;
-                furiten.miss_permanent = state.core.riichi[other_player_i].is_active;
+                furiten.miss_permanent = state.core.riichi[other_player_i].is_some();
             }
         } else {
             if cache.wait[other_player_i].waiting_set.has(action_tile) {
                 furiten.miss_temporary = true;
-                furiten.miss_permanent = state.core.riichi[other_player_i].is_active;
+                furiten.miss_permanent = state.core.riichi[other_player_i].is_some();
             }
         }
     }
@@ -281,7 +278,7 @@ fn finalize_agari(
         &all_tiles,
         state.core.num_dora_indicators + extra_dora_indicator,
         &begin.wall,
-        state.core.riichi[winner_i].is_active,
+        state.core.riichi[winner_i].is_some(),
     );
     let candidates = &cache.win[winner.to_usize()];
     let mut best_candidate = candidates.iter().max_by_key(|candidate| {

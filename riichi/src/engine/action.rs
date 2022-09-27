@@ -80,7 +80,7 @@ pub fn check_action(
     // Make a copy of `actor`'s hand; this will be updated along the way to reflect what happens
     // at each step.
     let mut hand = state.closed_hands[actor.to_usize()].clone();
-    let under_riichi = state.core.riichi[actor_i].is_active;
+    let under_riichi = state.core.riichi[actor_i].is_some();
 
     if let Some(draw) = state.core.draw {
         hand[draw] += 1;  // 3N+2
