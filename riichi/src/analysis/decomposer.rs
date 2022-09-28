@@ -5,7 +5,7 @@
 use itertools::Itertools;
 
 use crate::common::*;
-use super::RegularWait;
+use super::regular::{RegularWait, RegularWaitGroups};
 
 use riichi_decomp_table::{
     CompleteGrouping, WaitingKind, WaitingPattern,
@@ -151,8 +151,7 @@ impl RegularWait {
     fn from_waiting_pattern(suit: u8, w: WaitingPattern) -> Option<Self> {
         if suit == 3 && w.waiting_kind.is_shuntsu() { return None }
         Some(Self {
-            raw_groups: 0,
-            num_groups: 0,
+            raw_groups: Default::default(),
 
             pair: None,
 
@@ -168,7 +167,6 @@ impl RegularWait {
         }
         Some(RegularWait {
             raw_groups: extend_groups(self.raw_groups, suit, c),
-            num_groups: self.num_groups + c.groups.len() as u8,
             pair: extend_pair(self.pair, suit, c),
             ..*self
         })
@@ -233,8 +231,8 @@ fn extend_partial_iter<'a>(
             partial.try_extend(suit, complete)))
 }
 
-fn extend_groups(groups: u32, suit: u8, c: &CompleteGrouping) -> u32 {
-    c.groups.fold(groups, |gs, g| (gs << 8) | ((g | (suit << 4)) as u32))
+fn extend_groups(groups: RegularWaitGroups, suit: u8, c: &CompleteGrouping) -> RegularWaitGroups {
+    c.groups.fold(groups, |gs, g| gs.with_back(g + suit * 16))
 }
 
 fn extend_pair(pair: Option<Tile>, suit: u8, c: &CompleteGrouping) -> Option<Tile> {

@@ -7,6 +7,8 @@ use riichi_decomp_table::{
     WaitingKind
 };
 
+pub(crate) type RegularWaitGroups = nanovec::NanoDequeBit<u32, u8, 8>;
+
 /// A regular waiting pattern and hand decomposition of a waiting hand.
 ///
 /// For a regular `3N+1` hand, this includes:
@@ -38,11 +40,8 @@ use riichi_decomp_table::{
 /// 
 #[derive(Copy, Clone, Debug)]
 pub struct RegularWait {
-    // TODO(summivox): reduce these into a "small vec" type --- decomp table could use these too
-    pub(crate) raw_groups: u32, // (suited) groups: u8 x 4, with current len;
-
-    /// Number of complete groups.
-    pub num_groups: u8,
+    /// complete groups in this hand decomposition.
+    pub(crate) raw_groups: RegularWaitGroups,
 
     /// The complete pair (excluding Tanki).
     pub pair: Option<Tile>,
@@ -68,11 +67,8 @@ impl RegularWait {
     #[cfg(test)]
     pub fn new(groups: &[HandGroup], pair: Option<Tile>,
                waiting_kind: WaitingKind, pattern_tile: Tile, waiting_tile: Tile) -> Self {
-        let raw_groups = groups.iter().enumerate()
-            .map(|(i, g)| (g.packed() as u32) << (i as u32 * 8)).sum();
         Self {
-            raw_groups,
-            num_groups: groups.len() as u8,
+            raw_groups: groups.iter().map(|g| g.packed()).collect(),
             pair,
             waiting_kind,
             pattern_tile,
@@ -82,11 +78,7 @@ impl RegularWait {
 
     /// Iterate all complete groups in this hand decomposition.
     pub fn groups(&self) -> impl Iterator<Item = HandGroup> {
-        self.raw_groups
-            .to_le_bytes()
-            .into_iter()
-            .take(self.num_groups as usize)
-            .map(|x| HandGroup::from_packed(x).unwrap())
+        self.raw_groups.map(|x| HandGroup::from_packed(x).unwrap())
     }
 
     /// Returns whether this waiting pattern has a pair (complete or incomplete).
