@@ -17,5 +17,5 @@ pub mod prelude {
     pub use crate::tile_set::*;
     pub use crate::typedefs::*;
     pub use crate::utils::*;
-    pub use crate::wall::{self, PartialWall, Wall, PartialWallDisplayMethod, WallDisplayMethod};
+    pub use crate::wall::{self, PartialWall, PartialWallDisplayMethod, Wall, WallDisplayMethod};
 }

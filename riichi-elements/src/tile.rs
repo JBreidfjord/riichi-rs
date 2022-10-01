@@ -39,7 +39,8 @@ use crate::typedefs::*;
 ///
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(all(feature = "serde", feature = "std"), serde(try_from = "String", into = "&str"))]
+#[cfg_attr(feature = "serde", serde(into = "&str"))]
+#[cfg_attr(all(feature = "serde", feature = "std"), serde(try_from = "String"))]
 pub struct Tile(u8);
 
 impl Tile {
@@ -68,36 +69,33 @@ impl Tile {
 
     /// Not red 5
     pub const fn is_normal(self) -> bool { self.0 <= 33 }
-    /// Red 5 赤牌
+    /// Red 5 (赤牌)
     pub const fn is_red(self) -> bool { 34 <= self.0 && self.0 <= 36 }
 
+    /// Either red or normal 5
     pub const fn has_red(self) -> bool {
         self.0 == 4 || self.0 == 13 || self.0 == 22 || self.is_red()
     }
 
-    /// Numerals := Characters + Dots + Bamboos ;
-    /// 数牌 := 萬子 + 筒子 + 索子
+    /// Numerals (数牌) := Characters (萬子) + Dots (筒子) + Bamboos (索子)
     pub const fn is_numeral(self) -> bool {
         (self.0 <= 26) || (34 <= self.0 && self.0 <= 36)
     }
-    /// Pure terminals := {1,9}{m,p,s} 老頭牌
+    /// Pure terminals (老頭牌) := {1,9}{m,p,s}
     pub const fn is_pure_terminal(self) -> bool {
         matches!(self.0, 0 | 8 | 9 | 17 | 18 | 26)
     }
-    /// Middle numerals := {2..=8}{m,p,s} ;
-    /// 中張牌 := 数牌 - 老頭牌
+    /// Middle numerals (中張牌) := {2..=8}{m,p,s}
     pub const fn is_middle(self) -> bool { self.is_numeral() && !self.is_pure_terminal() }
 
-    /// Winds 風牌 := {1,2,3,4}z (correspond to {E,S,W,N})
+    /// Winds (風牌) := {1,2,3,4}z (correspond to {E,S,W,N})
     pub const fn is_wind(self) -> bool { 27 <= self.0 && self.0 <= 30 }
-    /// Dragons 三元牌 := {5,6,7}z (correspond to {blue, green, red} dragons).
+    /// Dragons (三元牌) := {5,6,7}z (correspond to {blue, green, red} dragons).
     pub const fn is_dragon(self) -> bool { 31 <= self.0 && self.0 <= 33 }
-    /// Honors := Winds + Dragons ;
-    /// 字牌 := 風牌 + 三元牌
+    /// Honors (字牌) := Winds (風牌) + Dragons (三元牌)
     pub const fn is_honor(self) -> bool { 27 <= self.0 && self.0 <= 33 }
 
-    /// Terminals := Pure terminals + Honors ;
-    /// 么九牌 := 老頭牌 + 字牌
+    /// Terminals (么九牌) := Pure terminals (老頭牌) + Honors (字牌)
     pub const fn is_terminal(self) -> bool {
         self.is_pure_terminal() || self.is_honor()
     }
@@ -323,12 +321,14 @@ pub const fn maybe_tile_unicode(tile: Option<Tile>) -> char {
     if let Some(tile) = tile { tile.unicode() } else { UNICODE_TILE_BACK }
 }
 
-/// Parse shorthand for a list of tiles.
+/// Parses a shorthand string of tiles following the format `(\d*[mpsz])*`.
+///
 /// Example:
 /// ```
 /// use riichi_elements::tile::*;
 /// use itertools::assert_equal;
-/// assert_equal(tiles_from_str("11123m8p8p777z"), [
+/// assert_equal(tiles_from_str(""), []);
+/// assert_equal(tiles_from_str("11123m8p8ps777z"), [
 ///     t!("1m"), t!("1m"), t!("1m"), t!("2m"), t!("3m"),
 ///     t!("8p"), t!("8p"),
 ///     t!("7z"), t!("7z"), t!("7z"),
@@ -372,9 +372,13 @@ impl<'a> TilesFromStr<'a> {
 impl<'a> Iterator for TilesFromStr<'a> {
     type Item = Tile;
     fn next(&mut self) -> Option<Self::Item> {
-        if self.iter_n.peek().copied() == self.suit_c {
-            self.iter_n.next();
-            self.find_next_suit();
+        while let Some(c) = self.iter_n.peek() {
+            if Some(*c) == self.suit_c {
+                self.iter_n.next();
+                self.find_next_suit();
+            } else {
+                break;
+            }
         }
         self.suit.and_then(|suit|
             self.iter_n.next()
@@ -388,7 +392,7 @@ impl<'a> Iterator for TilesFromStr<'a> {
 /// Example:
 /// ```
 /// use riichi_elements::tile::*;
-/// assert_eq!(t!("3s"), Tile::from_encoding(20).unwrap());
+/// assert_eq!(t!("5p"), Tile::from_encoding(1 * 9 + (5 - 1)).unwrap());
 /// ```
 #[macro_export]
 macro_rules! t {
@@ -403,13 +407,12 @@ pub use t;
 mod tests {
     extern crate std;
     use std::{
-        vec,
         string::*,
         print,
         println,
     };
 
-    use itertools::Itertools;
+    use itertools::{assert_equal, Itertools};
 
     use super::*;
 
@@ -436,8 +439,18 @@ mod tests {
 
     #[test]
     fn tiles_from_str_examples() {
-        assert_eq!(tiles_from_str("1m2p3s4z").collect_vec(), vec![
+        assert_equal(tiles_from_str(""), []);
+        assert_equal(tiles_from_str("1m2p3s4z"), [
             t!("1m"), t!("2p"), t!("3s"), t!("4z"),
+        ]);
+        assert_equal(tiles_from_str("1m3sps4z"), [
+            t!("1m"), t!("3s"), t!("4z"),
+        ]);
+        assert_equal(tiles_from_str("m3sps4z"), [
+            t!("3s"), t!("4z"),
+        ]);
+        assert_equal(tiles_from_str("mmmm3smmmmmps4zmmmmm"), [
+            t!("3s"), t!("4z"),
         ]);
     }
 
@@ -459,10 +472,8 @@ mod tests {
             "1s", "2s", "3s", "4s", "0s", "5s", "6s", "7s", "8s", "9s", //
             "1z", "2z", "3z", "4z", "5z", "6z", "7z", //
         ];
-        for window in correct_order.windows(2) {
-            if let [a, b] = window {
-                assert!(Tile::from_str(a).unwrap() < Tile::from_str(b).unwrap());
-            } else { panic!() }
+        for (a, b) in correct_order.iter().tuple_windows() {
+            assert!(Tile::from_str(a).unwrap() < Tile::from_str(b).unwrap());
         }
     }
 
@@ -525,7 +536,7 @@ mod tests {
     fn print_tile_unicode() {
         for r in [0..9, 9..18, 18..27, 27..34, 34..37] {
             for enc in r {
-                print!("{}", Tile(enc).unicode());
+                print!("{}", Tile::from_encoding(enc).unwrap().unicode());
             }
             println!();
         }

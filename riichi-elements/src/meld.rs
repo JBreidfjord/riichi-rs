@@ -139,10 +139,14 @@ impl Display for Meld {
 
 #[cfg(test)]
 mod test {
+    extern crate std;
+    use std::{
+        string::ToString,
+        vec,
+    };
+
     use super::*;
     use crate::t;
-    extern crate std;
-    use std::string::ToString;
 
     #[test]
     fn chii_example() {
