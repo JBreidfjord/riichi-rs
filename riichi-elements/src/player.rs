@@ -1,7 +1,7 @@
 //! [`Player`] newtype (mod-4 arithmetic).
 
-use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Sub};
+use core::fmt::{Debug, Display, Formatter};
+use core::ops::{Add, Sub};
 use derive_more::{From, Into};
 
 /// Player index -- 0, 1, 2, 3 => player assigned east, south, west, north in the initial round.
@@ -89,13 +89,13 @@ impl Sub<u8> for Player {
 }
 
 impl Debug for Player {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "Player({})", self.0)
     }
 }
 
 impl Display for Player {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
@@ -107,7 +107,7 @@ pub const fn player(i: u8) -> Player { Player::new(i) }
 ///
 /// Example:
 /// ```
-/// use riichi::common::*;
+/// use riichi_elements::player::*;
 /// assert_eq!(all_players_from(P2), [P2, P3, P0, P1]);
 /// ```
 pub const fn all_players_from(player: Player) -> [Player; 4] {
@@ -118,7 +118,7 @@ pub const fn all_players_from(player: Player) -> [Player; 4] {
 ///
 /// Example:
 /// ```
-/// use riichi::common::*;
+/// use riichi_elements::player::*;
 /// assert_eq!(other_players_after(P2), [P3, P0, P1]);
 /// ```
 pub const fn other_players_after(player: Player) -> [Player; 3] {
@@ -127,7 +127,7 @@ pub const fn other_players_after(player: Player) -> [Player; 3] {
 
 #[cfg(feature = "serde")]
 mod player_serde {
-    use std::fmt::Formatter;
+    use core::fmt::Formatter;
     use serde::{*};
     use serde::de::{Error, Visitor};
     use super::*;
@@ -144,7 +144,7 @@ mod player_serde {
             impl<'a> Visitor<'a> for PlayerVisitor {
                 type Value = Player;
 
-                fn expecting(&self, f: &mut Formatter) -> std::fmt::Result {
+                fn expecting(&self, f: &mut Formatter) -> core::fmt::Result {
                     write!(f, "0..=3")
                 }
 

@@ -1,11 +1,20 @@
-use std::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::common::*;
-use super::packed::*;
-use super::utils::*;
+use crate::{
+    player::*,
+    tile::Tile,
+    tile_set::*,
+    utils::{pack4, unpack4},
+};
 
-/// A Kan formed by an existing [Pon](super::Pon) + the 1 last identical tile from closed hand
-/// (加槓 / 小明槓). This can be formed when the owner of the [Pon](super::Pon) is in action.
+use super::{
+    packed::{normalize_kakan, PackedMeld, PackedMeldKind},
+    utils::count_for_kan,
+    Pon,
+};
+
+/// A Kan formed by an existing [`Pon`] + the 1 last identical tile from closed hand (加槓 / 小明槓).
+/// This can be formed when the owner of the [`Pon`] is in action.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
@@ -19,12 +28,18 @@ pub struct Kakan {
 }
 
 impl Kakan {
-    pub const fn num(self) -> u8 { self.added.normal_num() }
-    pub const fn suit(self) -> u8 { self.added.suit() }
+    pub const fn num(self) -> u8 {
+        self.added.normal_num()
+    }
+    pub const fn suit(self) -> u8 {
+        self.added.suit()
+    }
 
     /// Constructs from an existing Pon and the (last) added tile.
     pub fn from_pon_added(pon: Pon, added: Tile) -> Option<Self> {
-        if added.to_normal() != pon.called.to_normal() { return None; }
+        if added.to_normal() != pon.called.to_normal() {
+            return None;
+        }
         Some(Kakan { pon, added })
     }
 
@@ -47,7 +62,7 @@ impl Kakan {
 }
 
 impl Display for Kakan {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let (n0, n1, nc, na, suit) = (
             self.pon.own[0].num(),
             self.pon.own[1].num(),
@@ -59,7 +74,7 @@ impl Display for Kakan {
             1 => write!(f, "{}{}K({}/{}){}", n0, n1, na, nc, suit),
             2 => write!(f, "{}K({}/{}){}{}", n0, na, nc, n1, suit),
             3 => write!(f, "K({}/{}){}{}{}", na, nc, n0, n1, suit),
-            _ => Err(std::fmt::Error::default()),
+            _ => Err(core::fmt::Error::default()),
         }
     }
 }
@@ -68,7 +83,9 @@ impl TryFrom<PackedMeld> for Kakan {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != u8::from(PackedMeldKind::Kakan) { return Err(()); }
+        if raw.kind() != PackedMeldKind::Kakan as u8 {
+            return Err(());
+        }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut called, mut added) = (t, t, t, t);
         let (r0, r1, r2, r3) = unpack4(normalize_kakan(raw.red()));
@@ -88,10 +105,12 @@ impl From<Kakan> for PackedMeld {
         PackedMeld::new()
             .with_tile(own0.normal_encoding())
             .with_dir(kakan.pon.dir.to_u8())
-            .with_red(pack4(own0.is_red(),
-                            own1.is_red(),
-                            kakan.pon.called.is_red(),
-                            kakan.added.is_red()))
-            .with_kind(PackedMeldKind::Kakan.into())
+            .with_red(pack4(
+                own0.is_red(),
+                own1.is_red(),
+                kakan.pon.called.is_red(),
+                kakan.added.is_red(),
+            ))
+            .with_kind(PackedMeldKind::Kakan as u8)
     }
 }

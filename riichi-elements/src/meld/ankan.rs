@@ -1,10 +1,15 @@
-use std::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::common::Tile;
-use crate::common::TileSet37;
-use crate::common::utils::*;
-use super::utils::*;
-use super::packed::{PackedMeld, PackedMeldKind, normalize_ankan};
+use crate::{
+    tile::Tile,
+    tile_set::*,
+    utils::{pack4, unpack4},
+};
+
+use super::{
+    packed::{normalize_ankan, PackedMeld, PackedMeldKind},
+    utils::{ankan_tiles, count_for_kan},
+};
 
 /// Closed Kan, formed by setting aside 4 tiles of the same kind in a player's closed hand (暗槓).
 /// This can be done during this player's own turn.
@@ -18,14 +23,21 @@ pub struct Ankan {
 }
 
 impl Ankan {
-    pub const fn num(self) -> u8 { self.own[0].normal_num() }
-    pub const fn suit(self) -> u8 { self.own[0].suit() }
+    pub const fn num(self) -> u8 {
+        self.own[0].normal_num()
+    }
+    pub const fn suit(self) -> u8 {
+        self.own[0].suit()
+    }
 
     /// Constructs from 4 own tiles.
     pub fn from_tiles(mut own: [Tile; 4]) -> Option<Self> {
-        if own[0].to_normal() != own[1].to_normal() ||
-            own[0].to_normal() != own[2].to_normal() ||
-            own[0].to_normal() != own[3].to_normal() { return None; }
+        if own[0].to_normal() != own[1].to_normal()
+            || own[0].to_normal() != own[2].to_normal()
+            || own[0].to_normal() != own[3].to_normal()
+        {
+            return None;
+        }
         own.sort();
         Some(Ankan { own })
     }
@@ -34,7 +46,9 @@ impl Ankan {
     pub fn from_hand(hand: &TileSet37, tile: Tile) -> Option<Self> {
         let normal = tile.to_normal();
         let (num_normal, num_red) = count_for_kan(hand, normal);
-        if num_normal + num_red != 4 { return None; }
+        if num_normal + num_red != 4 {
+            return None;
+        }
         Self::from_tiles(ankan_tiles(normal, num_red))
     }
 
@@ -46,7 +60,7 @@ impl Ankan {
 }
 
 impl Display for Ankan {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let (n0, n1, n2, n3, s) = (
             self.own[0].num(),
             self.own[1].num(),
@@ -63,7 +77,9 @@ impl TryFrom<PackedMeld> for Ankan {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != u8::from(PackedMeldKind::Ankan) { return Err(()); }
+        if raw.kind() != PackedMeldKind::Ankan as u8 {
+            return Err(());
+        }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut own2, mut own3) = (t, t, t, t);
         let (r0, r1, r2, r3) = unpack4(normalize_ankan(raw.red()));
@@ -81,10 +97,7 @@ impl From<Ankan> for PackedMeld {
         PackedMeld::new()
             .with_tile(own0.normal_encoding())
             .with_dir(0)
-            .with_red(pack4(own0.is_red(),
-                            own1.is_red(),
-                            own2.is_red(),
-                            own3.is_red()))
-            .with_kind(PackedMeldKind::Ankan.into())
+            .with_red(pack4(own0.is_red(), own1.is_red(), own2.is_red(), own3.is_red()))
+            .with_kind(PackedMeldKind::Ankan as u8)
     }
 }

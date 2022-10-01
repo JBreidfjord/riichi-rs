@@ -4,8 +4,9 @@
 //! - <https://riichi.wiki/Mentsu>
 //! - <https://ja.wikipedia.org/wiki/%E9%9D%A2%E5%AD%90_(%E9%BA%BB%E9%9B%80)>
 
-use std::fmt::{Display, Formatter};
-use super::Tile;
+use core::fmt::{Display, Formatter};
+
+use crate::tile::Tile;
 
 /// A group of 3 tiles within a player's _closed_ hand, a.k.a. Mentsu 面子.
 ///
@@ -86,7 +87,7 @@ impl HandGroup {
 }
 
 impl Display for HandGroup {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         match self {
             HandGroup::Koutsu(tile) => {
                 let n = tile.normal_num();

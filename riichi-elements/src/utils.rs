@@ -26,12 +26,11 @@ pub const fn pack4(a: bool, b: bool, c: bool, d: bool) -> u8 {
 
 #[cfg(test)]
 mod tests {
-    use itertools::Itertools;
     use super::*;
 
     #[test]
     fn sort3_test() {
-        for x in [1, 2, 3].into_iter().permutations(3) {
+        for x in [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]] {
             assert_eq!(sort3(x[0], x[1], x[2]), (1, 2, 3));
         }
     }

@@ -1,8 +1,17 @@
-use std::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::common::*;
-use super::packed::*;
-use super::utils::*;
+use crate::{
+    player::*,
+    tile::Tile,
+    tile_set::*,
+    utils::{pack4, unpack4, sort3},
+};
+
+use super::{
+    packed::{PackedMeld, PackedMeldKind, normalize_daiminkan},
+    utils::{count_for_kan, daiminkan_tiles},
+};
+
 
 /// "Big Open Kan" formed by calling 1 with 3 of the same kind in the closed hand (大明槓).
 /// Similar to [Pon](super::Pon), may be called from any other player's discard.
@@ -51,7 +60,7 @@ impl Daiminkan {
 }
 
 impl Display for Daiminkan {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let (n0, n1, n2, nc, s) = (
             self.own[0].num(),
             self.own[1].num(),
@@ -63,7 +72,7 @@ impl Display for Daiminkan {
             1 => write!(f, "{}{}{}D{}{}", n0, n1, n2, nc, s),
             2 => write!(f, "{}D{}{}{}{}", n0, nc, n1, n2, s),
             3 => write!(f, "D{}{}{}{}{}", nc, n0, n1, n2, s),
-            _ => Err(std::fmt::Error::default()),
+            _ => Err(core::fmt::Error::default()),
         }
     }
 }
@@ -72,7 +81,7 @@ impl TryFrom<PackedMeld> for Daiminkan {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != u8::from(PackedMeldKind::Daiminkan) { return Err(()); }
+        if raw.kind() != PackedMeldKind::Daiminkan as u8 { return Err(()); }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut own2, mut called) = (t, t, t, t);
         let (r0, r1, r2, r3) = unpack4(normalize_daiminkan(raw.red()));
@@ -95,6 +104,6 @@ impl From<Daiminkan> for PackedMeld {
                             own1.is_red(),
                             own2.is_red(),
                             daiminkan.called.is_red()))
-            .with_kind(PackedMeldKind::Daiminkan.into())
+            .with_kind(PackedMeldKind::Daiminkan as u8)
     }
 }

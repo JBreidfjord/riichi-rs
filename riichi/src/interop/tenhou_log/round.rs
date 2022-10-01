@@ -76,7 +76,7 @@ mod tests {
 
     fn t(s: &str) -> Tile { t!(s) }
     fn it(s: &str) -> TenhouIncoming { TenhouIncoming::Draw(t(s)) }
-    fn ts(s: &str) -> Vec<Tile> { tiles_from_str(s) }
+    fn ts(s: &str) -> impl Iterator<Item = Tile> + '_ { tiles_from_str(s) }
     fn its(s: &str) -> Vec<TenhouIncoming> {
         ts(s).into_iter().map(TenhouIncoming::Draw).collect_vec()
     }

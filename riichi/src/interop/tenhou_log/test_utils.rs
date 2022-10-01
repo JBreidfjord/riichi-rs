@@ -1,4 +1,4 @@
-use log::log_enabled;
+use itertools::Itertools;
 use rand::prelude::*;
 
 use crate::prelude::*;
@@ -19,13 +19,11 @@ pub fn run_a_round(
 
     let mut begin = lite.begin.clone();
     let mut missing_tiles = wall::get_missing_tiles_in_partial_wall(
-        &recovered.known_wall, num_reds);
+        &recovered.known_wall, num_reds).iter_tiles().collect_vec();
     missing_tiles[..].shuffle(&mut thread_rng());
     begin.wall = wall::fill_missing_tiles_in_partial_wall(
         &recovered.known_wall, missing_tiles.into_iter());
-    if log_enabled!(log::Level::Debug) {
-        wall::print(&begin.wall);
-    }
+    log::debug!("{}", begin.wall.display());
 
     let mut full = RoundHistory {
         begin: begin.clone(),

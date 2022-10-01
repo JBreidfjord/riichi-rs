@@ -51,9 +51,13 @@
 //! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
 //! - <https://riichi.wiki/Yama>
 
-use itertools::Itertools;
+use core::fmt::{Display, Formatter};
 
-use crate::common::*;
+use crate::{
+    tile::Tile,
+    tile_set::*,
+    player::*,
+};
 
 /// The wall of tiles.
 /// See [mod-level docs](self).
@@ -160,7 +164,7 @@ pub fn kan_draw(wall: &Wall, i: usize) -> Tile {
 /// of red tiles.
 /// 
 /// Panics when the partially-known wall is inconsistent with the assumed complete set of tiles. 
-pub fn get_missing_tiles_in_partial_wall(partial_wall: &PartialWall, num_reds: [u8; 3]) -> Vec<Tile> {
+pub fn get_missing_tiles_in_partial_wall(partial_wall: &PartialWall, num_reds: [u8; 3]) -> TileSet37 {
     let mut missing = TileSet37::complete_set(num_reds);
     for tile_or_hole in partial_wall {
         if let &Some(tile) = tile_or_hole {
@@ -170,7 +174,7 @@ pub fn get_missing_tiles_in_partial_wall(partial_wall: &PartialWall, num_reds: [
             missing[tile] -= 1;
         }
     }
-    missing.iter_tiles().collect_vec()
+    missing
 }
 
 /// Combine the partially-known wall and (reordered) unknown tiles to form a fully-known wall.
@@ -185,44 +189,63 @@ pub fn fill_missing_tiles_in_partial_wall(
         tile_or_hole.or_else(|| missing_iter.next()).unwrap())
 }
 
-pub fn print(wall: &Wall) {
-    for x in &wall.iter().chunks(8) {
-        for tile in x {
-            print!("{} ", tile);
-        }
-        println!();
-    }
+// Hack to impl `Display` for both `Wall` and `PartialWall`
 
+pub struct WallDisplay<'a>(&'a Wall);
+pub trait WallDisplayMethod {
+    fn display(&self) -> WallDisplay;
+}
+impl WallDisplayMethod for Wall {
+    fn display(&self) -> WallDisplay { WallDisplay(self) }
+}
+impl<'a> Display for WallDisplay<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        for tile in self.0 {
+            write!(f, "{} ", tile)?;
+        }
+        writeln!(f)
+    }
 }
 
-// TODO(summivox): dedupe with tenhou round recovery
-pub fn print_partial(partial_wall: &PartialWall) {
-    for x in &partial_wall.iter().chunks(8) {
-        for y in x {
-            if let Some(tile) = y {
-                print!("{} ", tile);
+pub struct PartialWallDisplay<'a>(&'a PartialWall);
+pub trait PartialWallDisplayMethod {
+    fn display(&self) -> PartialWallDisplay;
+}
+impl PartialWallDisplayMethod for PartialWall {
+    fn display(&self) -> PartialWallDisplay { PartialWallDisplay(self) }
+}
+impl<'a> Display for PartialWallDisplay<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        for (i, x) in self.0.iter().enumerate() {
+            if let Some(tile) = x {
+                write!(f, "{} ", tile)?;
             } else {
-                print!("?? ");
+                write!(f, "?? ")?;
+            }
+            if i % 8 == 7 {
+                writeln!(f)?;
             }
         }
-        println!();
+        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    extern crate std;
+
     use super::*;
-    use crate::common::tile::tiles_from_str;
+    use crate::tile::tiles_from_str;
 
     #[test]
     fn sorted_wall_is_correct() {
-        let ans= concat!(
+        let ans = concat!(
             "111122223333444405556666777788889999m",
             "111122223333444400556666777788889999p",
             "111122223333444455556666777788889999s",
             "1111222233334444555566667777z");
         let wall = make_sorted_wall([1, 2, 0]);
-        assert_eq!(wall[..], tiles_from_str(ans)[..]);
+        itertools::assert_equal(wall, tiles_from_str(ans));
         assert!(is_valid_wall(wall));
     }
 

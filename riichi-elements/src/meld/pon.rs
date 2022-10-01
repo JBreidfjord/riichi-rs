@@ -1,7 +1,12 @@
-use std::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::common::*;
-use super::packed::*;
+use crate::{
+    player::*,
+    tile::Tile,
+    tile_set::*,
+    utils::{pack4, sort2, unpack4},
+};
+use super::packed::{normalize_pon, PackedMeld, PackedMeldKind};
 
 /// An open group of 3 identical (ignoring red) tiles (ポン / 明刻).
 /// May be called from any other player's discard.
@@ -46,7 +51,7 @@ impl Pon {
 }
 
 impl Display for Pon {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         let (n0, n1, nc, s) = (
             self.own[0].num(),
             self.own[1].num(),
@@ -57,7 +62,7 @@ impl Display for Pon {
             1 => write!(f, "{}{}P{}{}", n0, n1, nc, s),
             2 => write!(f, "{}P{}{}{}", n0, nc, n1, s),
             3 => write!(f, "P{}{}{}{}", nc, n0, n1, s),
-            _ => Err(std::fmt::Error::default()),
+            _ => Err(core::fmt::Error::default()),
         }
     }
 }
@@ -66,7 +71,7 @@ impl TryFrom<PackedMeld> for Pon {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != u8::from(PackedMeldKind::Pon) { return Err(()); }
+        if raw.kind() != PackedMeldKind::Pon as u8 { return Err(()); }
         let t = raw.get_tile().ok_or(())?;
         let (mut own0, mut own1, mut called) = (t, t, t);
         let (r0, r1, r2, _) = unpack4(normalize_pon(raw.red()));
@@ -87,6 +92,6 @@ impl From<Pon> for PackedMeld {
                             own1.is_red(),
                             pon.called.is_red(),
                             false))
-            .with_kind(PackedMeldKind::Pon.into())
+            .with_kind(PackedMeldKind::Pon as u8)
     }
 }

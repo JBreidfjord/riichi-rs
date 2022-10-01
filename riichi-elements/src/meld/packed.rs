@@ -1,7 +1,6 @@
 use bitfield_struct::bitfield;
-use num_enum::{IntoPrimitive, TryFromPrimitive};
 
-use crate::common::Tile;
+use crate::tile::Tile;
 use super::{Meld, Chii, Pon, Kakan, Daiminkan, Ankan};
 
 /// Defines the bit-fields for packing `Meld` into `u16`:
@@ -41,7 +40,7 @@ impl PackedMeld {
 
 /// Encode the meld kind in 3 bits.
 /// Note that `0` is deliberately reserved so that any valid packing is never `0`.
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, IntoPrimitive, TryFromPrimitive)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, strum::FromRepr)]
 #[repr(u8)]
 pub(crate) enum PackedMeldKind {
     #[default]
@@ -56,7 +55,7 @@ impl TryFrom<PackedMeld> for Meld {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        match PackedMeldKind::try_from(raw.kind()).map_err(|_| ())? {
+        match PackedMeldKind::from_repr(raw.kind()).ok_or(())? {
             PackedMeldKind::Chii =>
                 Chii::try_from(raw).map(Meld::Chii),
             PackedMeldKind::Pon =>

@@ -1,8 +1,11 @@
-use std::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::common::Tile;
-use crate::common::TileSet37;
-use crate::common::utils::*;
+use crate::{
+    tile::Tile,
+    tile_set::*,
+    utils::{sort2, sort3},
+};
+
 use super::packed::{PackedMeld, PackedMeldKind};
 
 /// An open group of 3 consecutive tiles (チー / 明順).
@@ -51,7 +54,7 @@ impl Chii {
 }
 
 impl Display for Chii {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "C{}{}{}{}",
                self.called.num(),
                self.own[0].num(),
@@ -64,7 +67,7 @@ impl TryFrom<PackedMeld> for Chii {
     type Error = ();
 
     fn try_from(raw: PackedMeld) -> Result<Self, Self::Error> {
-        if raw.kind() != u8::from(PackedMeldKind::Chii) { return Err(()); }
+        if raw.kind() != PackedMeldKind::Chii as u8 { return Err(()); }
         let mut a = raw.get_tile().ok_or(())?;
         let mut b = a.succ().unwrap();
         let mut c = b.succ().unwrap();
@@ -90,6 +93,6 @@ impl From<Chii> for PackedMeld {
             .with_tile(chii.min.encoding())
             .with_dir(chii.dir())
             .with_red(red as u8)
-            .with_kind(PackedMeldKind::Chii.into())
+            .with_kind(PackedMeldKind::Chii as u8)
     }
 }

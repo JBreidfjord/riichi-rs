@@ -11,8 +11,8 @@
 //! without first converting to encoding. A [`TileSet37`] can be converted to a [`TileSet34`] with
 //! red 5's folded into normal 5's.
 
-use std::fmt::{Display, Formatter};
-use std::ops::{Index, IndexMut};
+use core::fmt::{Display, Formatter};
+use core::ops::{Index, IndexMut};
 
 use derive_more::{
     Constructor, From, Into, IntoIterator, Index, IndexMut,
@@ -20,7 +20,7 @@ use derive_more::{
     BitAndAssign, BitOrAssign, BitXorAssign,
 };
 
-use super::Tile;
+use crate::tile::Tile;
 
 /// Histogram for all 37 kinds of tiles (including reds).
 /// Can be directly indexed with [`Tile`].
@@ -45,7 +45,7 @@ impl Default for TileSet37 {
 }
 
 impl Display for TileSet37 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         for xs in [
             &self.0[0..9],
             &self.0[9..18],
@@ -136,7 +136,7 @@ impl Default for TileSet34 {
 }
 
 impl Display for TileSet34 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         for xs in self.0.chunks(9) {
             for x in xs {
                 write!(f, "{}", x)?;
@@ -303,7 +303,7 @@ impl From<TileSet34> for TileMask34 {
 }
 
 impl Display for TileMask34 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         for r in [0..9, 9..18, 18..27, 27..34] {
             for i in r {
                 write!(f, "{}", (self.0 >> i) & 1)?;
@@ -317,8 +317,8 @@ impl Display for TileMask34 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
-    use crate::common::tiles_from_str;
+    use crate::tile::*;
+    use core::str::FromStr;
 
     #[test]
     fn histogram_can_be_indexed_with_tile() {

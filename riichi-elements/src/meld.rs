@@ -6,9 +6,14 @@
 //! - <https://riichi.wiki/Naki>
 //! - <https://ja.wikipedia.org/wiki/%E5%89%AF%E9%9C%B2>
 
-use std::fmt::{Display, Formatter};
+use core::fmt::{Display, Formatter};
 
-use crate::common::*;
+use crate::{
+    hand_group::HandGroup,
+    player::*,
+    tile::Tile,
+    tile_set::*,
+};
 
 mod chii;
 mod pon;
@@ -120,7 +125,7 @@ impl Meld {
 }
 
 impl Display for Meld {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         // Different melds' string representations are already distinct; simply pass through.
         match self {
             Meld::Chii(chii) => write!(f, "{}", chii),
@@ -136,6 +141,8 @@ impl Display for Meld {
 mod test {
     use super::*;
     use crate::t;
+    extern crate std;
+    use std::string::ToString;
 
     #[test]
     fn chii_example() {
@@ -227,15 +234,15 @@ mod test {
 
     #[test]
     fn sizeof() {
-        println!("Meld={} (align={}), Option<Meld>={} (align={})",
-                 std::mem::size_of::<Meld>(),
-                 std::mem::align_of::<Meld>(),
-                 std::mem::size_of::<Option<Meld>>(),
-                 std::mem::align_of::<Option<Meld>>(),
+        std::println!("Meld={} (align={}), Option<Meld>={} (align={})",
+                 core::mem::size_of::<Meld>(),
+                 core::mem::align_of::<Meld>(),
+                 core::mem::size_of::<Option<Meld>>(),
+                 core::mem::align_of::<Option<Meld>>(),
         );
     }
 
-    #[cfg(feature = "serde")]
+    #[cfg(all(feature = "serde", feature = "std"))]
     mod serde_tests{
         use super::*;
         use assert_json_diff::assert_json_eq;

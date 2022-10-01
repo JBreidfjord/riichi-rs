@@ -5,11 +5,13 @@
 //! - <https://en.wikipedia.org/wiki/Mahjong_tiles>
 //! - <https://riichi.wiki/Mahjong_equipment>
 
-use std::cmp::Ordering;
-use std::fmt::{Display, Formatter};
-use std::str::FromStr;
+use core::{
+    cmp::Ordering,
+    fmt::{Display, Formatter},
+    str::FromStr
+};
 
-use super::typedefs::*;
+use crate::typedefs::*;
 
 /// Represents one tile (牌).
 ///
@@ -37,7 +39,7 @@ use super::typedefs::*;
 ///
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(try_from = "String", into = "&str"))]
+#[cfg_attr(all(feature = "serde", feature = "std"), serde(try_from = "String", into = "&str"))]
 pub struct Tile(u8);
 
 impl Tile {
@@ -300,6 +302,7 @@ impl TryFrom<&str> for Tile {
     fn try_from(value: &str) -> Result<Self, Self::Error> { value.parse() }
 }
 
+#[cfg(feature = "std")]
 impl TryFrom<String> for Tile {
     type Error = UnspecifiedError;
     fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() }
@@ -310,7 +313,7 @@ impl Into<&str> for Tile {
 }
 
 impl Display for Tile {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.as_str())
     }
 }
@@ -323,47 +326,91 @@ pub const fn maybe_tile_unicode(tile: Option<Tile>) -> char {
 /// Parse shorthand for a list of tiles.
 /// Example:
 /// ```
-/// use riichi::common::tile::*;
-/// assert_eq!(tiles_from_str("11123m8p8p777z").len(), 10);
+/// use riichi_elements::tile::*;
+/// use itertools::assert_equal;
+/// assert_equal(tiles_from_str("11123m8p8p777z"), [
+///     t!("1m"), t!("1m"), t!("1m"), t!("2m"), t!("3m"),
+///     t!("8p"), t!("8p"),
+///     t!("7z"), t!("7z"), t!("7z"),
+/// ]);
 /// ```
-pub fn tiles_from_str(s: &str) -> Vec<Tile> {
-    let mut tiles: Vec<Tile> = vec![];
-    let mut nums: Vec<u8> = vec![];
-    for c in s.chars() {
-        if let Some(num) = c.to_digit(10) {
-            nums.push(num as u8);
-        } else if let Some(suit) = suit_from_char(c) {
-            for &num in nums.iter() {
-                if let Some(tile) = Tile::from_num_suit(num, suit) {
-                    tiles.push(tile);
-                }
+pub fn tiles_from_str(s: &str) -> impl Iterator<Item = Tile> + '_ {
+    let mut iter = TilesFromStr {
+        iter_n: s.chars().peekable(),
+        iter_s: s.chars().peekable(),
+        suit_c: None,
+        suit: None,
+    };
+    iter.find_next_suit();
+    iter
+}
+
+// A `no_std` impl means we cannot cheat by buffering the numbers. Instead, we must find the next
+// suit char in advance (two-pointer approach).
+
+struct TilesFromStr<'a> {
+    iter_n: core::iter::Peekable<core::str::Chars<'a>>,
+    iter_s: core::iter::Peekable<core::str::Chars<'a>>,
+    suit_c: Option<char>,
+    suit: Option<u8>,
+}
+
+impl<'a> TilesFromStr<'a> {
+    fn find_next_suit(&mut self) {
+        while let Some(c) = self.iter_s.next() {
+            if let Some(suit) = suit_from_char(c) {
+                self.suit_c = Some(c);
+                self.suit = Some(suit);
+                return;
             }
-            nums.clear();
         }
-        // unrecognized chars will be silently ignored
+        self.suit_c = None;
+        self.suit = None;
     }
-    tiles
+}
+
+impl<'a> Iterator for TilesFromStr<'a> {
+    type Item = Tile;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.iter_n.peek().copied() == self.suit_c {
+            self.iter_n.next();
+            self.find_next_suit();
+        }
+        self.suit.and_then(|suit|
+            self.iter_n.next()
+                .and_then(|num_char| num_char.to_digit(10))
+                .and_then(|num| Tile::from_num_suit(num as u8, suit)))
+    }
 }
 
 /// Shortcut for creating a tile literal through its string shorthand.
 ///
 /// Example:
 /// ```
-/// use riichi::common::tile::*;
+/// use riichi_elements::tile::*;
 /// assert_eq!(t!("3s"), Tile::from_encoding(20).unwrap());
 /// ```
 #[macro_export]
 macro_rules! t {
     ($s:expr) => {{
-        use std::str::FromStr;
-        $crate::common::tile::Tile::from_str($s).unwrap()
+        use core::str::FromStr;
+        $crate::tile::Tile::from_str($s).unwrap()
     }};
 }
 pub use t;
 
 #[cfg(test)]
 mod tests {
-    use assert_json_diff::assert_json_eq;
+    extern crate std;
+    use std::{
+        vec,
+        string::*,
+        print,
+        println,
+    };
+
+    use itertools::Itertools;
+
     use super::*;
 
     #[test]
@@ -389,7 +436,7 @@ mod tests {
 
     #[test]
     fn tiles_from_str_examples() {
-        assert_eq!(tiles_from_str("1m2p3s4z"), vec![
+        assert_eq!(tiles_from_str("1m2p3s4z").collect_vec(), vec![
             t!("1m"), t!("2p"), t!("3s"), t!("4z"),
         ]);
     }
@@ -405,7 +452,7 @@ mod tests {
 
     #[test]
     fn tile_has_total_order() {
-        use std::str::FromStr;
+        use core::str::FromStr;
         let correct_order = [
             "1m", "2m", "3m", "4m", "0m", "5m", "6m", "7m", "8m", "9m", //
             "1p", "2p", "3p", "4p", "0p", "5p", "6p", "7p", "8p", "9p", //
@@ -472,17 +519,6 @@ mod tests {
         for enc in 31..37 {
             assert_eq!(Tile::from_encoding(enc).unwrap().wind(), None);
         }
-    }
-
-    #[cfg(feature = "serde")]
-    #[test]
-    fn tile_serde_string() {
-        let tile = t!("0p");
-        let json = serde_json::json!("0p");
-        let serialized = serde_json::to_value(tile).unwrap();
-        let deserialized = serde_json::from_value::<Tile>(json.clone()).unwrap();
-        assert_json_eq!(serialized, json);
-        assert_eq!(deserialized, tile);
     }
 
     #[test]
