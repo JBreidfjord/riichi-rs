@@ -1,4 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![doc = include_str!("../README.lib.md")]
 
 pub mod hand_group;
 pub mod meld;
@@ -10,12 +11,13 @@ pub mod utils;
 pub mod wall;
 
 pub mod prelude {
-    pub use crate::hand_group::*;
-    pub use crate::meld::*;
-    pub use crate::player::*;
-    pub use crate::tile::*;
-    pub use crate::tile_set::*;
-    pub use crate::typedefs::*;
-    pub use crate::utils::*;
-    pub use crate::wall::{self, PartialWall, PartialWallDisplayMethod, Wall, WallDisplayMethod};
+    pub use crate::{
+        hand_group::*,
+        meld::*,
+        player::*,
+        tile::*,
+        tile_set::*,
+        typedefs::*,
+        wall::{self, PartialWall, PartialWallDisplayMethod, Wall, WallDisplayMethod}
+    };
 }

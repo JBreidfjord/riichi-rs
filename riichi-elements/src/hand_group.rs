@@ -12,9 +12,9 @@ use crate::tile::Tile;
 ///
 /// Can be either:
 /// - Koutsu (暗)刻子: 3 of a kind (ignoring red); e.g. `222z`, `055m`
-/// - Shuntsu (暗)順子: 3 consecutives (ignoring red); e.g. `789m`, `406s`
+/// - Shuntsu (暗)順子: 3 consecutive numerals (ignoring red); e.g. `789m`, `406s`
 ///
-/// These are like [`crate::common::Chii`] and [`crate::common::Pon`] respectively except concealed.
+/// These are like [Chii] and [Pon] respectively, except concealed.
 ///
 /// It can be encoded as a 6-bit integer (the same size as a [`Tile`]!), with 2 bitfields:
 /// - `[3:0]`: `[111, 123, 222, 234, 333, 345, 444, 456, 555, 567, 666, 678, 777, 789, 888, 999]`.
@@ -22,6 +22,9 @@ use crate::tile::Tile;
 ///   For suit 3 (honors), `123`, `234`, ..., `789`, `888`, `999` are all invalid.
 ///
 /// - `[5:4]`: suit (0/1/2/3 = m/p/s/z)
+///
+/// [Chii]: crate::meld::Chii
+/// [Pon]: crate::meld::Pon
 ///
 /// ## Optional `serde` support
 ///

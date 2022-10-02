@@ -1,15 +1,17 @@
-//! Unordered (multi-)sets of tiles, represented as histograms.
+//! Unordered multi- and single-sets of tiles, represented as histograms.
 //!
 //! - When red 5's are counted separately, use [`TileSet37`].
 //! - If red 5's are treated the same as normal 5's, use [`TileSet34`].
 //! - If all 4 tiles of the same kind are treated the same (i.e. you only need to deal with distinct
 //!   tiles), use [`TileMask34`].
 //!
-//! As the names suggest, the specific encoding of [`Tile`] is assumed.
+//! As the names suggest, the specific encoding of [Tile] is assumed.
 //!
-//! Both [`TileSet37`] and [`TileSet34`] can be indexed with [`Tile`] (red or normal, 37 or 34),
-//! without first converting to encoding. A [`TileSet37`] can be converted to a [`TileSet34`] with
-//! red 5's folded into normal 5's.
+//! Both [`TileSet37`] and [`TileSet34`] can be indexed with [`Tile`][Tile] (red or normal, 37 or
+//! 34), without first converting to encoding. A [`TileSet37`] can be converted to a [`TileSet34`]
+//! with red 5's folded into normal 5's. Any multi-set can be converted to a [`TileMask34`].
+//!
+//! [Tile]: crate::tile::Tile
 //!
 
 mod tile_set_37;
