@@ -13,8 +13,8 @@ use super::{
 
 #[derive(Error, Debug)]
 pub enum ActionError {
-    #[error("Tsumokiri discard tile {0} != drawn tile {1:?}")]
-    TsumokiriMismatch(Tile, Option<Tile>),
+    #[error("Tsumogiri discard tile {0} != drawn tile {1:?}")]
+    TsumogiriMismatch(Tile, Option<Tile>),
 
     #[error("Discarding from the closed hand while under riichi.")]
     DiscardClosedHandUnderRiichi,
@@ -101,9 +101,9 @@ pub fn check_action(
             if under_riichi && discard.declares_riichi { return Err(DeclareRiichiAgain); }
 
             // Discarded tile must be either just drawn, or already in our closed hand.
-            if discard.is_tsumokiri {
+            if discard.is_tsumogiri {
                 if state.core.draw != Some(discard.tile) {
-                    return Err(TsumokiriMismatch(discard.tile, state.core.draw));
+                    return Err(TsumogiriMismatch(discard.tile, state.core.draw));
                 }
             } else {
                 if under_riichi {

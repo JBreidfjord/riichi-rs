@@ -8,10 +8,10 @@ use super::Discard;
 ///
 /// ## Optional `serde` support
 ///
-/// [`Action`] adopts a custom layout `{type, tile?, riichi?, tsumokiri?}` to help with ergonomics.
+/// [`Action`] adopts a custom layout `{type, tile?, riichi?, tsumogiri?}` to help with ergonomics.
 ///
 /// - The `"tile"` field is defined the same as [`Action::tile()`].
-/// - Only for [`Action::Discard`]: optionally add `"tsumokiri"` and `"riichi"` flags if set.
+/// - Only for [`Action::Discard`]: optionally add `"tsumogiri"` and `"riichi"` flags if set.
 ///
 /// Examples:
 ///
@@ -108,8 +108,8 @@ mod action_serde {
                     if discard.declares_riichi {
                         st.serialize_field("riichi", &true)?;
                     }
-                    if discard.is_tsumokiri {
-                        st.serialize_field("tsumokiri", &true)?;
+                    if discard.is_tsumogiri {
+                        st.serialize_field("tsumogiri", &true)?;
                     }
                     st.end()
                 }
@@ -159,7 +159,7 @@ mod action_serde {
             let mut kind = String::new();
             let mut tile = Tile::MIN;
             let mut declares_riichi = false;
-            let mut is_tsumokiri = false;
+            let mut is_tsumogiri = false;
 
             while let Some((key, value)) = map.next_entry::<String, serde_json::Value>()? {
                 match key.as_str() {
@@ -170,9 +170,9 @@ mod action_serde {
                     "tile" =>
                         tile = value.as_str().and_then(|str| str.parse().ok())
                             .ok_or(Error::custom("invalid tile"))?,
-                    "tsumokiri" =>
-                        is_tsumokiri = value.as_bool()
-                            .ok_or(Error::custom("invalid tsumokiri"))?,
+                    "tsumogiri" =>
+                        is_tsumogiri = value.as_bool()
+                            .ok_or(Error::custom("invalid tsumogiri"))?,
                     "riichi" =>
                         declares_riichi = value.as_bool()
                             .ok_or(Error::custom("invalid riichi"))?,
@@ -181,7 +181,7 @@ mod action_serde {
             }
             match kind.as_str() {
                 "Discard" => Ok(Action::Discard(Discard {
-                    tile, declares_riichi, is_tsumokiri, called_by: P0
+                    tile, declares_riichi, is_tsumogiri, called_by: P0
                 })),
                 "Ankan" => Ok(Action::Ankan(tile)),
                 "Kakan" => Ok(Action::Kakan(tile)),
@@ -205,7 +205,7 @@ mod tests {
         #[test]
         fn serde_discard() {
             let action = Action::Discard(Discard{
-                tile: t!("1m"), called_by: P0, is_tsumokiri: false, declares_riichi: true});
+                tile: t!("1m"), called_by: P0, is_tsumogiri: false, declares_riichi: true});
             let json = serde_json::json!({
                 "type": "Discard", "tile": "1m", "riichi": true
             });

@@ -85,7 +85,7 @@ mod tests {
             tile: t(s),
             called_by: Default::default(),
             declares_riichi: false,
-            is_tsumokiri: false,
+            is_tsumogiri: false,
         })
     }
     fn odd() -> TenhouOutgoing {
@@ -93,7 +93,7 @@ mod tests {
             tile: Default::default(),
             called_by: Default::default(),
             declares_riichi: false,
-            is_tsumokiri: true,
+            is_tsumogiri: true,
         })
     }
     fn or(s: &str) -> TenhouOutgoing {
@@ -101,7 +101,7 @@ mod tests {
             tile: t(s),
             called_by: Default::default(),
             declares_riichi: true,
-            is_tsumokiri: false,
+            is_tsumogiri: false,
         })
     }
 
@@ -111,7 +111,7 @@ mod tests {
             tile: Default::default(),
             called_by: Default::default(),
             declares_riichi: true,
-            is_tsumokiri: true,
+            is_tsumogiri: true,
         })
     }
 

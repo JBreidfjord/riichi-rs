@@ -116,7 +116,7 @@ pub fn recover_round(round: &TenhouRoundRaw) -> Option<RecoveredRound> {
             Some(&TenhouOutgoing::Discard(mut discard)) => {
                 let mut next_actor = actor.succ();
                 let mut reactor_reaction = None;
-                if discard.is_tsumokiri { discard.tile = draw?; }
+                if discard.is_tsumogiri { discard.tile = draw?; }
                 for reactor in other_players_after(actor) {
                     let reactor_i = reactor.to_usize();
                     if let Some(TenhouIncoming::ChiiPonDaiminkan(meld)) = in_iter[reactor_i].peek() {

@@ -71,7 +71,7 @@ impl Serialize for TenhouOutgoing {
             TenhouOutgoing::DaiminkanDummy =>
                 serializer.serialize_u8(0),
             TenhouOutgoing::Discard(discard) => {
-                let n = if discard.is_tsumokiri { 60 } else { to_tenhou_tile(discard.tile) };
+                let n = if discard.is_tsumogiri { 60 } else { to_tenhou_tile(discard.tile) };
                 if discard.declares_riichi {
                     serializer.serialize_str(&format!("r{}", n))
                 } else {
@@ -105,7 +105,7 @@ impl<'de> Visitor<'de> for TenhouOutgoingVisitor {
                 tile: Default::default(),
                 called_by: Default::default(),
                 declares_riichi: false,
-                is_tsumokiri: true,
+                is_tsumogiri: true,
             })),
             _ => {
                 parse_tenhou_tile(v as u8)
@@ -114,7 +114,7 @@ impl<'de> Visitor<'de> for TenhouOutgoingVisitor {
                             tile,
                             called_by: Default::default(),
                             declares_riichi: false,
-                            is_tsumokiri: false,
+                            is_tsumogiri: false,
                         }))
                     .ok_or_else(|| E::custom("not tenhou tile"))
             }
@@ -129,14 +129,14 @@ impl<'de> Visitor<'de> for TenhouOutgoingVisitor {
                         tile: Default::default(),
                         called_by: Default::default(),
                         declares_riichi: true,
-                        is_tsumokiri: true,
+                        is_tsumogiri: true,
                     })
                 } else {
                     TenhouOutgoing::Discard(Discard {
                         tile: parse_tenhou_tile(n).unwrap(),
                         called_by: Default::default(),
                         declares_riichi: true,
-                        is_tsumokiri: false,
+                        is_tsumogiri: false,
                     })
                 })
                 .ok_or_else(|| E::custom("not tenhou riichi tile"))
@@ -178,7 +178,7 @@ mod tests {
                 tile: t("7z"),
                 called_by: Default::default(),
                 declares_riichi: false,
-                is_tsumokiri: false,
+                is_tsumogiri: false,
             }),
             &[Token::U8(47)]
         );
@@ -187,7 +187,7 @@ mod tests {
                 tile: Default::default(),
                 called_by: Default::default(),
                 declares_riichi: false,
-                is_tsumokiri: true,
+                is_tsumogiri: true,
             }),
             &[Token::U8(60)]
         );
@@ -196,7 +196,7 @@ mod tests {
                 tile: t("2s"),
                 called_by: Default::default(),
                 declares_riichi: true,
-                is_tsumokiri: false,
+                is_tsumogiri: false,
             }),
             &[Token::Str("r32")]
         );
@@ -205,7 +205,7 @@ mod tests {
                 tile: Default::default(),
                 called_by: Default::default(),
                 declares_riichi: true,
-                is_tsumokiri: true,
+                is_tsumogiri: true,
             }),
             &[Token::Str("r60")]
         );

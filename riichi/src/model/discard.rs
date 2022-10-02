@@ -34,8 +34,8 @@ pub struct Discard {
     pub declares_riichi: bool,
 
     /// Whether this tile was discarded immediately after being drawn (ツモ切り).
-    #[cfg_attr(feature = "serde", serde(rename = "tsumokiri"))]
-    pub is_tsumokiri: bool,
+    #[cfg_attr(feature = "serde", serde(rename = "tsumogiri"))]
+    pub is_tsumogiri: bool,
 }
 
 impl Display for Discard {
@@ -44,11 +44,11 @@ impl Display for Discard {
         if self.declares_riichi {
             write!(f, "RIICHI!({}{})",
                    self.tile,
-                   if self.is_tsumokiri { "*" } else { " " })
+                   if self.is_tsumogiri { "*" } else { " " })
         } else {
             write!(f, "discard({}{})",
                    self.tile,
-                   if self.is_tsumokiri { "*" } else { " " })
+                   if self.is_tsumogiri { "*" } else { " " })
         }
     }
 }
