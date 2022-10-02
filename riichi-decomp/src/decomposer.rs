@@ -4,12 +4,12 @@
 
 use itertools::Itertools;
 
-use crate::common::*;
-use super::regular::{RegularWait, RegularWaitGroups};
-
+use riichi_elements::prelude::*;
 use riichi_decomp_table::{
     CompleteGrouping, WaitingKind, WaitingPattern,
 };
+
+use super::regular::{RegularWait, RegularWaitGroups};
 
 #[cfg(not(feature = "static-lut"))]
 use riichi_decomp_table::{CTable, WTable};
@@ -45,8 +45,8 @@ use tables::{c_entry_iter, w_entry_iter};
 ///
 /// Example:
 /// ```
-/// use riichi::analysis::*;
-/// use riichi::common::*;
+/// use riichi_decomp::*;
+/// use riichi_elements::prelude::*;
 /// let mut decomposer = Decomposer::new();
 /// let hand = TileSet34::from_iter(tiles_from_str("1112345678999m"));
 /// for wait in decomposer.with_tile_set(&hand).iter() {

@@ -9,8 +9,10 @@ edition = "2021"
 bitfield-struct = "0.1.7"
 derive_more = "0.99.17"
 itertools = { version = "0.10", default-features = false }
-serde = { workspace = true, default-features = false, features = ["derive"], optional = true }
 strum = { version = "0.24", default-features = false, features = ["derive"] }
+
+# workspace shared
+serde = { workspace = true, default-features = false, features = ["derive"], optional = true }
 
 
 [dev-dependencies]

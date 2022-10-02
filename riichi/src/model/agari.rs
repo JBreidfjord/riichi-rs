@@ -73,8 +73,7 @@ impl AgariKind {
 /// Serialization only.
 /// Straightforward struct mapping of all fields.
 ///
-#[derive(Clone, Debug)]
-#[cfg_attr(test, derive(Eq, PartialEq))]  // due to `RegularWait`
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct AgariCandidate {
     /// Waiting pattern for this hand --- regular or irregular, based on which this hand is being

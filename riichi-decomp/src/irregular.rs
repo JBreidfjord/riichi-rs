@@ -1,6 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::iter::zip;
-use crate::common::*;
+
+use riichi_elements::prelude::*;
 
 /// Represents one of the irregular waiting hand patterns.
 ///

@@ -6,13 +6,14 @@ use std::path::{Path};
 use riichi_decomp_table::{make_c_table, make_w_table};
 
 fn main() {
-    let c_table = make_c_table();
-    let w_table = make_w_table(&c_table);
-
     let out_dir = env::var_os("OUT_DIR").unwrap();
     let dest_path = Path::new(&out_dir).join("decomp_tables.rs");
 
     if dest_path.exists() { return; }
+
+    let c_table = make_c_table();
+    let w_table = make_w_table(&c_table);
+
     let mut map_file = BufWriter::new(File::create(dest_path).unwrap());
     {
         let mut c_map_gen = phf_codegen::Map::<u32>::new();

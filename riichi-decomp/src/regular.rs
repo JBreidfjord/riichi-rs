@@ -1,8 +1,11 @@
-use std::fmt::{Display, Formatter};
+use std::{
+    cmp::Ordering,
+    fmt::{Display, Formatter},
+};
 
 use itertools::Itertools;
 
-use crate::common::*;
+use riichi_elements::prelude::*;
 use riichi_decomp_table::{
     WaitingKind
 };
@@ -81,6 +84,14 @@ impl RegularWait {
         self.raw_groups.map(|x| HandGroup::from_packed(x).unwrap())
     }
 
+    /// Since groups are unordered, comparison must be applied to sorted groups.
+    /// Here we don't need to convert back to `HandGroup` --- raw (packed) is sufficient.
+    fn sorted_raw_groups(&self) -> [u8; 4] {
+        let mut result = self.raw_groups.packed().to_le_bytes();
+        sortnet::sortnet4(&mut result);
+        result
+    }
+
     /// Returns whether this waiting pattern has a pair (complete or incomplete).
     pub fn has_pair_or_tanki(&self) -> bool {
         self.pair.is_some() || self.waiting_kind == WaitingKind::Tanki
@@ -109,17 +120,11 @@ impl RegularWait {
 }
 
 // NOTE: Comparison of two waiting patterns is non-trivial because `groups` is logically an
-// unordered collection. The only occasion comparison is needed is in tests.
-//
-// The following provides relatively inefficient but working comparisons for tests only.
+// unordered collection. Fortunately we only need to trivially sort.
 
-#[cfg(test)]
-use std::cmp::Ordering;
-
-#[cfg(test)]
 impl PartialEq<Self> for RegularWait {
     fn eq(&self, other: &Self) -> bool {
-        self.groups().sorted().collect_vec() == other.groups().sorted().collect_vec()
+        self.sorted_raw_groups() == other.sorted_raw_groups()
             && self.pair == other.pair
             && self.waiting_kind == other.waiting_kind
             && self.pattern_tile == other.pattern_tile
@@ -127,21 +132,18 @@ impl PartialEq<Self> for RegularWait {
     }
 }
 
-#[cfg(test)]
 impl Eq for RegularWait {}
 
-#[cfg(test)]
 impl PartialOrd<Self> for RegularWait {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-#[cfg(test)]
 impl Ord for RegularWait {
     fn cmp(&self, other: &Self) -> Ordering {
         let o =
-            self.groups().sorted().collect_vec().cmp(&other.groups().sorted().collect_vec());
+            self.sorted_raw_groups().cmp(&other.sorted_raw_groups());
         if o != Ordering::Equal { return o; }
         let o = self.pair.cmp(&other.pair);
         if o != Ordering::Equal { return o; }

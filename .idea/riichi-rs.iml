@@ -10,6 +10,7 @@
       <sourceFolder url="file://$MODULE_DIR$/riichi/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/tenhou-db/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/riichi-elements/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/riichi-decomp/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/riichi/target" />
     </content>

@@ -1,6 +1,6 @@
 use std::cmp::min;
 
-use riichi_decomp_table::WaitingKind;
+use riichi_decomp::WaitingKind;
 
 use crate::{
     common::*,
