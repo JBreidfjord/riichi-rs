@@ -48,7 +48,7 @@ type-layout = "0.2.0"
 default = ["serde", "tenhou-log"]
 
 static-lut = ["riichi-decomp/static-lut"]
-serde = ["dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serde_tuple", "dep:serde_with"]
+serde = ["dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serde_tuple", "dep:serde_with"] # TODO: internals
 tenhou-log = ["dep:rand", "dep:regex", "serde"]
 
 [[bin]]
