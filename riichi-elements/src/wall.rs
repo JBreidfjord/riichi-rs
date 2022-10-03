@@ -200,8 +200,11 @@ impl WallDisplayMethod for Wall {
 }
 impl<'a> Display for WallDisplay<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        for tile in self.0 {
+        for (i, tile) in self.0.iter().enumerate() {
             write!(f, "{} ", tile)?;
+            if i % 8 == 7 {
+                writeln!(f)?;
+            }
         }
         writeln!(f)
     }
@@ -216,8 +219,8 @@ impl PartialWallDisplayMethod for PartialWall {
 }
 impl<'a> Display for PartialWallDisplay<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        for (i, x) in self.0.iter().enumerate() {
-            if let Some(tile) = x {
+        for (i, maybe_tile) in self.0.iter().enumerate() {
+            if let Some(tile) = maybe_tile {
                 write!(f, "{} ", tile)?;
             } else {
                 write!(f, "?? ")?;
