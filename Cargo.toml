@@ -2,10 +2,11 @@
 
 members = [
     "riichi",
-    "riichi-elements",
     "riichi-decomp",
     "riichi-decomp-table",
+    "riichi-elements",
     "tenhou-db",
+    "tenhou-log-json",
     "tenhou-shuffle",
 ]
 
