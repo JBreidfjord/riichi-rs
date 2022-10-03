@@ -71,7 +71,7 @@ mod tenhou_log_tests {
             let json_value = serde_json::Value::from_str(&json_str).unwrap();
             let deserialized = serde_json::from_value::<TenhouLog>(json_value.clone()).unwrap();
             let num_reds = deserialized.rule.num_reds();
-            for round in deserialized.rounds.iter() {
+            for (i, round) in deserialized.rounds.iter().enumerate() {
                 let recovered = recover_round(round).unwrap();
                 // println!("{}", recovered);
                 let full_history = run_a_round(num_reds, &recovered, &round.end_info);

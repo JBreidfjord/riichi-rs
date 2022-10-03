@@ -29,7 +29,7 @@ clap = { version = "3.2", features = ["derive"], optional = true }
 env_logger = { version = "0.9", optional = true }
 
 # internal
-riichi = { path = "../riichi", features = ["tenhou-log", "serde"] }
+riichi-elements = { path = "../riichi-elements", features = ["serde"] }
 
 [features]
 default = ["cli"]
