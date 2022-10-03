@@ -1,5 +1,5 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![doc = include_str!("../README.lib.md")]
+#![doc = include_str!("../README.md")]
 
 pub mod hand_group;
 pub mod meld;

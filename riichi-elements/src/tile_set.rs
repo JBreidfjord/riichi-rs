@@ -1,9 +1,12 @@
-//! Unordered multi- and single-sets of tiles, represented as histograms.
+//! Unordered multi- and single-sets of tiles (histograms).
 //!
-//! - When red 5's are counted separately, use [`TileSet37`].
-//! - If red 5's are treated the same as normal 5's, use [`TileSet34`].
-//! - If all 4 tiles of the same kind are treated the same (i.e. you only need to deal with distinct
-//!   tiles), use [`TileMask34`].
+//! These can be used to represent any unordered set of tiles, such as a closed hand, a full winning
+//! hand, all waiting tiles of a waiting hand, and tiles discarded by a player.
+//!
+//! - [`TileSet37`]: multi-set; treats "red 5" tiles separately from "normal 5" (34 + 3 = 37 kinds)
+//! - [`TileSet34`]: multi-set; treats "red 5" tiles the same as "normal 5" (34 kinds)
+//! - [`TileMask34`]: single-set counting unique tiles;
+//!   treats "red 5" tiles the same as "normal 5" (34 kinds)
 //!
 //! As the names suggest, the specific encoding of [Tile] is assumed.
 //!

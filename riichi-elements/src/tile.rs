@@ -1,14 +1,15 @@
-//! [`Tile`] 牌
+//! [`Tile`] (牌) and utils.
 //!
 //! ## Ref
-//! - <https://ja.wikipedia.org/wiki/%E9%BA%BB%E9%9B%80%E7%89%8C>
+//!
+//! - <https://ja.wikipedia.org/wiki/麻雀牌>
 //! - <https://en.wikipedia.org/wiki/Mahjong_tiles>
 //! - <https://riichi.wiki/Mahjong_equipment>
 
 use core::{
     cmp::Ordering,
     fmt::{Display, Formatter},
-    str::FromStr
+    str::FromStr,
 };
 
 use crate::typedefs::*;

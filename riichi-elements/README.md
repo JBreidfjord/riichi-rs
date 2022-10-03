@@ -1,5 +1,8 @@
 # Building blocks of Japanese Riichi Mahjong
 
+[![Crates.io](https://img.shields.io/crates/v/riichi-elements)](https://crates.io/crates/riichi-elements)
+[![docs.rs](https://img.shields.io/docsrs/riichi-elements)](https://docs.rs/riichi-elements)
+
 [Japanese Riichi Mahjong][riichi] is a variant of Mahjong, a card game played with tiles on a table. This crate 
 defines the fundamental game elements / building blocks of Standard Japanese Riichi Mahjong. Documentation will 
 assume knowledge of basic game concepts but will also link to relevant wiki pages.
@@ -12,9 +15,9 @@ This crate is `no_std` by default; [`std` is an optional feature](#std-default-d
 
 ### [`tile`]: Tiles and utils
 
-[`tile::Tile`] encodes the following kinds of tiles used in a standard game:
+[`tile::Tile`] encodes the following kinds of tiles (total 37) used in a standard game:
 
-- numerals of each suit
+- 3 suits x 9 numerals each
 - 4 winds
 - 3 dragons
 - "red 5" for each suit (optional)
@@ -24,7 +27,7 @@ The following are explicitly excluded:
 - Tiles not used in the Japanese variant (flowers, seasons, wildcards, etc.) --- may appear in other Mahjong variants.
 - Red tiles other than 5's --- may appear in some non-standard Japanese Riichi Mahjong rules.
 
-Conversion to/from tile encoding (`0..=36`) and common string shorthand (e.g. "1m", "2p", "3s", "4z") is available.
+A tile can be encoded as a 6-bit integer (`0..=36`) or its common string shorthand (e.g. "1m", "2p", "3s", "4z").
 
 Notable utils:
 - [`tile::tiles_from_str`] parses a string shorthand (e.g. "11123m566778s22z") into an iterator of tiles.
@@ -49,12 +52,16 @@ tiles of a waiting hand, and tiles discarded by a player.
 - [`meld::Daiminkan`]
 - [`meld::Ankan`]
 
+A meld can be encoded as a (non-zero) 15-bit integer; see [`meld::Meld::packed`].
+
 ### [`hand_group`]: groups of 3 tiles in the closed hand
 
 [`hand_group::HandGroup`] includes:
 
 - [`hand_group::HandGroup::Shuntsu`] ("123m")
 - [`hand_group::HandGroup::Koutsu`] ("555z")
+
+A hand group can be encoded as a 6-bit integer; see [`hand_group::HandGroup::packed`].
 
 ### [`player`]
 

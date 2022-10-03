@@ -1,22 +1,24 @@
-//! [Hand Group](HandGroup), a.k.a. Mentsu 面子
+//! [Hand Group](HandGroup) = Mentsu (面子) = Koutsu ((暗)刻子) or Shuntsu ((暗)順子)
 //!
 //! ## Ref
+//!
 //! - <https://riichi.wiki/Mentsu>
-//! - <https://ja.wikipedia.org/wiki/%E9%9D%A2%E5%AD%90_(%E9%BA%BB%E9%9B%80)>
+//! - <https://ja.wikipedia.org/wiki/面子_(麻雀)>
 
 use core::fmt::{Display, Formatter};
 
 use crate::tile::Tile;
 
-/// A group of 3 tiles within a player's _closed_ hand, a.k.a. Mentsu 面子.
+/// A group of 3 tiles within a player's _closed_ hand, a.k.a. Mentsu (面子).
 ///
 /// Can be either:
-/// - Koutsu (暗)刻子: 3 of a kind (ignoring red); e.g. `222z`, `055m`
-/// - Shuntsu (暗)順子: 3 consecutive numerals (ignoring red); e.g. `789m`, `406s`
+/// - Koutsu ((暗)刻子): 3 of a kind (ignoring red); e.g. `222z`, `055m`
+/// - Shuntsu ((暗)順子): 3 consecutive numerals (ignoring red); e.g. `789m`, `406s`
 ///
 /// These are like [Chii] and [Pon] respectively, except concealed.
 ///
 /// It can be encoded as a 6-bit integer (the same size as a [`Tile`]!), with 2 bitfields:
+///
 /// - `[3:0]`: `[111, 123, 222, 234, 333, 345, 444, 456, 555, 567, 666, 678, 777, 789, 888, 999]`.
 ///   Basically with `999` shifting 1 place to occupy the encoding for `89A` (invalid).
 ///   For suit 3 (honors), `123`, `234`, ..., `789`, `888`, `999` are all invalid.

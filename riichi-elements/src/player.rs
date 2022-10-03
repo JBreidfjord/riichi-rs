@@ -14,7 +14,7 @@ use derive_more::{From, Into};
 ///
 /// ## Optional `serde` support
 ///
-/// Serializes as the underlying number. When deserialized, automatically takes mod 4.
+/// Serializes as the player index number (0/1/2/3). Deserialization will check the range.
 ///
 #[derive(Copy, Clone, Default, Eq, PartialEq, Hash, From, Into)]
 pub struct Player(u8);

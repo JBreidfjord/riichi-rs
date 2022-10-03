@@ -1,4 +1,4 @@
-//! The wall of tiles, plus utilities for working with the wall.
+//! The wall of tiles (牌山/山/壁牌) and utils.
 //!
 //! ## How we represent the wall
 //!
@@ -47,8 +47,8 @@
 //!
 //! ## Ref
 //!
-//! - <https://ja.wikipedia.org/wiki/%E9%85%8D%E7%89%8C>
-//! - <https://ja.wikipedia.org/wiki/%E5%A3%81%E7%89%8C>
+//! - <https://ja.wikipedia.org/wiki/配牌>
+//! - <https://ja.wikipedia.org/wiki/壁牌>
 //! - <https://riichi.wiki/Yama>
 
 use core::fmt::{Display, Formatter};

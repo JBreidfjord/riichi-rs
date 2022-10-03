@@ -1,10 +1,9 @@
-//! [`Meld`] 副露
-//!
-//! A [`Meld`] is one of: [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`].
+//! [`Meld`] (副露) = one of [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`].
 //!
 //! ## Ref
+//!
 //! - <https://riichi.wiki/Naki>
-//! - <https://ja.wikipedia.org/wiki/%E5%89%AF%E9%9C%B2>
+//! - <https://ja.wikipedia.org/wiki/副露>
 
 use core::fmt::{Display, Formatter};
 
@@ -142,7 +141,6 @@ mod test {
     extern crate std;
     use std::{
         string::ToString,
-        vec,
     };
 
     use super::*;
