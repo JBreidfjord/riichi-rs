@@ -1,14 +1,4 @@
-//! # Waiting Hand Decomposition
-//!
-//! A 3N+1 closed hand is considered "waiting" (1 tile away from winning) if it matches:
-//!
-//! - [One or more regular waiting pattern(s)](regular::RegularWait).
-//! - [An irregular waiting pattern](irregular::IrregularWait).
-//!
-//! This module provides [`WaitingInfo`], which can be calculated to show all the ways for a closed
-//! hand to be considered waiting. It uses [`decomposer::Decomposer`] behind the scenes to iterate
-//! through all regular waiting patterns.
-//!
+#![doc = include_str!("../README.md")]
 
 pub mod decomposer;
 pub mod irregular;
@@ -41,7 +31,6 @@ pub enum Wait {
     Irregular(IrregularWait),
 }
 
-// TODO(summivox): better name
 /// All the ways a player's closed hand can be considered waiting, regular and/or irregular.
 ///
 /// ## Optional `serde` support
@@ -51,9 +40,9 @@ pub enum Wait {
 ///
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
-pub struct WaitingInfo {
+pub struct WaitSet {
     /// The set of all waiting tiles in all different ways of waiting.
-    pub waiting_set: TileMask34,
+    pub waiting_tiles: TileMask34,
 
     /// Regular waiting patterns (groups and a pair).
     pub regular: Vec<RegularWait>,
@@ -62,24 +51,24 @@ pub struct WaitingInfo {
     pub irregular: Option<IrregularWait>,
 }
 
-impl WaitingInfo {
+impl WaitSet {
     pub fn from_keys(decomposer: &mut Decomposer, keys: &[u32; 4]) -> Self {
-        let mut waiting_set = TileMask34::default();
+        let mut waiting_tiles = TileMask34::default();
         let regular = decomposer.with_keys(*keys).iter().collect_vec();
         for wait in regular.iter() {
-            waiting_set.0 |= 1 << wait.waiting_tile.encoding() as u64;
+            waiting_tiles.0 |= 1 << wait.waiting_tile.encoding() as u64;
         }
         let irregular = detect_irregular_wait(*keys);
         if let Some(irregular) = irregular {
-            waiting_set |= irregular.to_waiting_set();
+            waiting_tiles |= irregular.to_waiting_set();
         }
-        Self { waiting_set, regular, irregular }
+        Self { waiting_tiles, regular, irregular }
     }
 }
 
-impl Display for WaitingInfo {
+impl Display for WaitSet {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{{waiting_set={}", self.waiting_set)?;
+        write!(f, "{{waiting_tiles={}", self.waiting_tiles)?;
         if let Some(irregular) = self.irregular {
             write!(f, " irregular={}", irregular)?;
         }

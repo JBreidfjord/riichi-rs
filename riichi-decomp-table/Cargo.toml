@@ -8,13 +8,13 @@ edition = "2021"
 [dependencies]
 derive_more = "0.99"
 itertools = "0.10"
-num_enum = "0.5"
 rustc-hash = "1"
 
 # workspace shared
 nanovec.workspace = true
 phf.workspace = true
 phf_codegen.workspace = true
+strum.workspace = true
 
 
 [dev-dependencies]

@@ -7,7 +7,7 @@ use crate::{
     model::*,
     rules::Ruleset
 };
-use crate::analysis::{Decomposer, WaitingInfo};
+use crate::analysis::{Decomposer, WaitSet};
 
 // TODO(summivox): Consider porting these directly to `impl TileSet37`.
 
@@ -135,16 +135,16 @@ pub fn is_ankan_ok_under_riichi(
     ruleset: &Ruleset,
     decomposer: &mut Decomposer,
     hand: &TileSet37,
-    waiting_info: &WaitingInfo,
+    wait_set: &WaitSet,
     draw: Tile,
     ankan: Tile,
 ) -> bool {
     let draw = draw.to_normal();
     let ankan = ankan.to_normal();
     if ruleset.riichi_ankan_strict_mode {
-        is_ankan_ok_under_riichi_strict(hand, &waiting_info.regular, draw, ankan)
+        is_ankan_ok_under_riichi_strict(hand, &wait_set.regular, draw, ankan)
     } else {
-        is_ankan_ok_under_riichi_relaxed(hand, decomposer, waiting_info, ankan)
+        is_ankan_ok_under_riichi_relaxed(hand, decomposer, wait_set, ankan)
     }
 }
 
@@ -174,13 +174,13 @@ pub fn is_ankan_ok_under_riichi_strict(
 pub fn is_ankan_ok_under_riichi_relaxed(
     hand: &TileSet37,
     decomposer: &mut Decomposer,
-    waiting_info: &WaitingInfo,
+    wait_set: &WaitSet,
     ankan: Tile,
 ) -> bool {
     let mut hand = hand.clone();
     hand[ankan] -= 1;
-    let new_waiting_info = WaitingInfo::from_keys(decomposer, &hand.packed_34());
-    waiting_info.waiting_set == new_waiting_info.waiting_set
+    let new_wait_set = WaitSet::from_keys(decomposer, &hand.packed_34());
+    wait_set.waiting_tiles == new_wait_set.waiting_tiles
 }
 
 /********/

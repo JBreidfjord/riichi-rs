@@ -1,7 +1,9 @@
-use std::env;
-use std::fs::File;
-use std::io::{BufWriter, Write};
-use std::path::{Path};
+use std::{
+    env,
+    fs::File,
+    io::{BufWriter, Write},
+    path::{Path}
+};
 
 use riichi_decomp_table::{make_c_table, make_w_table};
 
@@ -33,6 +35,4 @@ fn main() {
                "pub static W_TABLE: phf::Map<u32, u64> = \n{};\n",
                w_map_gen.build()).unwrap();
     }
-
-    println!("cargo:rerun-if-changed=build");
 }

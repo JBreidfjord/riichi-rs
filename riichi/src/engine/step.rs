@@ -87,7 +87,7 @@ pub fn next_normal(
             // furiten-by-discard == some tile in the waiting set exists in the discard set
             if !state.core.furiten[actor_i].miss_permanent {
                 let discard_set = state.discard_sets[actor_i];
-                let waiting_set = cache.wait[actor_i].waiting_set;
+                let waiting_set = cache.wait[actor_i].waiting_tiles;
                 debug_assert_eq!(discard_set, TileMask34::from_iter(
                     state.discards[actor_i].iter().map(|discard| discard.tile)));
 
@@ -152,7 +152,7 @@ pub fn next_normal(
                 furiten.miss_permanent = state.core.riichi[other_player_i].is_some();
             }
         } else {
-            if cache.wait[other_player_i].waiting_set.has(action_tile) {
+            if cache.wait[other_player_i].waiting_tiles.has(action_tile) {
                 furiten.miss_temporary = true;
                 furiten.miss_permanent = state.core.riichi[other_player_i].is_some();
             }
@@ -321,7 +321,7 @@ pub fn next_abort(
     let round_id = begin.round_id;
     let button = round_id.button();
     // ugly syntax gets around array::map moving the Vec value
-    let waiting = [0, 1, 2, 3].map(|i| cache.wait[i].waiting_set.any() as u8);
+    let waiting = [0, 1, 2, 3].map(|i| cache.wait[i].waiting_tiles.any() as u8);
     let waiting_renchan = waiting[button.to_usize()] > 0;
     let next_round_id;
     match abort_reason {

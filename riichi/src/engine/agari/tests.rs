@@ -6,7 +6,7 @@ use super::*;
 struct Hand {
     closed_hand: TileSet37,
     melds: Vec<Meld>,
-    waiting_info: WaitingInfo,
+    wait_set: WaitSet,
 }
 
 impl Hand {
@@ -16,17 +16,17 @@ impl Hand {
     ) -> Hand {
         let closed_hand = TileSet37::from_iter(closed_hand);
         let melds = Vec::from_iter(melds);
-        let waiting_info = WaitingInfo::from_keys(
+        let wait_set = WaitSet::from_keys(
             &mut Decomposer::new(),
             &closed_hand.packed_34(),
         );
-        for w in waiting_info.regular.iter() {
+        for w in wait_set.regular.iter() {
             println!("{}", w);
         }
         Hand {
             closed_hand,
             melds,
-            waiting_info,
+            wait_set,
         }
     }
 }
@@ -40,7 +40,7 @@ impl<'a> AgariInput<'a> {
             closed_hand: &hand.closed_hand,
             riichi: Default::default(),
             melds: &hand.melds,
-            waiting_info: &hand.waiting_info,
+            wait_set: &hand.wait_set,
 
             contributor: Default::default(),
             winning_tile: Default::default(),

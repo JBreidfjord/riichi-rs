@@ -1,7 +1,7 @@
 use log::log_enabled;
 
 use crate::{
-    analysis::{Decomposer, WaitingInfo},
+    analysis::{Decomposer, WaitSet},
     common::*,
     model::*,
 };
@@ -21,7 +21,7 @@ pub struct EngineCache {
     /// Full (3N + 1) hand waiting decomposition cache for each player.
     /// - Initialized when jumped to a new state.
     /// - Updated when a player's hand returns to (3N + 1) form.
-    pub wait: [WaitingInfo; 4],
+    pub wait: [WaitSet; 4],
 }
 
 impl EngineCache {
@@ -37,14 +37,14 @@ impl EngineCache {
 
     pub fn init_wait_cache(&mut self, hands: &[TileSet37; 4]) {
         for player in ALL_PLAYERS {
-            self.wait[player.to_usize()] = WaitingInfo::from_keys(
+            self.wait[player.to_usize()] = WaitSet::from_keys(
                 &mut self.decomposer,
                 &hands[player.to_usize()].packed_34());
         }
     }
 
     pub fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
-        self.wait[player.to_usize()] = WaitingInfo::from_keys(
+        self.wait[player.to_usize()] = WaitSet::from_keys(
             &mut self.decomposer, &hand.packed_34());
 
         if log_enabled!(log::Level::Trace) {

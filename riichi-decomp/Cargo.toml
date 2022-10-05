@@ -10,6 +10,9 @@ itertools = "0.10"
 once_cell = "1.15"
 sortnet = "0.1.0"
 
+# CLI
+#clap = { version = "4.0", features = ["derive"], optional = true }
+
 # workspace shared
 nanovec.workspace = true
 phf.workspace = true
@@ -37,5 +40,13 @@ riichi-decomp-table = { path = "../riichi-decomp-table", version = "0.1.0" }
 [features]
 default = ["serde", "static-lut"]
 
+#cli = ["dep:clap"]
 serde = ["dep:serde", "riichi-elements/serde"]
 static-lut = []
+
+# TODO(summivox): https://github.com/rust-lang/cargo/issues/4663, https://github.com/rust-lang/rfcs/pull/3020
+# For now, we will stick to a simple test binary.
+#[[bin]]
+#name = "main"
+#path = "src/main.rs"
+#required-features = ["cli"]

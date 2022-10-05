@@ -5,7 +5,7 @@ mod yaku_detectors;
 use itertools::Itertools;
 
 use crate::{
-    analysis::{IrregularWait, RegularWait, Wait, WaitingInfo},
+    analysis::{IrregularWait, RegularWait, Wait, WaitSet},
     common::*,
     engine::{
         utils::*,
@@ -32,7 +32,7 @@ pub struct AgariInput<'a> {
     pub closed_hand: &'a TileSet37,
     pub riichi: Option<Riichi>,
     pub melds: &'a [Meld],
-    pub waiting_info: &'a WaitingInfo,
+    pub wait_set: &'a WaitSet,
 
     // from the contributor
     pub contributor: Player,
@@ -49,7 +49,7 @@ impl<'a> AgariInput<'a> {
     pub fn new(
         round_id: RoundId,
         state: &'a State,
-        waiting_info: &'a WaitingInfo,
+        wait_set: &'a WaitSet,
         action: Action,
         winner: Player,
         contributor: Player,
@@ -62,7 +62,7 @@ impl<'a> AgariInput<'a> {
             closed_hand: &state.closed_hands[winner_i],
             riichi: state.core.riichi[winner_i],
             melds: &state.melds[winner_i],
-            waiting_info,
+            wait_set,
 
             contributor,
             // TODO(summivox): rust (is_some_with)
@@ -82,13 +82,13 @@ pub fn agari_candidates(
 ) -> Vec<AgariCandidate> {
     let hand_common = calc_hand_common(ruleset, input);
 
-    let regular_waits = input.waiting_info.regular.iter()
+    let regular_waits = input.wait_set.regular.iter()
         .filter(|wait|
             wait.waiting_tile == input.winning_tile.to_normal())
         .map(|wait|
             (wait, calc_regular_wait_common(ruleset, input, &hand_common, wait)));
 
-    let irregular_wait = input.waiting_info.irregular.filter(|irregular|
+    let irregular_wait = input.wait_set.irregular.filter(|irregular|
         match irregular {
             IrregularWait::SevenPairs(t) | IrregularWait::ThirteenOrphans(t) =>
                 *t == input.winning_tile.to_normal(),
@@ -144,7 +144,7 @@ fn calc_irregular_agari_candidate(
     if yaku_values.is_empty() { return None; }
     let scoring = calc_scoring(ruleset,
                                &yaku_values,
-                               Wait::Irregular( input.waiting_info.irregular.unwrap()),
+                               Wait::Irregular( input.wait_set.irregular.unwrap()),
                                DoraHits::default(),  // ignored for now
                                hand_common.agari_kind,
                                hand_common.is_closed,

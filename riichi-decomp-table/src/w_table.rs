@@ -86,7 +86,7 @@ pub struct WaitingPattern {
 
 #[derive(
     Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd,
-    num_enum::TryFromPrimitive, num_enum::IntoPrimitive,
+    strum::FromRepr, strum::AsRefStr, strum::EnumString,
 )]
 #[repr(u8)]
 pub enum WaitingKind {
@@ -163,7 +163,7 @@ pub(crate) mod details {
     /// - `pos`: 0..9
     /// Total combinations: 6*9 = 54
     pub fn pack_alt(waiting_kind: WaitingKind, pos: i8) -> u8 {
-        9 * u8::from(waiting_kind) + (pos as u8) + 1
+        9 * (waiting_kind as u8) + (pos as u8) + 1
     }
 
     /// Decode (waiting_kind, pos) from a packed "waiting alt" (1..55)
@@ -171,6 +171,6 @@ pub(crate) mod details {
     /// See [`pack_alt`].
     pub fn unpack_alt(packed: u8) -> (WaitingKind, u8) {
         let x = packed - 1;
-        (WaitingKind::try_from(x / 9).unwrap(), x % 9)
+        (WaitingKind::from_repr(x / 9).unwrap(), x % 9)
     }
 }

@@ -186,20 +186,10 @@ mod regular_wait_serde {
     use super::*;
     impl serde::Serialize for RegularWait {
         fn serialize<S>(&self, s: S) -> Result<S::Ok, S::Error> where S: Serializer {
-            use WaitingKind::*;
             let mut st = s.serialize_struct("RegularWait", 5)?;
             st.serialize_field("groups", &self.groups().sorted().collect_vec())?;
             st.serialize_field("pair", &self.pair)?;
-            // Hack --- the type is in the lookup table crate, so we can't simply derive serde.
-            let kind_str = match self.waiting_kind {
-                Tanki => "Tanki",
-                Shanpon => "Shanpon",
-                Kanchan => "Kanchan",
-                RyanmenHigh => "RyanmenHigh",
-                RyanmenLow => "RyanmenLow",
-                RyanmenBoth => "RyanmenBoth",
-            };
-            st.serialize_field("kind", kind_str)?;
+            st.serialize_field("kind", self.waiting_kind.as_ref())?;
             st.serialize_field("pattern", &self.pattern_tile)?;
             st.serialize_field("waiting", &self.waiting_tile)?;
             st.end()
@@ -212,8 +202,6 @@ mod tests {
     use super::*;
 
     use HandGroup::{Koutsu, Shuntsu};
-    use WaitingKind::*;
-    use RegularWait as W;
 
     #[allow(unused)]
     fn k(str: &str) -> HandGroup { Koutsu(t!(str)) }
@@ -223,6 +211,8 @@ mod tests {
     #[cfg(feature = "serde")]
     mod serde_tests {
         use assert_json_diff::assert_json_eq;
+        use WaitingKind::*;
+        use RegularWait as W;
         use super::*;
 
         #[test]

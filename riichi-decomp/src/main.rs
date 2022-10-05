@@ -1,18 +1,19 @@
-use std::io::stdin;
+use std::{
+    io::stdin,
+    time::Instant,
+};
 use itertools::Itertools;
 
-use riichi::{
-    analysis::{Decomposer, WaitingInfo},
-    prelude::*
-};
+use riichi_decomp::*;
+use riichi_elements::prelude::*;
 
 pub fn print_decomp(decomposer: &mut Decomposer, s: &str) {
     let tiles = tiles_from_str(&s);
-    let ts = TileSet34::from_iter(tiles);
-    let t0 = std::time::Instant::now();
-    let wi = WaitingInfo::from_keys(decomposer, &ts.packed_34());
-    let t1 = std::time::Instant::now();
-    println!("[{}us] {} => {}", (t1 - t0).as_micros(), ts, wi);
+    let tileset = TileSet34::from_iter(tiles);
+    let t0 = Instant::now();
+    let result = WaitSet::from_keys(decomposer, &tileset.packed_34());
+    let t1 = Instant::now();
+    println!("[{}us] {} => {}", (t1 - t0).as_micros(), tileset, result);
 }
 
 pub fn main() {

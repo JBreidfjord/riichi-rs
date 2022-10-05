@@ -127,7 +127,7 @@ pub fn check_action(
                     return Err(DeclareRiichiWithOpenMeld);
                 }
                 // Hand must be waiting
-                if cache.wait[actor_i].waiting_set.is_empty() {
+                if cache.wait[actor_i].waiting_tiles.is_empty() {
                     return Err(DeclareRiichiWhileNotReady);
                 }
             }
