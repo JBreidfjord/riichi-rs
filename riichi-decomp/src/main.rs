@@ -9,11 +9,11 @@ use riichi_elements::prelude::*;
 
 pub fn print_decomp(decomposer: &mut Decomposer, s: &str) {
     let tiles = tiles_from_str(&s);
-    let tileset = TileSet34::from_iter(tiles);
+    let tile_set = TileSet34::from_iter(tiles);
     let t0 = Instant::now();
-    let result = WaitSet::from_keys(decomposer, &tileset.packed_34());
+    let result = WaitSet::from_tile_set(decomposer, &tile_set);
     let t1 = Instant::now();
-    println!("[{}us] {} => {}", (t1 - t0).as_micros(), tileset, result);
+    println!("[{}us] {} => {}", (t1 - t0).as_micros(), tile_set, result);
 }
 
 pub fn main() {

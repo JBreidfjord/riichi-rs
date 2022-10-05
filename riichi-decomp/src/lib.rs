@@ -64,6 +64,10 @@ impl WaitSet {
         }
         Self { waiting_tiles, regular, irregular }
     }
+
+    pub fn from_tile_set(decomposer: &mut Decomposer, tile_set: &TileSet34) -> Self {
+        Self::from_keys(decomposer, &tile_set.packed_34())
+    }
 }
 
 impl Display for WaitSet {
