@@ -91,7 +91,6 @@ impl Scoring {
         }
         match self.han() {
             0 => 0,
-            // TODO(summivox): rust (DivCeil)
             1..=5 => min(2000,
                          fu_han_formula(self.fu, self.han())),  // mangan or less
             6..=7 => 3000,  // haneman (1.5x mangan)
@@ -109,6 +108,8 @@ impl Scoring {
 fn fu_han_formula(fu: u8, han: u8) -> GamePoints {
     fu as GamePoints * (1 << (2 + han as GamePoints))
 }
+
+// TODO(summivox): rust (DivCeil)
 
 fn round_fu_up(fu: u8) -> u8 { (fu + 9) / 10 * 10 }
 
