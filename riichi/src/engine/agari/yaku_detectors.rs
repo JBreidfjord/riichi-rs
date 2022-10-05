@@ -4,7 +4,8 @@ use crate::{
     common::*,
     engine::utils::*,
     model::*,
-    rules::Ruleset
+    rules::Ruleset,
+    yaku::*,
 };
 use crate::analysis::IrregularWait;
 use super::{
@@ -205,7 +206,7 @@ fn detect_last_draw(
     // NOTE: rinshan will override haitei through blocked yakus
     if is_last_draw {
         match agari_kind {
-            AgariKind::Tsumo => yaku_builder.add(Yaku::Haiteiraoyue, 1),
+            AgariKind::Tsumo => yaku_builder.add(Yaku::Haiteimouyue, 1),
             AgariKind::Ron => yaku_builder.add(Yaku::Houteiraoyui, 1),
         }
     }

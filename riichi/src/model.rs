@@ -93,8 +93,6 @@ mod discard;
 mod history;
 mod reaction;
 mod state;
-mod yaku;
-mod yaku_utils;
 
 pub use self::{
     action::*,
@@ -105,6 +103,4 @@ pub use self::{
     history::*,
     reaction::*,
     state::*,
-    yaku::*,
-    yaku_utils::*,
 };

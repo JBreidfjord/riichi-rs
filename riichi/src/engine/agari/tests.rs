@@ -1,4 +1,6 @@
-use crate::analysis::Decomposer;
+use crate::{
+    analysis::Decomposer,
+};
 use super::*;
 
 struct Hand {
@@ -317,7 +319,7 @@ fn haitei_example() {
     assert!(!candidates.is_empty());
     for candidate in candidates {
         println!("{:?}", candidate);
-        assert!(candidate.yaku_values.contains_key(&Yaku::Haiteiraoyue));
+        assert!(candidate.yaku_values.contains_key(&Yaku::Haiteimouyue));
         assert!(!candidate.yaku_values.contains_key(&Yaku::Houteiraoyui));
     }
 }
@@ -342,7 +344,7 @@ fn haitei_negative_rinshan() {
     assert!(!candidates.is_empty());
     for candidate in candidates {
         println!("{:?}", candidate);
-        assert!(!candidate.yaku_values.contains_key(&Yaku::Haiteiraoyue));
+        assert!(!candidate.yaku_values.contains_key(&Yaku::Haiteimouyue));
         assert!(candidate.yaku_values.contains_key(&Yaku::Rinshankaihou));
     }
 }
@@ -363,7 +365,7 @@ fn houtei_example() {
     assert!(!candidates.is_empty());
     for candidate in candidates {
         println!("{:?}", candidate);
-        assert!(!candidate.yaku_values.contains_key(&Yaku::Haiteiraoyue));
+        assert!(!candidate.yaku_values.contains_key(&Yaku::Haiteimouyue));
         assert!(candidate.yaku_values.contains_key(&Yaku::Houteiraoyui));
     }
 }

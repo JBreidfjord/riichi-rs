@@ -1,20 +1,7 @@
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-use crate::{
-    model::STANDARD_YAKU,
-    rules::Ruleset
-};
-
-use super::yaku::Yaku;
-
-pub const fn get_blocked_yaku(yaku: Yaku) -> &'static [Yaku] {
-    use Yaku::*;
-    match yaku {
-        Chinroutou | Honroutou => &[Junchantaiyaochuu, Honchantaiyaochuu],
-        Rinshankaihou | Chankan => &[Haiteiraoyue, Houteiraoyui],
-        _ => &[],
-    }
-}
+use crate::rules::Ruleset;
+use super::{Yaku, STANDARD_YAKU, get_blocked_yaku};
 
 pub type YakuValues = HashMap<Yaku, i8>;
 

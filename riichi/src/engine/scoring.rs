@@ -4,6 +4,7 @@ use crate::{
     common::*,
     model::*,
     rules::Ruleset,
+    yaku::*,
 };
 
 pub fn calc_scoring(

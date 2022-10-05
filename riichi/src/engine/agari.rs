@@ -12,6 +12,7 @@ use crate::{
     },
     model::*,
     rules::Ruleset,
+    yaku::*,
 };
 use super::{
     scoring::*,

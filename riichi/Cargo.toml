@@ -12,20 +12,20 @@ env_logger = { version = "0.9", optional = true }
 glob = { version = "0.3", optional = true }
 itertools = "0.10.3"
 log = "0.4"
-nanovec.workspace = true
-num_enum = "0.5.7"
 once_cell = "1.13"
-phf.workspace = true
-rand = { version = "0.8", optional = true }
-regex = { version = "1.6.0", optional = true }
 rustc-hash = "1"
 semver = "1.0"
-serde = { workspace = true, optional = true }
-serde-big-array = { version = "0.4", optional = true }
-serde_json = { workspace = true, optional = true }
-serde_tuple = { version = "0.5.0", optional = true }
-serde_with = { version = "2.0", optional = true }
+strum = { version = "0.24", features = ["derive"] }
 thiserror = "1.0"
+
+# workspace shared
+nanovec.workspace = true
+phf.workspace = true
+serde = { workspace = true, optional = true }
+serde-big-array = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+serde_tuple = { workspace = true, optional = true }
+serde_with = { workspace = true, optional = true }
 
 # internal
 riichi-elements = { path = "../riichi-elements", features = ["std"], version = "0.1.0" }
@@ -45,11 +45,11 @@ type-layout = "0.2.0"
 
 
 [features]
-default = ["serde", "tenhou-log"]
+default = ["serde", "tenhou-log-json"]
 
 static-lut = ["riichi-decomp/static-lut"]
 serde = ["dep:serde", "dep:serde-big-array", "dep:serde_json", "dep:serde_tuple", "dep:serde_with"] # TODO: internals
-tenhou-log = ["dep:rand", "dep:regex", "serde"]
+tenhou-log-json = ["serde"]
 
 [[bin]]
 name = "run_tenhou_logs"

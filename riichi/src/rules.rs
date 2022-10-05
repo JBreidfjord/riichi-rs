@@ -21,7 +21,7 @@ use serde_with::{
 
 use crate::{
     common::*,
-    model::Yaku,
+    yaku::Yaku,
 };
 
 /// Ruleset of a game.

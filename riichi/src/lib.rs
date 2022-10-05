@@ -9,13 +9,14 @@ pub mod engine;
 pub mod model;
 pub mod interop;
 pub mod rules;
+mod yaku;
 
 pub mod prelude {
     //! Convenient re-exports of commonly imported items.
     pub use super::{
         common::*,
-        model::*,
         engine::Engine,
+        model::*,
         rules::Ruleset,
     };
 }
