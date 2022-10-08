@@ -16,7 +16,8 @@ pub(crate) type RegularWaitGroups = nanovec::NanoDequeBit<u32, u8, 8>;
 ///
 /// For a regular `3N+1` hand, this includes:
 ///
-/// - Exactly `N` hand groups with at most one incomplete.
+/// - Exactly `N` hand groups, including at most one incomplete (waiting) hand group.
+///   The complete hand groups can be iterated using [`RegularWait::groups()`].
 /// - A complete pair (雀頭) or a [Tanki (単騎)][Tanki] waiting pattern (= incomplete pair).
 ///
 /// Note that there is exactly one waiting pattern, either a [Tanki] or an incomplete group.

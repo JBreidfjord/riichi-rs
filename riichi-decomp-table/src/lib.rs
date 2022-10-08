@@ -1,3 +1,5 @@
+#[doc = include_str!("../README.md")]
+
 pub mod c_table;
 pub mod w_table;
 pub mod utils;
