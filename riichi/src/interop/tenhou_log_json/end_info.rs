@@ -191,6 +191,7 @@ impl<'de> Visitor<'de> for EndInfoVisitor {
 
 #[cfg(test)]
 mod tests {
+    use crate::yaku::Yaku;
     use super::*;
 
     #[test]

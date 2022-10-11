@@ -10,21 +10,27 @@ use super::{
     AgariResult,
 };
 
-/// Kyoku-Honba (局-本場) pair that uniquely identifies a round in a game.
+/// "[Ba]-[Kyoku]-[Honba]" (場-局-本場) triplet that uniquely identifies a round, represented as a
+/// pair of [Ba]-[Kyoku] (combined) and [Honba].
 ///
 /// ## Optional `serde` support
 ///
-/// Straightforward struct mapping of all fields: `{"kyoku": 7, "honba": 2}`.
+/// Straightforward struct mapping of all fields: `{"kyoku": 7, "honba": 2}` <=> 南4局 2本場
 ///
 /// ## Ref
 ///
 /// - <https://riichi.wiki/Kyoku>
 /// - <https://riichi.wiki/Honba>
 /// - <https://ja.wikipedia.org/wiki/%E9%80%A3%E8%8D%98>
+///
+/// [Ba]: https://riichi.wiki/Ba
+/// [Kyoku]: https://riichi.wiki/Kyoku
+/// [Honba]: https://riichi.wiki/Honba
+///
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RoundId {
-    /// Index of the wind-round (局), enumerated in combination with the prevailing wind:
+    /// Index of the round (局) together with the prevailing wind (場).
     ///
     /// - 0 => east 1 (東1局) -- min
     /// - 3 => east 4 (東4局)

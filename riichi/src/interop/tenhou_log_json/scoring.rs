@@ -5,7 +5,9 @@ use regex::Regex;
 
 use riichi_elements::prelude::*;
 
-use crate::model::*;
+use crate::{
+    yaku::Yaku,
+};
 use super::strings::*;
 
 /// Points and distribution of the win.

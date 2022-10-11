@@ -47,13 +47,13 @@ const RIICHI_POT: GamePoints = 1000;
 /// ## Example
 ///
 /// ```
-/// use riichi::prelude::*;  // includes `Engine`
+/// use riichi::prelude::*;  // includes `Engine` and `riichi_elements::prelude::*`
 /// let mut engine = Engine::new();
 ///
 /// engine.begin_round(RoundBegin {
 ///     ruleset: Default::default(),
-///     round_id: RoundId { kyoku: 0, honba: 0 },
-///     wall: wall::make_sorted_wall([1, 1, 1]),
+///     round_id: RoundId { kyoku: 0, honba: 0 },  // east 1 kyoku, 0 honba (first round in game)
+///     wall: wall::make_sorted_wall([1, 1, 1]),  // 1111m2222m3333m4444m0555m...
 ///     pot: 0,
 ///     points: [25000, 25000, 25000, 25000],
 /// });
@@ -62,6 +62,8 @@ const RIICHI_POT: GamePoints = 1000;
 ///
 /// engine.register_action(Action::Discard(Discard {
 ///     tile: t!("1m"), ..Discard::default()}))?;
+///
+/// // use `engine.register_reaction` for Chii/Pon/Daiminkan/Ron
 ///
 /// let step = engine.step();
 /// assert_eq!(step.action_result, ActionResult::Pass);

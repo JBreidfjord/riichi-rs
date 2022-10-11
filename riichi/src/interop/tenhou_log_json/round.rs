@@ -72,8 +72,11 @@ impl RoundIdAndPot {
 mod tests {
     use assert_json_diff::assert_json_eq;
     use itertools::Itertools;
-    use crate::model::Discard;
-    use crate::interop::tenhou_log::*;
+    use crate::{
+        interop::tenhou_log_json::*,
+        model::Discard,
+        yaku::Yaku
+    };
     use super::*;
 
     fn t(s: &str) -> Tile { t!(s) }

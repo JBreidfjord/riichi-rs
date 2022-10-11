@@ -61,8 +61,10 @@ pub fn z_count(h: &TileSet37) -> u8 { honor_count(h) }
 
 // TODO(summivox): We don't actually need the pack --- convert this to use normal bins
 
-/// Determine whether a packed suit (3N+2) satisfies the [`Yaku::Chuurenpoutou`] form, i.e.
+/// Determine whether a packed suit (3N+2) satisfies the [Chuurenpoutou] form, i.e.
 /// `311111113` + any. If it does, then returns the _position_ of the winning tile (0..=8).
+///
+/// [Chuurenpoutou]: crate::yaku::Yaku::Chuurenpoutou
 pub fn chuuren_agari(x: u32) -> Option<u8> {
     // check x is at least 0o311111113 (each bin must individually apply, without overflow)
     if (x + 0o133333331) & 0o444444444 != 0o444444444 { return None; }
@@ -73,13 +75,15 @@ pub fn chuuren_agari(x: u32) -> Option<u8> {
     Some(r.trailing_zeros() as u8 / 3)
 }
 
-/// Determines whether a _non-packed_ suit (3N+1) is 1 tile away from the [`Yaku::Chuurenpoutou`]
+/// Determines whether a _non-packed_ suit (3N+1) is 1 tile away from the [Chuurenpoutou]
 /// form, i.e. `311111113` - some + other. If it does, then returns the _position_ of:
 ///
 /// - the lacking tile
 /// - the over tile
 ///
 /// Special case: `311111113` (pure chuuren) => `Some(0, 0)`
+///
+/// [Chuurenpoutou]: crate::yaku::Yaku::Chuurenpoutou
 pub fn chuuren_wait(h: &[u8]) -> Option<(u8, u8)> {
     const TARGET: [i8; 9] = [3, 1, 1, 1, 1, 1, 1, 1, 3];
     let mut lack = 100;
@@ -204,8 +208,8 @@ pub fn is_last_draw(state: &State) -> bool {
 /// First 4 turns of the game without being interrupted by any meld.
 /// Affects:
 /// - [`AbortReason::NineKinds`] (active), [`AbortReason::FourWind`] (passive)
-/// - [`RiichiFlags::is_double`]
-/// - [`Yaku::Tenhou`], [`Yaku::Chiihou`], [`Yaku::Renhou`]
+/// - [`Riichi::is_double`]
+/// - [`crate::yaku::Yaku`]: Tenhou, Chiihou, Renhou (first-chance win)
 pub fn is_first_chance(state: &State) -> bool {
     state.core.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
 }

@@ -1,4 +1,4 @@
 //! Interoperability between this crate and other programs / data formats.
 
-#[cfg(feature = "tenhou-log")]
-pub mod tenhou_log;
+#[cfg(any(feature = "tenhou-log-json", doc))]
+pub mod tenhou_log_json;

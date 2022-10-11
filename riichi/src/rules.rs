@@ -194,8 +194,8 @@ pub struct Ruleset {
     /// [Ankan]: crate::model::Action::Ankan
     /// [Kakan]: crate::model::Action::Kakan
     /// [kokushi]: Yaku::Kokushi
-    /// [Thirteen Orphans]: crate::analysis::IrregularWait::ThirteenOrphans
-    /// [kokushi13]: crate::analysis::IrregularWait::ThirteenOrphansAll
+    /// [Thirteen Orphans]: riichi_decomp::IrregularWait::ThirteenOrphans
+    /// [kokushi13]: riichi_decomp::IrregularWait::ThirteenOrphansAll
     #[derivative(Default(value = "true"))]
     pub kokushi_chankan_allow_ankan: bool,
 
@@ -243,7 +243,7 @@ pub struct Ruleset {
     /// - Must not change the _waiting set_ of the waiting hand.
     ///
     /// [Ankan]: crate::model::Action::Ankan
-    /// [Koutsu]: crate::common::HandGroup::Koutsu
+    /// [Koutsu]: riichi_elements::prelude::HandGroup::Koutsu
     ///
     /// <https://ja.wikipedia.org/wiki/立直#立直後の暗槓が認められないケース> (Japanese only)
     #[derivative(Default(value = "true"))]

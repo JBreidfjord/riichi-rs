@@ -85,8 +85,10 @@ pub struct AgariCandidate {
     /// Scoring components for this hand (Yakuman, Yaku, Doras, Fu).
     pub scoring: Scoring,
 
-    /// What [Yaku's](super::Yaku) are awarded to this hand, and the Han-value of each Yaku.
-    /// There must be at least one Yaku for a hand to be eligible for winning.
+    /// What [Yaku]'s are awarded to this hand, and the Han-value of each [Yaku].
+    /// There must be at least one [Yaku] for a hand to be eligible for winning.
+    ///
+    /// [Yaku]: crate::yaku::Yaku
     pub yaku_values: YakuValues,
 }
 

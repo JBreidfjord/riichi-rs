@@ -3,6 +3,8 @@ use regex::Regex;
 
 use riichi_elements::prelude::*;
 
+use crate::common::*;
+
 use super::tile::*;
 
 pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {

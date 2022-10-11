@@ -9,7 +9,7 @@ mod tenhou_log_tests {
     use glob::glob;
     use test_log::test;
 
-    use riichi::interop::tenhou_log::{
+    use riichi::interop::tenhou_log_json::{
         *,
         strings::{ALL_WAITING, NONE_WAITING},
         test_utils::run_a_round,

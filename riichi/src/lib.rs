@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.lib.md")]
+#![doc = include_str!("../README.md")]
 
 use once_cell::sync::Lazy;
 use semver::Version;

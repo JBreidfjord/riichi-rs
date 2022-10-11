@@ -2,6 +2,7 @@
 
 use crate::{
     model::*,
+    yaku::*,
 };
 
 pub static ABORT_STR_TO_ENUM: phf::Map<&'static str, AbortReason> = phf::phf_map! {
@@ -62,7 +63,7 @@ pub static YAKU_STR_TO_ENUM: phf::Map<&'static str, Yaku> = phf::phf_map! {
     "一発" => Yaku::Ippatsu,
     "槍槓" => Yaku::Chankan,
     "嶺上開花" => Yaku::Rinshankaihou,
-    "海底摸月" => Yaku::Haiteiraoyue,
+    "海底摸月" => Yaku::Haiteimouyue,
     "河底撈魚" => Yaku::Houteiraoyui,
     "平和" => Yaku::Pinfu,
     "断幺九" => Yaku::Tanyaochuu,
@@ -122,7 +123,7 @@ pub const fn yaku_to_str(yaku: Yaku) -> &'static str {
         Yaku::Ippatsu => "一発",
         Yaku::Chankan => "槍槓",
         Yaku::Rinshankaihou => "嶺上開花",
-        Yaku::Haiteiraoyue => "海底摸月",
+        Yaku::Haiteimouyue => "海底摸月",
         Yaku::Houteiraoyui => "河底撈魚",
         Yaku::Pinfu => "平和",
         Yaku::Tanyaochuu => "断幺九",

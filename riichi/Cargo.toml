@@ -13,6 +13,8 @@ glob = { version = "0.3", optional = true }
 itertools = "0.10.3"
 log = "0.4"
 once_cell = "1.13"
+rand = { version = "0.8", optional = true }
+regex = { version = "1.6", optional = true }
 rustc-hash = "1"
 semver = "1.0"
 thiserror = "1.0"
@@ -58,7 +60,7 @@ serde = [
     "riichi-elements/serde",
     "riichi-decomp/serde",
 ]
-tenhou-log-json = ["serde"]
+tenhou-log-json = ["serde", "dep:rand", "dep:regex"]
 
 [[bin]]
 name = "run_tenhou_logs"
