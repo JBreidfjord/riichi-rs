@@ -1,8 +1,6 @@
 use std::fmt::{Display, Formatter};
 
-use crate::{
-    common::*,
-};
+use riichi_elements::prelude::*;
 
 /// A discarded tile with extra info.
 ///

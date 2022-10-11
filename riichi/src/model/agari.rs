@@ -1,6 +1,7 @@
+use riichi_decomp::Wait;
+use riichi_elements::prelude::*;
+
 use crate::{
-    analysis::Wait,
-    common::*,
     yaku::*,
 };
 use super::{ActionResult};

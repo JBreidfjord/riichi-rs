@@ -12,7 +12,8 @@ use serde_with::{
     serde_as, As, DisplayFromStr,
 };
 
-use crate::common::*;
+use riichi_elements::prelude::*;
+
 use super::{
     Discard,
     RoundBegin,

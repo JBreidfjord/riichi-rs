@@ -7,8 +7,9 @@ use serde::{de::{Deserialize, Deserializer, SeqAccess, Visitor, Error}, Serializ
 use serde::ser::SerializeSeq;
 use serde_json::Value;
 
+use riichi_elements::prelude::*;
+
 use crate::{
-    common::*,
     model::*,
 };
 use super::{

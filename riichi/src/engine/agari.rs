@@ -4,9 +4,10 @@ mod yaku_detectors;
 
 use itertools::Itertools;
 
+use riichi_decomp::{IrregularWait, RegularWait, Wait, WaitSet};
+use riichi_elements::prelude::*;
+
 use crate::{
-    analysis::{IrregularWait, RegularWait, Wait, WaitSet},
-    common::*,
     engine::{
         utils::*,
     },

@@ -1,4 +1,4 @@
-use crate::common::*;
+use riichi_elements::prelude::*;
 
 pub fn parse_tenhou_tile(tt: u8) -> Option<Tile> {
     match tt {

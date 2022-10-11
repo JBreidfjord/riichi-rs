@@ -1,9 +1,9 @@
 use std::cmp::min;
 
 use riichi_decomp::WaitingKind;
+use riichi_elements::prelude::*;
 
 use crate::{
-    common::*,
     model::*,
     rules::Ruleset,
 };

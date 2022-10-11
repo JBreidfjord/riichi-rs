@@ -2,8 +2,9 @@ use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
 
+use riichi_elements::prelude::*;
+
 use crate::{
-    common::*,
     model::*,
 };
 use super::{

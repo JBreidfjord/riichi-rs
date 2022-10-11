@@ -1,13 +1,13 @@
 use itertools::Itertools;
 use log::log_enabled;
 
+use riichi_decomp::{Decomposer, RegularWait, WaitSet};
+use riichi_elements::prelude::*;
+
 use crate::{
-    analysis::RegularWait,
-    common::*,
     model::*,
-    rules::Ruleset
+    rules::Ruleset,
 };
-use crate::analysis::{Decomposer, WaitSet};
 
 // TODO(summivox): Consider porting these directly to `impl TileSet37`.
 
@@ -19,6 +19,7 @@ pub fn terminal_count(h: &TileSet37) -> u8 {
     pure_terminal_count(h) + honor_count(h)
 }
 
+#[rustfmt::skip]
 pub fn pure_terminal_kinds(h: &TileSet37) -> u8 {
     0u8 + (h[0] > 0) as u8 + (h[8] > 0) as u8
         + (h[9] > 0) as u8 + (h[17] > 0) as u8
@@ -29,6 +30,7 @@ pub fn pure_terminal_count(h: &TileSet37) -> u8 {
     h[0] + h[8] + h[9] + h[17] + h[18] + h[26]
 }
 
+#[rustfmt::skip]
 pub fn honor_kinds(h: &TileSet37) -> u8 {
     0u8 + (h[27] > 0) as u8 + (h[28] > 0) as u8
         + (h[29] > 0) as u8 + (h[30] > 0) as u8
@@ -249,7 +251,7 @@ pub fn is_aborted_four_kan(state: &State, action: Action, reaction: Option<React
             state.melds.iter().enumerate().flat_map(|(player, melds_p)|
                 melds_p.iter().filter_map(move |meld|
                     if meld.is_kan() { Some(player) } else { None })).collect_vec();
-        // - 3 existing kans + this one => ok if all 4 are from the same player. 
+        // - 3 existing kans + this one => ok if all 4 are from the same player.
         // - 4 existing kans + this one => not ok (max number of kans on the table is 4).
         if kan_players.len() == 4 ||
             kan_players.len() == 3 && !kan_players.iter().all(|&player| player == actor_i) {

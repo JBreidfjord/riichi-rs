@@ -1,7 +1,8 @@
 //! Boundary conditions of a round (begin and end).
 
+use riichi_elements::prelude::*;
+
 use crate::{
-    common::*,
     rules::Ruleset,
 };
 use super::{

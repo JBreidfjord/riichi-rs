@@ -3,7 +3,8 @@ use std::str::FromStr;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::common::*;
+use riichi_elements::prelude::*;
+
 use crate::model::*;
 use super::strings::*;
 

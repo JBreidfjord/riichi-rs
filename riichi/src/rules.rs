@@ -19,8 +19,9 @@ use serde_with::{
     As, DisplayFromStr
 };
 
+use riichi_elements::prelude::*;
+
 use crate::{
-    common::*,
     yaku::Yaku,
 };
 

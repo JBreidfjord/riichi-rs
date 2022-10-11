@@ -10,7 +10,7 @@ use std::fmt::{Display, Formatter};
 
 use itertools::Itertools;
 
-use crate::common::*;
+use riichi_elements::prelude::*;
 
 use super::{
     action::*,

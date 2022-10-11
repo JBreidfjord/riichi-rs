@@ -1,7 +1,9 @@
 //! [`Action`] by the in-turn player.
 
 use std::fmt::{Display, Formatter};
-use crate::common::*;
+
+use riichi_elements::prelude::*;
+
 use super::Discard;
 
 /// Action by the in-turn player.

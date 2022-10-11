@@ -3,18 +3,17 @@
 use once_cell::sync::Lazy;
 use semver::Version;
 
-pub mod analysis;
-pub mod common;
+mod common;
 pub mod engine;
 pub mod model;
 pub mod interop;
 pub mod rules;
-mod yaku;
+pub mod yaku;
 
 pub mod prelude {
     //! Convenient re-exports of commonly imported items.
+    pub use riichi_elements::prelude::*;
     pub use super::{
-        common::*,
         engine::Engine,
         model::*,
         rules::Ruleset,

@@ -1,8 +1,9 @@
 use thiserror::Error;
 
+use riichi_decomp::IrregularWait;
+use riichi_elements::prelude::*;
+
 use crate::{
-    analysis::IrregularWait,
-    common::*,
     model::*,
     rules::Ruleset
 };

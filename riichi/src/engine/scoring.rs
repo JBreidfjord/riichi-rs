@@ -1,7 +1,9 @@
 use std::cmp::min;
+
+use riichi_decomp::{IrregularWait, Wait};
+use riichi_elements::prelude::*;
+
 use crate::{
-    analysis::{IrregularWait, Wait},
-    common::*,
     model::*,
     rules::Ruleset,
     yaku::*,

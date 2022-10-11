@@ -1,7 +1,8 @@
 use thiserror::Error;
 
+use riichi_elements::prelude::*;
+
 use crate::{
-    common::*,
     engine::agari::{agari_candidates, AgariInput},
     model::*
 };

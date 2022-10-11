@@ -1,6 +1,6 @@
+use riichi_elements::prelude::*;
 
 use crate::{
-    common::*,
     engine::utils::get_all_tiles,
     rules::Ruleset,
 };

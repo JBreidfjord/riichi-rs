@@ -1,6 +1,7 @@
 //! Conclusion of an action-reaction cycle ([`ActionResult`]).
 
-use crate::common::*;
+use riichi_elements::prelude::*;
+
 use super::agari::AgariKind;
 
 /// Conclusion of an action-reaction cycle.

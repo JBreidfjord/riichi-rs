@@ -1,13 +1,13 @@
-use riichi_decomp::WaitingKind;
+use riichi_decomp::{RegularWait, IrregularWait, WaitingKind};
+use riichi_elements::prelude::*;
+
 use crate::{
-    analysis::RegularWait,
-    common::*,
+    common::{sort3},
     engine::utils::*,
     model::*,
     rules::Ruleset,
     yaku::*,
 };
-use crate::analysis::IrregularWait;
 use super::{
     AgariInput,
     HandCommon,

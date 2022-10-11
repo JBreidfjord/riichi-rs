@@ -1,6 +1,5 @@
-use crate::{
-    analysis::Decomposer,
-};
+use riichi_decomp::Decomposer;
+
 use super::*;
 
 struct Hand {

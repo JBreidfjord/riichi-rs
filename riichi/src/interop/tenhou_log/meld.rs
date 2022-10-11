@@ -1,8 +1,8 @@
-
 use once_cell::sync::Lazy;
 use regex::Regex;
 
-use crate::common::*;
+use riichi_elements::prelude::*;
+
 use super::tile::*;
 
 pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {

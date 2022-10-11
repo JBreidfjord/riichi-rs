@@ -10,8 +10,9 @@ pub mod utils;
 
 use std::default::Default;
 
+use riichi_elements::prelude::*;
+
 use crate::{
-    common::*,
     model::*,
 };
 use self::{

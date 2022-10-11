@@ -1,10 +1,9 @@
 use log::log_enabled;
 
-use crate::{
-    analysis::{Decomposer, WaitSet},
-    common::*,
-    model::*,
-};
+use riichi_decomp::{Decomposer, WaitSet};
+use riichi_elements::prelude::*;
+
+use crate::model::*;
 
 pub struct EngineCache {
     /// Local decomposer instance for simplifying ownership.
@@ -37,24 +36,28 @@ impl EngineCache {
 
     pub fn init_wait_cache(&mut self, hands: &[TileSet37; 4]) {
         for player in ALL_PLAYERS {
-            self.wait[player.to_usize()] = WaitSet::from_keys(
-                &mut self.decomposer,
-                &hands[player.to_usize()].packed_34());
+            self.wait[player.to_usize()] =
+                WaitSet::from_keys(&mut self.decomposer, &hands[player.to_usize()].packed_34());
         }
     }
 
     pub fn update_wait_cache(&mut self, player: Player, hand: &TileSet37) {
-        self.wait[player.to_usize()] = WaitSet::from_keys(
-            &mut self.decomposer, &hand.packed_34());
+        self.wait[player.to_usize()] = WaitSet::from_keys(&mut self.decomposer, &hand.packed_34());
 
         if log_enabled!(log::Level::Trace) {
             // This is very noisy --- called every turn. Please turn on with care.
-            log::debug!("updated waiting cache for P{} (hand={}): {}",
-                player.to_usize(), hand, self.wait[player.to_usize()]);
+            log::debug!(
+                "updated waiting cache for P{} (hand={}): {}",
+                player.to_usize(),
+                hand,
+                self.wait[player.to_usize()]
+            );
         }
     }
 }
 
 impl Default for EngineCache {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
