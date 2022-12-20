@@ -56,6 +56,7 @@ pub const DORA_STR: &str = "ドラ";
 pub const AKA_DORA_STR: &str = "赤ドラ";
 pub const URA_DORA_STR: &str = "裏ドラ";
 
+// TODO(summivox): Use the `strum` impl inlined into [`Yaku`].
 /// Tenhou Yaku string => [`Yaku`].
 pub static YAKU_STR_TO_ENUM: phf::Map<&'static str, Yaku> = phf::phf_map! {
     "門前清自摸和" => Yaku::Menzenchintsumohou,

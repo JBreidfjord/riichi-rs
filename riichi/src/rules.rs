@@ -1,14 +1,4 @@
-//! [`Ruleset`] of a game.
-//!
-//! Even though the Japanese Riichi Mahjong is more standardized than other variants of Mahjong,
-//! there are detailed rules that may be interpreted in different ways, affecting the validity of
-//! certain actions and/or the outcome of the game. There are also naturally "flexible" variations,
-//! such as the number of each red 5 tiles in the wall, and how many "normal" kyoku's are allowed
-//! (i.e. "East Only" vs. "East-South").
-//!
-//! This crate attempts to handle most commonly used variations on an arbitrarily-decided "standard"
-//! interpretation.
-//!
+//! Configurable rules and interpretations of rules for a game, bundled as [`Ruleset`].
 
 use derivative::Derivative;
 use rustc_hash::FxHashSet as HashSet;
@@ -25,16 +15,17 @@ use crate::{
     yaku::Yaku,
 };
 
-/// Ruleset of a game.
+/// Bundle of configurable rules and interpretations of rules for a game.
 ///
-/// The [`Default::default()`] ruleset represents our "standard" rules.
+/// A [`Default::default()`] ruleset is provided that closely matches [Tenhou] defaults for
+/// current 4-player public lobbies (as of 2022-10-01).
 ///
+/// See the documentation on each field for what can be configured.
 ///
-/// ## Key exceptions
+/// ## Key exceptions (what cannot be configured here)
 ///
-/// - The number of red tiles is implied by the wall composition, therefore excluded from Ruleset.
-/// - The starting points of each player is encoded in [`crate::model::RoundBegin`], therefore
-///   excluded from Ruleset.
+/// - The number of red tiles --- implied by the wall array.
+/// - The starting points of each player --- already specified in [`crate::model::RoundBegin`].
 ///
 ///
 /// ## Semantic versioning
@@ -49,6 +40,21 @@ use crate::{
 ///   done with a Major increment.
 ///
 /// This ensures that any persisted games are reproduceable by a compatibly-versioned game engine.
+///
+///
+/// ## Background
+///
+/// Even though the Japanese Riichi Mahjong is more standardized than other variants of Mahjong,
+/// there are detailed rules that may be interpreted in different ways, affecting the validity of
+/// certain actions and/or the outcome of the game. There are also naturally "flexible" variations,
+/// such as the number of each red 5 tiles in the wall, and how many "normal" kyoku's are allowed
+/// (i.e. "East Only" vs. "East-South").
+///
+/// This crate attempts to handle most commonly used variations on an arbitrarily-decided "standard"
+/// interpretation.
+///
+///
+/// [Tenhou]: https://riichi.wiki/Tenhou.net_rules
 ///
 ///
 /// ## Optional `serde` support
@@ -87,7 +93,9 @@ pub struct Ruleset {
     ///
     /// Other fields control the behavior of game beyond the "all-last" round.
     ///
-    /// See [`crate::model::RoundId`] for definitions of "Kyoku" and "Honba".
+    /// See [`crate::model::RoundId`] for definitions of "Ba", "Kyoku", and "Honba".
+    ///
+    /// <https://riichi.wiki/Ba>
     #[derivative(Default(value = "7"))]
     pub kyoku_max_soft: u8,
 
@@ -95,6 +103,8 @@ pub struct Ruleset {
     /// At the next attempt to increment the Kyoku number, the game must end.
     ///
     /// **Default: North 4 Kyoku**.
+    ///
+    /// <https://riichi.wiki/Ba>
     #[derivative(Default(value = "15"))]
     pub kyoku_max_hard: u8,
 
@@ -102,6 +112,8 @@ pub struct Ruleset {
     /// round (see `kyoku_max_soft`).
     ///
     /// **Default: 30000**. (assuming starting point is usually 25000)
+    ///
+    /// <https://riichi.wiki/Japanese_mahjong_scoring_rules>
     #[derivative(Default(value = "30000"))]
     pub points_min_qualify: GamePoints,
 
@@ -117,6 +129,8 @@ pub struct Ruleset {
     ///
     /// [DoubleRon]: crate::model::AbortReason::DoubleRon
     /// [TripleRon]: crate::model::AbortReason::TripleRon
+    ///
+    /// <https://riichi.wiki/Multiple_ron>
     #[derivative(Default(value = "2"))]
     pub ron_max_num_players: u8,
 
@@ -125,6 +139,9 @@ pub struct Ruleset {
     /// - `ron_first_only == true`: Only the first player (CCW from the contributor) wins.
     ///
     /// **Default: all can win (`false`)**.
+    ///
+    /// - <https://riichi.wiki/Multiple_ron>
+    /// - <https://riichi.wiki/Atamahane>
     #[derivative(Default(value = "false"))]
     pub ron_first_only: bool,
 
@@ -134,16 +151,22 @@ pub struct Ruleset {
 
     /// Do we count Ura-Dora's when a player wins under Riichi?
     /// **Default: yes**.
+    ///
+    /// <https://riichi.wiki/Dora_variations>
     #[derivative(Default(value = "true"))]
     pub dora_allow_ura: bool,
 
     /// Do we reveal new Dora's after making a Kan (subject to deferred revealing rules)?
     /// **Default: yes**.
+    ///
+    /// <https://riichi.wiki/Dora_variations>
     #[derivative(Default(value = "true"))]
     pub dora_allow_kan: bool,
 
     /// Do we count Ura-Dora's for newly revealed Kan-Dora's?
     /// **Default: yes**.
+    ///
+    /// <https://riichi.wiki/Dora_variations>
     #[derivative(Default(value = "true"))]
     pub dora_allow_kan_ura: bool,
 
@@ -163,11 +186,13 @@ pub struct Ruleset {
     pub yaku_allow_open_tanyao: bool,
 
     /// Extra non-standard [`Yaku`]'s to enable (in addition to the standard ones).
+    /// See [`crate::yaku::STANDARD_YAKU`] for the list of Yaku's considered "standard".
     ///
     /// **Default: (none)**.
     pub yaku_extra: HashSet<Yaku>,
 
     /// Standard [`Yaku`]'s to disable.
+    /// See [`crate::yaku::STANDARD_YAKU`] for the list of Yaku's considered "standard".
     ///
     /// **Default: (none)**.
     pub yaku_block: HashSet<Yaku>,
@@ -180,7 +205,7 @@ pub struct Ruleset {
     /// declare a [`Yaku::Chankan`] Ron over [Ankan], in addition to [Kakan] which is already
     /// allowed under all rules?
     ///
-    /// **Default: yes**.
+    /// **Default: no**.
     ///
     /// Notes:
     ///
@@ -196,7 +221,7 @@ pub struct Ruleset {
     /// [kokushi]: Yaku::Kokushi
     /// [Thirteen Orphans]: riichi_decomp::IrregularWait::ThirteenOrphans
     /// [kokushi13]: riichi_decomp::IrregularWait::ThirteenOrphansAll
-    #[derivative(Default(value = "true"))]
+    #[derivative(Default(value = "false"))]
     pub kokushi_chankan_allow_ankan: bool,
 
     /// Swap calling, a.k.a. Kui-kae (喰い替え).
