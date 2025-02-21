@@ -313,7 +313,7 @@ mod tests {
                 "yaku_extra": [],
                 "yaku_block": ["Iipeikou"],
 
-                "kokushi_chankan_allow_ankan": true,
+                "kokushi_chankan_allow_ankan": false,
                 "swap_call_allow_same": false,
                 "swap_call_allow_other": false,
                 "riichi_ankan_strict_mode": true,
