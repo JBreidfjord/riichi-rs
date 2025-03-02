@@ -25,6 +25,7 @@ use super::{
 /// Note that any newly drawn tile is deliberately kept separate from `closed_hands`.
 ///
 /// See [mod-level docs](crate::model) for the details of modeling.
+#[cfg_attr(test, derive(type_layout::TypeLayout))]
 #[derive(Clone, Debug, Default)]
 pub struct State {
     /// Core state variables.
@@ -67,7 +68,7 @@ pub struct State {
 /// aggregating actions and "core" variables from the initial full state. This means we can instead
 /// only store `{action, next state core}` for each turn and obtain a more space-efficient
 /// representation of the same information. Reconstruction of any full state is effectively a `fold`
-/// operation.
+/// operation ([`State::evolve`], [`State::apply_step`], [`State::apply_steps`]).
 ///
 /// See [mod-level docs](crate::model) for the details of modeling.
 ///
@@ -289,6 +290,7 @@ mod tests {
     #[test]
     fn print_layout() {
         use type_layout::TypeLayout;
+        println!("{}", State::type_layout());
         println!("{}", StateCore::type_layout());
     }
 }
