@@ -2,8 +2,8 @@ use std::path::Path;
 use std::str::FromStr;
 
 use riichi::{
-    interop::tenhou_log::*,
-    interop::tenhou_log::test_utils::run_a_round,
+    interop::tenhou_log_json::*,
+    interop::tenhou_log_json::test_utils::run_a_round,
 };
 
 fn run_log_file(json_path: &Path) {
