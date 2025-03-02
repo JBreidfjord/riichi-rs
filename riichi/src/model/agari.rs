@@ -51,14 +51,16 @@ impl AgariResult {
 ///
 /// As a string (`"Ron"` or `"Tsumo"`).
 ///
-#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Hash, Eq, PartialEq, strum::IntoStaticStr)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u8)]
 pub enum AgariKind {
     #[default]
     /// Win-by-steal / RonAgari (ロン)
+    #[strum(to_string = "ロン")]
     Ron = 0,
     /// Win-by-self-draw / TsumoAgari (ツモ和ガリ)
+    #[strum(to_string = "ツモ")]
     Tsumo = 1,
 }
 

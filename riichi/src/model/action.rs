@@ -24,25 +24,30 @@ use super::Discard;
 ///
 /// Note that the `called_by` field of [`Discard`] is deliberately excluded.
 ///
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, strum::IntoStaticStr)]
 #[cfg_attr(test, derive(Eq, PartialEq))]
 pub enum Action {
     /// Discard a tile (打牌). See [`Discard`].
     /// The `called_by` field is implied and can be safely ignored here.
+    #[strum(to_string = "打牌")]
     Discard(Discard),
 
     /// Declare an [`Ankan`] (暗槓; 4 in closed hand).
+    #[strum(to_string = "暗槓")]
     Ankan(Tile),
 
     /// Declare a [`Kakan`] (加槓; 1 in closed hand, 3 in pon).
+    #[strum(to_string = "加槓")]
     Kakan(Tile),
 
     /// Win by self-draw (ツモ和ガリ).
     /// See [`super::ActionResult::Agari`], [`super::AgariKind::Tsumo`].
+    #[strum(to_string = "ツモ")]
     TsumoAgari(Tile),
 
     /// Abort by Nine Kinds of Terminals (九種九牌).
     /// See [`super::ActionResult::Abort`], [`super::AbortReason::NineKinds`].
+    #[strum(to_string = "九種九牌")]
     AbortNineKinds,
 }
 

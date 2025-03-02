@@ -36,8 +36,25 @@ pub enum ActionResult {
     Abort(AbortReason),
 }
 
+impl ActionResult {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            ActionResult::Pass => "",
+            ActionResult::CalledBy(_) => "鳴き",
+            ActionResult::Agari(agari) => agari.into(),
+            ActionResult::Abort(abort) => abort.into(),
+        }
+    }
+}
+
+impl From<ActionResult> for &'static str {
+    fn from(value: ActionResult) -> Self {
+        value.as_str()
+    }
+}
+
 /// The reason why the round has ended without a win.
-#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, Hash, PartialEq, strum::IntoStaticStr)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AbortReason {
     /// The round has been aborted due to the player in action declaring "nine kinds of terminals"
@@ -45,6 +62,7 @@ pub enum AbortReason {
     /// This terminates the round. No reactions are possible.
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Kyuushu_kyuuhai>
+    #[strum(to_string = "九種九牌")]
     NineKinds,
 
     /// The round has ended because no more tiles can be drawn from the wall (荒牌).
@@ -55,12 +73,14 @@ pub enum AbortReason {
     /// - Can be preempted by Ron and all other aborts.
     ///
     /// <https://riichi.wiki/Ryuukyoku>
+    #[strum(to_string = "流局")]
     WallExhausted,
 
     /// Special case of [`Self::WallExhausted`] (流し満貫).
     /// Treated as penalties payments.
     ///
     /// <https://riichi.wiki/Nagashi_mangan>
+    #[strum(to_string = "流し満貫")]
     NagashiMangan,
 
     /// Four Kan's (四開槓).
@@ -74,6 +94,7 @@ pub enum AbortReason {
     /// Note that Kakan and Ankan may also be preempted due to Chankan (搶槓).
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suukaikan>
+    #[strum(to_string = "四開槓")]
     FourKan,
 
     /// The round has been aborted because four of the same kind of wind tile has been discarded
@@ -84,6 +105,7 @@ pub enum AbortReason {
     /// - Cannot be preempted.
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suufon_renda>
+    #[strum(to_string = "四風連打")]
     FourWind,
 
     /// The round has been aborted because all four players are under active riichi (四家立直).
@@ -93,10 +115,12 @@ pub enum AbortReason {
     /// - Can be preempted by Ron.
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Suucha_riichi>
+    #[strum(to_string = "四家立直")]
     FourRiichi,
 
     /// The round has been aborted because 2 players called Ron on the same tile.
     /// This is a rare rule variation of [`Self::TripleRon`].
+    #[strum(to_string = "二家和")]
     DoubleRon,
 
     /// The round has been aborted because 3 players called Ron on the same tile.
@@ -110,5 +134,19 @@ pub enum AbortReason {
     /// - Pre-empts all others.
     ///
     /// <https://riichi.wiki/Tochuu_ryuukyoku#Sanchahou>
+    #[strum(to_string = "三家和")]
     TripleRon,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn action_result_str() {
+        let pass: &'static str = ActionResult::Pass.into();
+        assert_eq!(pass, "");
+        let call: &'static str = ActionResult::CalledBy(P0).into();
+        assert_eq!(call, "鳴き");
+    }
 }
