@@ -307,8 +307,10 @@ impl TryFrom<String> for Tile {
     fn try_from(value: String) -> Result<Self, Self::Error> { value.parse() }
 }
 
-impl Into<&str> for Tile {
-    fn into(self) -> &'static str { self.as_str() }
+impl From<Tile> for &'static str {
+    fn from(value: Tile) -> Self {
+        value.as_str()
+    }
 }
 
 impl Display for Tile {
