@@ -1,5 +1,7 @@
 PRAGMA encoding = 'UTF-8';
 PRAGMA defer_foreign_keys = true;
+PRAGMA journal_mode = wal;
+PRAGMA synchronous = normal;
 BEGIN TRANSACTION;
 
 

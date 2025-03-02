@@ -14,6 +14,7 @@
       <sourceFolder url="file://$MODULE_DIR$/tenhou-shuffle/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/riichi-yaku/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/tenhou-log-json/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/riichi-analysis/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/riichi/target" />
     </content>

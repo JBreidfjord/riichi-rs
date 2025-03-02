@@ -1,20 +1,15 @@
-use std::{fs};
-use std::path::{PathBuf};
+use std::fs;
+use std::path::PathBuf;
 
 use anyhow::{bail, Context, Result};
 use camino::Utf8Path;
 use clap::{Parser, Subcommand};
 use env_logger::Env;
-use itertools::Itertools;
 use indicatif::ProgressIterator;
+use itertools::Itertools;
 use rusqlite::Connection;
 
-use tenhou_db::{
-    db::*,
-    download::*,
-    parse::*,
-    extract::*,
-};
+use tenhou_db::{db::*, download::*, extract::*, parse::*};
 
 static DEFAULT_DB_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/data/tenhou.sqlite");
 
@@ -31,7 +26,7 @@ struct Args {
     redownload: bool,
 
     #[clap(subcommand)]
-    command: Option<Command>
+    command: Option<Command>,
 }
 
 #[derive(Subcommand, Debug)]
@@ -40,7 +35,7 @@ enum Command {
     File {
         #[clap(value_parser, value_name = "FILE")]
         files: Vec<PathBuf>,
-    }
+    },
 }
 
 #[derive(Debug)]
@@ -57,20 +52,20 @@ fn main() -> Result<()> {
     log::info!("Using DB file: {}", db_file.to_str().unwrap());
     let db = init_db(&db_file)?;
 
-    let filter = Filter {
-        three: args.three,
-    };
+    let filter = Filter { three: args.three };
     log::info!("Filter: {:?}", filter);
 
     match args.command {
         Some(Command::Recent) => {
             for archive in list_recent_archives()? {
-                if let Err(e) = download_and_process_archive(&db, &archive, &filter, args.redownload) {
+                if let Err(e) =
+                    download_and_process_archive(&db, &archive, &filter, args.redownload)
+                {
                     log::warn!("Failed to load '{}' => {:#}", archive.url, e);
                 }
             }
         }
-        Some(Command::File{ files }) => {
+        Some(Command::File { files }) => {
             for path in files {
                 let path = Utf8Path::from_path(&path).context("Path is not UTF-8")?;
                 if let Err(e) = load_file(&db, &path, &filter, args.redownload) {
@@ -84,7 +79,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn download_and_process_archive(db: &Connection, archive: &RemoteArchiveFile, filter: &Filter, redownload: bool) -> Result<()> {
+fn download_and_process_archive(
+    db: &Connection,
+    archive: &RemoteArchiveFile,
+    filter: &Filter,
+    redownload: bool,
+) -> Result<()> {
     log::debug!("Download and process archive: {}", archive.url);
     let mut should_download = true;
     if !redownload {
@@ -94,10 +94,8 @@ fn download_and_process_archive(db: &Connection, archive: &RemoteArchiveFile, fi
         }
     }
     if should_download {
-        let entries = download_archive(&archive)?
-            .split("\n")
-            .filter_map(parse_archive_line)
-            .collect_vec();
+        let entries =
+            download_archive(&archive)?.split("\n").filter_map(parse_archive_line).collect_vec();
         for entry in &entries {
             add_game_meta_only(db, entry)?;
         }
@@ -107,13 +105,9 @@ fn download_and_process_archive(db: &Connection, archive: &RemoteArchiveFile, fi
             entries.iter().progress(),
             filter,
             redownload,
-            &mut overall_result);
-        add_archive(
-            db,
-            &archive.name,
-            Some(&archive.url),
-            parse_gz_date_hour(&archive.name),
-        )?;
+            &mut overall_result,
+        );
+        add_archive(db, &archive.name, Some(&archive.url), parse_gz_date_hour(&archive.name))?;
         overall_result
     } else {
         // TODO(summivox): how about we still see if the date range represented by this archive
@@ -160,23 +154,21 @@ fn load_file(db: &Connection, path: &Utf8Path, filter: &Filter, redownload: bool
                 &mut overall_result,
             );
         }
-        _ => bail!("Not recognized file extension")
+        _ => bail!("Not recognized file extension"),
     }
     overall_result
 }
 
 fn download_and_add_game_json(db: &Connection, entry: &GameLogInfo) -> Result<()> {
-    download_game_json(&entry.id)
-        .context("Failed to download game")
-        .and_then(|game_json|
-            add_game_json_for_id(db, &entry.id, &game_json)
-                .context("Failed to add game to DB"))?;
+    download_game_json(&entry.id).context("Failed to download game").and_then(|game_json| {
+        add_game_json_for_id(db, &entry.id, &game_json).context("Failed to add game to DB")
+    })?;
     Ok(())
 }
 
 fn download_and_add_game_json_batch<'a>(
     db: &Connection,
-    batch: impl IntoIterator<Item=&'a GameLogInfo>,
+    batch: impl IntoIterator<Item = &'a GameLogInfo>,
     filter: &Filter,
     redownload: bool,
     overall_result: &mut Result<()>,
@@ -210,10 +202,7 @@ fn download_and_add_game_json_batch<'a>(
             if let Err(e) = &entry_result {
                 log::warn!("Download and process game id '{}' => {:#}", entry.id, e);
             }
-            replace_with::replace_with(
-                overall_result,
-                || Ok(()),
-                |result| result.or(entry_result));
+            replace_with::replace_with(overall_result, || Ok(()), |result| result.or(entry_result));
         }
     }
 }
