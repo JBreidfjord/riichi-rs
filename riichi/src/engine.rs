@@ -99,6 +99,9 @@ impl Engine {
     /// Returns the begin condition of the current round.
     pub fn begin(&self) -> &RoundBegin { &self.begin }
 
+    /// Returns the cache of the engine.
+    pub fn cache(&self) -> &EngineCache { &self.cache }
+
     /// Set up the engine for the specified round.
     /// The state is initialized to the beginning of this round, ready for the button player to
     /// take action.

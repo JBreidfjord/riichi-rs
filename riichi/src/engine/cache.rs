@@ -5,6 +5,7 @@ use riichi_elements::prelude::*;
 
 use crate::model::*;
 
+#[derive(Clone)]
 pub struct EngineCache {
     /// Local decomposer instance for simplifying ownership.
     /// All regular hand decompositions are performed through this cache anyway.

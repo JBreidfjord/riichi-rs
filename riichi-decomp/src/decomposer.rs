@@ -57,6 +57,7 @@ use tables::{c_entry_iter, w_entry_iter};
 /// The reason this is needed: The iterator needs to reference some intermediate cached results,
 /// with lifetimes ultimated tied to the lookup tables. An object must be used to concretely
 /// represent these lifetimes.
+#[derive(Clone)]
 pub struct Decomposer<'a> {
     c_table: &'a CTable,
     w_table: &'a WTable,
