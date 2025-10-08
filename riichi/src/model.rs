@@ -20,7 +20,7 @@ mod agari;
 mod boundary;
 mod discard;
 pub mod history;
-mod reaction;
+pub mod reaction;
 mod state;
 
 pub use self::{
