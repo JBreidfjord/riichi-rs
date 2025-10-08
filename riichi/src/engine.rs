@@ -96,6 +96,9 @@ impl Engine {
     /// Returns the end-of-round conclusions if the round has ended.
     pub fn end(&self) -> &Option<RoundEnd> { &self.end }
 
+    /// Returns the begin condition of the current round.
+    pub fn begin(&self) -> &RoundBegin { &self.begin }
+
     /// Set up the engine for the specified round.
     /// The state is initialized to the beginning of this round, ready for the button player to
     /// take action.
