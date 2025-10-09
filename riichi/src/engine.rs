@@ -16,12 +16,12 @@ use crate::{
     model::*,
 };
 use self::{
-    action::check_action,
     cache::EngineCache,
     reaction::resolve_reaction,
     step::{next_normal, next_agari, next_abort}
 };
 pub use self::{
+    action::check_action,
     action::ActionError,
     reaction::{ReactionError, check_reaction},
     scoring::*,
