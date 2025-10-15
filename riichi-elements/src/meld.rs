@@ -121,9 +121,11 @@ impl Meld {
         match self {
             Meld::Chii(chii) => vec![chii.own[0], chii.own[1], chii.called],
             Meld::Pon(pon) => vec![pon.own[0], pon.own[1], pon.called],
-            Meld::Kakan(kakan) => vec![kakan.pon.own[0], kakan.pon.own[1], kakan.added],
+            Meld::Kakan(kakan) => {
+                vec![kakan.pon.own[0], kakan.pon.own[1], kakan.pon.called, kakan.added]
+            }
             Meld::Daiminkan(daiminkan) => {
-                vec![daiminkan.own[0], daiminkan.own[1], daiminkan.called]
+                vec![daiminkan.own[0], daiminkan.own[1], daiminkan.own[2], daiminkan.called]
             }
             Meld::Ankan(ankan) => ankan.own.to_vec(),
         }
