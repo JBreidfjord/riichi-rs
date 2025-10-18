@@ -17,7 +17,7 @@ use riichi_elements::prelude::*;
 /// [Action]: super::Action
 /// [State]: super::State
 ///
-#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Discard {
     /// The discarded tile.

@@ -16,7 +16,7 @@ use derive_more::{From, Into};
 ///
 /// Serializes as the player index number (0/1/2/3). Deserialization will check the range.
 ///
-#[derive(Copy, Clone, Default, Eq, PartialEq, Hash, From, Into)]
+#[derive(Copy, Clone, Default, Eq, PartialEq, Hash, From, Into, PartialOrd, Ord)]
 pub struct Player(u8);
 
 pub const P0: Player = Player(0);

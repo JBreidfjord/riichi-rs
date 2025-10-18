@@ -24,8 +24,7 @@ use super::Discard;
 ///
 /// Note that the `called_by` field of [`Discard`] is deliberately excluded.
 ///
-#[derive(Copy, Clone, Debug, strum::IntoStaticStr)]
-#[cfg_attr(test, derive(Eq, PartialEq))]
+#[derive(Copy, Clone, Debug, strum::IntoStaticStr, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Action {
     /// Discard a tile (打牌). See [`Discard`].
     /// The `called_by` field is implied and can be safely ignored here.
