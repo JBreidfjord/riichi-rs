@@ -16,11 +16,11 @@ use crate::{
     model::*,
 };
 use self::{
-    cache::EngineCache,
     reaction::resolve_reaction,
     step::{next_normal, next_agari, next_abort}
 };
 pub use self::{
+    cache::EngineCache,
     action::check_action,
     action::ActionError,
     reaction::{ReactionError, check_reaction},
