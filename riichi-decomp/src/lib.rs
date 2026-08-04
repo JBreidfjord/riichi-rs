@@ -3,6 +3,7 @@
 pub mod decomposer;
 pub mod irregular;
 pub mod regular;
+pub mod shanten;
 
 use std::fmt::{Display, Formatter};
 
@@ -15,6 +16,7 @@ pub use self::{
     decomposer::Decomposer,
     regular::RegularWait,
     irregular::{IrregularWait, detect_irregular_wait},
+    shanten::shanten,
 };
 
 /// One waiting pattern, either [`RegularWait`] or [`IrregularWait`].
