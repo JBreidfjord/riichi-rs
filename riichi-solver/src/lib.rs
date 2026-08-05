@@ -1,6 +1,6 @@
 //! Single-player EV solver: tenpai probability, win probability, and expected
-//! score per-turn vectors for a closed hand, via a memoized state graph and
-//! backward DP over turns.
+//! score per-turn vectors for a hand (closed part + fixed melds), via a
+//! memoized state graph and backward DP over turns.
 //!
 //! Clean-room implementation from nekobean/mahjong-cpp's algorithm docs
 //! (`docs/expected_score_calculation.md`, `docs/uradora_expected_value.md`)
@@ -10,13 +10,21 @@
 //! Model (matching the reference semantics):
 //! - Single player, tsumo-only wins; opponents unmodeled; discards return to
 //!   the wall; wall total shrinks by 1 per turn.
-//! - Turn `t` counts draws; boundary at `t_max` (default 18).
-//! - Auto-riichi: a closed tenpai hand is treated as having declared riichi
-//!   (riichi + menzen tsumo yaku, uradora EV).
+//! - Turn `t` counts draws; boundary at `t_max`. The obs-path convention is
+//!   `t_max = actual tsumos left, capped at` [`MAX_TSUMOS_LEFT`].
+//! - Melds are fixed input (no mid-search calls); their tiles are visible
+//!   (out of the wall) and count for dora/uradora and scoring.
+//! - Auto-riichi: a menzen tenpai hand (no melds, or ankan only) is treated
+//!   as having declared riichi (riichi + menzen tsumo yaku, uradora EV).
+//! - Wins happen on draw edges and require yaku: a yakuless completion
+//!   (open keishiki tenpai) counts as tenpai but never as a win.
 //! - Expansion: shanten-advancing draws and min-shanten discards only
 //!   (tegawari and shanten-back off — the production obs-path config).
 //! - Scoring reuses the `riichi` crate's yaku/fu scorer; uradora is an exact
 //!   combinatorial expectation over the remaining wall.
+//!
+//! Production entry: [`Solver::analyze`] — preconditions, then the
+//! [`SHANTEN_GATE`] decides full DP vs ukeire-only simple mode.
 
 use riichi::engine::agari::{agari_candidates, AgariInput};
 use riichi::engine::distribute_points;
@@ -27,6 +35,12 @@ use riichi_elements::prelude::*;
 use rustc_hash::FxHashMap as HashMap;
 
 pub const T_MAX: usize = 18;
+/// Obs-path horizon convention: actual tsumos left, capped at 17. Callers
+/// set `SolverConfig::t_max = tsumos_left.min(MAX_TSUMOS_LEFT)`.
+pub const MAX_TSUMOS_LEFT: usize = 17;
+/// Full tenpai/win/EV tables only at or below this root shanten; beyond it
+/// [`Solver::analyze`] returns ukeire-only simple stats.
+pub const SHANTEN_GATE: i8 = 3;
 const N_KINDS: usize = 37; // 34 normal + 3 red fives
 const RED_BASE: usize = 34;
 
@@ -81,10 +95,13 @@ pub struct SolverConfig {
     pub round_id: RoundId,
     pub seat: Player,
     pub enable_uradora: bool,
+    /// Fixed melds (never changed mid-search). Riichi/uradora apply only
+    /// when the hand is menzen (no melds, or ankan only).
+    pub melds: Vec<Meld>,
 }
 
 impl SolverConfig {
-    /// Reference-parity defaults for a given root hand size.
+    /// Reference-parity defaults for a given root hand size (closed tiles).
     pub fn new(root_tiles: u32, dora_indicators: Vec<Tile>) -> Self {
         let sum = 136 - root_tiles - dora_indicators.len() as u32;
         SolverConfig {
@@ -94,7 +111,17 @@ impl SolverConfig {
             round_id: RoundId { kyoku: 0, honba: 0 },
             seat: Player::new(1),
             enable_uradora: true,
+            melds: Vec::new(),
         }
+    }
+
+    /// Attach melds; their tiles are visible, so they leave the wall.
+    pub fn with_melds(mut self, melds: Vec<Meld>) -> Self {
+        for m in &melds {
+            self.sum -= m.to_tiles().len() as u32;
+        }
+        self.melds = melds;
+        self
     }
 }
 
@@ -151,6 +178,15 @@ pub struct Solver {
 struct Build<'a> {
     cfg: &'a SolverConfig,
     ind34: [u8; 34],
+    /// Meld tiles per 37-kind (visible: out of the wall).
+    meld37: [u8; N_KINDS],
+    /// Meld tiles folded to 34 kinds (dora/uradora hits include melds).
+    meld34: [u8; 34],
+    /// Dora hits inside melds (per current indicators) and red fives there.
+    meld_dora: u8,
+    meld_aka: u8,
+    /// No melds, or ankan only: riichi/uradora eligible.
+    menzen: bool,
     n13: Vec<Node13>,
     n14: Vec<Node14>,
     memo13: HashMap<u128, usize>,
@@ -161,6 +197,59 @@ struct Build<'a> {
     /// reached via a discard and scores as riichi. (No collision is possible:
     /// a tenpai root's graph contains no other 13-node with the same hand.)
     root13_key: Option<u128>,
+}
+
+impl<'a> Build<'a> {
+    fn new(cfg: &'a SolverConfig, root_hand: &[u8; N_KINDS]) -> Build<'a> {
+        let mut ind34 = [0u8; 34];
+        for t in &cfg.dora_indicators {
+            ind34[t.normal_encoding() as usize] += 1;
+        }
+        let mut meld37 = [0u8; N_KINDS];
+        let mut meld_aka = 0u8;
+        for m in &cfg.melds {
+            for t in m.to_tiles() {
+                meld37[t.encoding() as usize] += 1;
+                if t.is_red() {
+                    meld_aka += 1;
+                }
+            }
+        }
+        let mut meld_dora = 0u8;
+        for t in &cfg.dora_indicators {
+            let d = t.indicated_dora().normal_encoding() as usize;
+            meld_dora += meld37[d];
+            // Red fives sit in slots 34..37; fold them onto their five.
+            if d == 4 {
+                meld_dora += meld37[34];
+            } else if d == 13 {
+                meld_dora += meld37[35];
+            } else if d == 22 {
+                meld_dora += meld37[36];
+            }
+        }
+        let mut meld34 = [0u8; 34];
+        meld34.copy_from_slice(&meld37[..34]);
+        meld34[4] += meld37[34];
+        meld34[13] += meld37[35];
+        meld34[22] += meld37[36];
+
+        let n_tiles: u32 = fold34(root_hand).0.iter().map(|&c| c as u32).sum();
+        Build {
+            cfg,
+            ind34,
+            meld37,
+            meld34,
+            meld_dora,
+            meld_aka,
+            menzen: cfg.melds.iter().all(|m| m.is_closed()),
+            n13: Vec::new(),
+            n14: Vec::new(),
+            memo13: HashMap::default(),
+            memo14: HashMap::default(),
+            root13_key: (n_tiles % 3 == 1).then(|| key(root_hand)),
+        }
+    }
 }
 
 impl Solver {
@@ -175,21 +264,9 @@ impl Solver {
     /// Solve a root hand (13 or 14 tiles, closed). Returns per-candidate stats
     /// and the number of graph vertices searched.
     pub fn solve(&mut self, hand: &TileSet37, cfg: &SolverConfig) -> (Vec<Stat>, usize) {
-        let mut ind34 = [0u8; 34];
-        for t in &cfg.dora_indicators {
-            ind34[t.normal_encoding() as usize] += 1;
-        }
         let root_hand = hand.0;
         let n_tiles: u32 = fold34(&root_hand).0.iter().map(|&c| c as u32).sum();
-        let mut b = Build {
-            cfg,
-            ind34,
-            n13: Vec::new(),
-            n14: Vec::new(),
-            memo13: HashMap::default(),
-            memo14: HashMap::default(),
-            root13_key: (n_tiles % 3 == 1).then(|| key(&root_hand)),
-        };
+        let mut b = Build::new(cfg, &root_hand);
 
         let root_stats: Vec<(Option<u8>, usize)> = if n_tiles % 3 == 1 {
             let id = self.build13(&mut b, root_hand);
@@ -259,6 +336,7 @@ impl Solver {
         kind_copies(k)
             .saturating_sub(hand[k])
             .saturating_sub(ind)
+            .saturating_sub(b.meld37[k])
     }
 
     fn build13(&mut self, b: &mut Build, hand: [u8; N_KINDS]) -> usize {
@@ -296,7 +374,9 @@ impl Solver {
             let mut h2 = hand;
             h2[k] += 1;
             let score = if tenpai {
-                let riichi = b.root13_key != Some(hk);
+                // Riichi requires menzen; the 13-tile root additionally has
+                // not declared yet (declaration happens on a discard).
+                let riichi = b.menzen && b.root13_key != Some(hk);
                 self.score_win(b, &hand, wait_set.as_ref().unwrap(), k, riichi)
             } else {
                 0.0
@@ -406,7 +486,7 @@ impl Solver {
                 is_double: false,
                 is_ippatsu: false,
             }),
-            melds: &[],
+            melds: &b.cfg.melds,
             wait_set,
             contributor: b.cfg.seat,
             incoming_is_kan: false,
@@ -420,7 +500,7 @@ impl Solver {
             return 0.0; // yakuless (unreachable for closed tsumo)
         }
 
-        // All 14 tiles, folded, for dora counting.
+        // All 14 tiles, folded, for dora counting; melds count too.
         let mut hand14 = *hand13;
         hand14[draw_kind] += 1;
         let all34 = fold34(&hand14);
@@ -429,8 +509,9 @@ impl Solver {
             .dora_indicators
             .iter()
             .map(|i| all34[i.indicated_dora()])
-            .sum();
-        let aka: u8 = hand14[34] + hand14[35] + hand14[36];
+            .sum::<u8>()
+            + b.meld_dora;
+        let aka: u8 = hand14[34] + hand14[35] + hand14[36] + b.meld_aka;
 
         let gain = |ura: u8| -> f64 {
             let dh = DoraHits {
@@ -500,7 +581,9 @@ impl Solver {
             if ci == 0 {
                 continue;
             }
-            let gi = all34[Tile::from_encoding(i as u8).unwrap().indicated_dora()] as usize;
+            let ind_tile = Tile::from_encoding(i as u8).unwrap().indicated_dora();
+            let gi =
+                (all34[ind_tile] + b.meld34[ind_tile.normal_encoding() as usize]) as usize;
             let mut ndp = dp.clone();
             for x in 0..=d {
                 for u in 0..13 {
@@ -550,8 +633,13 @@ impl Solver {
                 for e in &n.draws {
                     let next = v14[e.to * stride + t + 1];
                     let p = e.w as f64 / denom;
+                    // A win happens on the edge, and only with yaku (score >
+                    // 0): the same complete hand reached via a different
+                    // winning tile can be yakuless (open keishiki tenpai),
+                    // which the reference counts as tenpai but never a win.
+                    let win_val = if e.score > 0.0 { 1.0 } else { next[1] };
                     v[0] += p * (next[0] - base[0]);
-                    v[1] += p * (next[1] - base[1]);
+                    v[1] += p * (win_val - base[1]);
                     v[2] += p * (e.score.max(next[2]) - base[2]);
                 }
                 v13[i * stride + t] = v;
@@ -584,7 +672,9 @@ impl Solver {
         }
         [
             if n.tenpai { 1.0 } else { best[0] },
-            if n.win { 1.0 } else { best[1] },
+            // Complete nodes are terminal with no expansions, so this is 0
+            // there: winning is accounted on the incoming edge (yaku only).
+            best[1],
             best[2],
         ]
     }
@@ -596,25 +686,114 @@ impl Default for Solver {
     }
 }
 
+/// Ukeire-only result beyond the shanten gate.
+pub struct SimpleStat {
+    /// Discarded tile kind (37-encoding), or None for a 13-tile root.
+    pub tile: Option<u8>,
+    /// Shanten of the resulting 13-tile hand.
+    pub shanten: i8,
+    /// This discard raises shanten (14-tile roots only; shanten-down
+    /// candidates only surface in simple mode — exploration is off in the
+    /// full DP).
+    pub shanten_down: bool,
+    /// Advancing tiles of the resulting hand, folded to 34 kinds:
+    /// (kind, wall copies).
+    pub necessary: Vec<(u8, u8)>,
+}
+
+pub enum Analysis {
+    /// Root shanten <= [`SHANTEN_GATE`]: full tenpai/win/EV tables.
+    Full { stats: Vec<Stat>, searched: usize },
+    /// Beyond the gate: ukeire only, no DP. `shanten` is the root's.
+    Simple { shanten: i8, stats: Vec<SimpleStat> },
+    /// Preconditions failed: no tsumos left, wall too small for the horizon,
+    /// or the hand is already complete. Encoder-side fallback applies.
+    Unavailable,
+}
+
+impl Solver {
+    /// Production entry point: preconditions, then the shanten gate decides
+    /// full DP vs ukeire-only simple mode. Works for action states (3N+2
+    /// closed tiles: per-candidate stats) and reaction states (3N+1: a
+    /// single current-hand stat).
+    pub fn analyze(&mut self, hand: &TileSet37, cfg: &SolverConfig) -> Analysis {
+        let folded = fold34(&hand.0);
+        let n_tiles: u32 = folded.0.iter().map(|&c| c as u32).sum();
+        if cfg.t_max == 0 || (cfg.sum as usize) <= cfg.t_max {
+            return Analysis::Unavailable;
+        }
+        let shanten = if n_tiles % 3 == 2 {
+            self.lut.analyze_14(&folded).0
+        } else {
+            self.lut.analyze_13(&folded).0
+        };
+        if shanten == -1 {
+            return Analysis::Unavailable;
+        }
+        if shanten <= SHANTEN_GATE {
+            let (stats, searched) = self.solve(hand, cfg);
+            return Analysis::Full { stats, searched };
+        }
+
+        let b = Build::new(cfg, &hand.0);
+        let stats = if n_tiles % 3 == 2 {
+            let mut v = Vec::new();
+            for k in 0..N_KINDS {
+                if hand.0[k] == 0 {
+                    continue;
+                }
+                let mut h2 = hand.0;
+                h2[k] -= 1;
+                let (s13, adv) = self.lut.analyze_13(&fold34(&h2));
+                v.push(SimpleStat {
+                    tile: Some(k as u8),
+                    shanten: s13,
+                    shanten_down: s13 > shanten,
+                    necessary: necessary_from_mask(&b, &h2, adv),
+                });
+            }
+            v
+        } else {
+            let (s13, adv) = self.lut.analyze_13(&folded);
+            vec![SimpleStat {
+                tile: None,
+                shanten: s13,
+                shanten_down: false,
+                necessary: necessary_from_mask(&b, &hand.0, adv),
+            }]
+        };
+        Analysis::Simple { shanten, stats }
+    }
+}
+
+/// Folded (kind, wall copies) list for an advancing-tile mask of `hand`.
+fn necessary_from_mask(b: &Build, hand: &[u8; N_KINDS], adv: u64) -> Vec<(u8, u8)> {
+    let mut out: Vec<(u8, u8)> = Vec::new();
+    for k in 0..N_KINDS {
+        let fk = fold_kind(k);
+        if adv & (1 << fk) == 0 {
+            continue;
+        }
+        let w = Solver::wall_count(b, hand, k);
+        if w == 0 {
+            continue;
+        }
+        match out.iter_mut().find(|(kk, _)| *kk == fk as u8) {
+            Some((_, c)) => *c += w,
+            None => out.push((fk as u8, w)),
+        }
+    }
+    out.sort_unstable();
+    out
+}
+
 impl Solver {
     /// Debug: solve and dump the graph as JSON (spike diagnostics).
     #[doc(hidden)]
     pub fn graph_json(&mut self, hand: &TileSet37, cfg: &SolverConfig) -> String {
-        let mut ind34 = [0u8; 34];
-        for t in &cfg.dora_indicators {
-            ind34[t.normal_encoding() as usize] += 1;
-        }
         let root_hand = hand.0;
         let n_tiles: u32 = fold34(&root_hand).0.iter().map(|&c| c as u32).sum();
-        let mut b = Build {
-            cfg,
-            ind34,
-            n13: Vec::new(),
-            n14: Vec::new(),
-            memo13: HashMap::default(),
-            memo14: HashMap::default(),
-            root13_key: (n_tiles % 3 == 1).then(|| key(&root_hand)),
-        };
+        let mut b = Build::new(cfg, &root_hand);
         let root = if n_tiles % 3 == 1 {
             let id = self.build13(&mut b, root_hand);
             format!("{{\"type\":13,\"id\":{id}}}")
@@ -685,6 +864,78 @@ mod tests {
         fn from_str_checked(s: &str) -> Tile {
             s.parse().unwrap()
         }
+    }
+
+    #[test]
+    fn analyze_gates_on_shanten() {
+        let mut solver = Solver::new();
+        // Tenpai: full DP.
+        let hand = hand_from_mpsz("123456789m1112z");
+        let cfg = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        match solver.analyze(&hand, &cfg) {
+            Analysis::Full { stats, .. } => assert_eq!(stats.len(), 1),
+            _ => panic!("tenpai hand must get the full DP"),
+        }
+        // Shanten 5-6 junk: simple mode, per-discard ukeire matching probes.
+        let hand = hand_from_mpsz("147m258p369s1234z");
+        let mut h14 = hand.0;
+        h14[0] += 1; // second 1m -> 14 tiles
+        let hand = TileSet37(h14);
+        let cfg = SolverConfig::new(14, vec![Tile::from_str_checked("3p")]);
+        match solver.analyze(&hand, &cfg) {
+            Analysis::Simple { shanten, stats } => {
+                assert!(shanten > SHANTEN_GATE);
+                let held = (0..N_KINDS).filter(|&k| hand.0[k] > 0).count();
+                assert_eq!(stats.len(), held);
+                for s in &stats {
+                    let k = s.tile.unwrap() as usize;
+                    let mut h2 = hand.0;
+                    h2[k] -= 1;
+                    let expect = riichi_decomp::shanten(&fold34(&h2));
+                    assert_eq!(s.shanten, expect, "discard {k}");
+                    assert_eq!(s.shanten_down, expect > shanten, "discard {k}");
+                    for &(t, _) in &s.necessary {
+                        let mut h3 = fold34(&h2).0;
+                        h3[t as usize] += 1;
+                        assert!(
+                            riichi_decomp::shanten(&TileSet34(h3)) < expect,
+                            "discard {k}: tile {t} not advancing"
+                        );
+                    }
+                }
+            }
+            _ => panic!("junk hand must get simple mode"),
+        }
+        // Reaction state (3N+1) beyond the gate: one current-hand stat.
+        let hand = hand_from_mpsz("147m258p369s1234z");
+        let cfg = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        match solver.analyze(&hand, &cfg) {
+            Analysis::Simple { stats, .. } => {
+                assert_eq!(stats.len(), 1);
+                assert!(stats[0].tile.is_none());
+                assert!(!stats[0].necessary.is_empty());
+            }
+            _ => panic!("junk reaction state must get simple mode"),
+        }
+    }
+
+    #[test]
+    fn analyze_preconditions() {
+        let mut solver = Solver::new();
+        // Complete hand.
+        let hand = hand_from_mpsz("123456789m11122z");
+        let cfg = SolverConfig::new(14, vec![Tile::from_str_checked("3p")]);
+        assert!(matches!(solver.analyze(&hand, &cfg), Analysis::Unavailable));
+        // No tsumos left.
+        let hand = hand_from_mpsz("123456789m1112z");
+        let mut cfg = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        cfg.t_max = 0;
+        assert!(matches!(solver.analyze(&hand, &cfg), Analysis::Unavailable));
+        // Wall smaller than the horizon.
+        let mut cfg = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        cfg.t_max = 17;
+        cfg.sum = 17;
+        assert!(matches!(solver.analyze(&hand, &cfg), Analysis::Unavailable));
     }
 
     #[test]
