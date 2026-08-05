@@ -1,7 +1,7 @@
 //! Driver of the main game logic.
 
 mod action;
-mod agari;
+pub mod agari;
 mod cache;
 mod step;
 mod reaction;

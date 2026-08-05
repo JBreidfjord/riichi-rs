@@ -5,6 +5,7 @@ members = [
     "riichi", "riichi-analysis",
     "riichi-decomp",
     "riichi-decomp-table",
+    "riichi-solver",
     "riichi-elements",
     "tenhou-db",
     "tenhou-shuffle",
