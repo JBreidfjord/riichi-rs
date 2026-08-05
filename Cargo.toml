@@ -24,3 +24,9 @@ serde_with = "2.0"
 strum = { version = "0.24", features = ["derive"] }
 phf = { version = "0.11", features = ["macros"] }
 phf_codegen = { version = "0.11" }
+rustc-hash = "1.1"
+
+# Shanten-LUT generation is a few hundred million table ops; keep it usable
+# under `cargo test` (the generated tables are disk-cached after first run).
+[profile.dev.package.riichi-decomp]
+opt-level = 2

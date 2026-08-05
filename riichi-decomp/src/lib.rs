@@ -2,6 +2,7 @@
 
 pub mod decomposer;
 pub mod irregular;
+pub mod lut;
 pub mod regular;
 pub mod shanten;
 
@@ -14,6 +15,7 @@ use riichi_elements::prelude::*;
 pub use riichi_decomp_table::WaitingKind;
 pub use self::{
     decomposer::Decomposer,
+    lut::ShantenLut,
     regular::RegularWait,
     irregular::{IrregularWait, detect_irregular_wait},
     shanten::shanten,

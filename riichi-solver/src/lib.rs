@@ -18,14 +18,13 @@
 //! - Scoring reuses the `riichi` crate's yaku/fu scorer; uradora is an exact
 //!   combinatorial expectation over the remaining wall.
 
-use std::collections::HashMap;
-
 use riichi::engine::agari::{agari_candidates, AgariInput};
 use riichi::engine::distribute_points;
 use riichi::model::{DoraHits, RoundId, Scoring};
 use riichi::rules::Ruleset;
-use riichi_decomp::{shanten, Decomposer, WaitSet};
+use riichi_decomp::{Decomposer, ShantenLut, WaitSet};
 use riichi_elements::prelude::*;
+use rustc_hash::FxHashMap as HashMap;
 
 pub const T_MAX: usize = 18;
 const N_KINDS: usize = 37; // 34 normal + 3 red fives
@@ -37,6 +36,16 @@ fn kind_copies(k: usize) -> u8 {
         4 | 13 | 22 => 3,
         RED_BASE..=36 => 1,
         _ => 4,
+    }
+}
+
+/// 37-kind index folded to its 34-kind (reds to their fives).
+fn fold_kind(k: usize) -> usize {
+    match k {
+        34 => 4,
+        35 => 13,
+        36 => 22,
+        _ => k,
     }
 }
 
@@ -114,6 +123,7 @@ struct DrawEdge {
 
 struct Node13 {
     hand: [u8; N_KINDS],
+    shanten: i8,
     tenpai: bool,
     draws: Vec<DrawEdge>,
 }
@@ -135,7 +145,7 @@ struct Node14 {
 pub struct Solver {
     decomposer: Decomposer<'static>,
     ruleset: Ruleset,
-    shanten_memo: HashMap<u128, i8>,
+    lut: &'static ShantenLut,
 }
 
 struct Build<'a> {
@@ -158,18 +168,8 @@ impl Solver {
         Solver {
             decomposer: Decomposer::new(),
             ruleset: Ruleset::default(),
-            shanten_memo: HashMap::new(),
+            lut: ShantenLut::get(),
         }
-    }
-
-    fn shanten34(&mut self, hand: &[u8; N_KINDS]) -> i8 {
-        let k = key(hand);
-        if let Some(&s) = self.shanten_memo.get(&k) {
-            return s;
-        }
-        let s = shanten(&fold34(hand));
-        self.shanten_memo.insert(k, s);
-        s
     }
 
     /// Solve a root hand (13 or 14 tiles, closed). Returns per-candidate stats
@@ -186,8 +186,8 @@ impl Solver {
             ind34,
             n13: Vec::new(),
             n14: Vec::new(),
-            memo13: HashMap::new(),
-            memo14: HashMap::new(),
+            memo13: HashMap::default(),
+            memo14: HashMap::default(),
             root13_key: (n_tiles % 3 == 1).then(|| key(&root_hand)),
         };
 
@@ -241,7 +241,7 @@ impl Solver {
                 }
                 Stat {
                     tile,
-                    shanten: self.shanten34(&node.hand),
+                    shanten: node.shanten,
                     tenpai_prob,
                     win_prob,
                     exp_score,
@@ -269,12 +269,13 @@ impl Solver {
         let id = b.n13.len();
         b.n13.push(Node13 {
             hand,
+            shanten: 0,
             tenpai: false,
             draws: Vec::new(),
         });
         b.memo13.insert(hk, id);
 
-        let s13 = self.shanten34(&hand);
+        let (s13, advancing) = self.lut.analyze_13(&fold34(&hand));
         let tenpai = s13 == 0;
         // Wait set of the 13-tile hand, needed to score winning draws.
         let wait_set = if tenpai {
@@ -285,15 +286,15 @@ impl Solver {
 
         let mut draws = Vec::new();
         for k in 0..N_KINDS {
+            if advancing & (1 << fold_kind(k)) == 0 {
+                continue;
+            }
             let w = Self::wall_count(b, &hand, k);
             if w == 0 {
                 continue;
             }
             let mut h2 = hand;
             h2[k] += 1;
-            if self.shanten34(&h2) >= s13 {
-                continue;
-            }
             let score = if tenpai {
                 let riichi = b.root13_key != Some(hk);
                 self.score_win(b, &hand, wait_set.as_ref().unwrap(), k, riichi)
@@ -310,6 +311,7 @@ impl Solver {
                 synthetic: false,
             });
         }
+        b.n13[id].shanten = s13;
         b.n13[id].tenpai = tenpai;
         b.n13[id].draws = draws;
         id
@@ -329,7 +331,7 @@ impl Solver {
         });
         b.memo14.insert(hk, id);
 
-        let s14 = self.shanten34(&hand);
+        let (s14, keep) = self.lut.analyze_14(&fold34(&hand));
         // Win nodes are terminal: the hand is closed and tenpai, so riichi is
         // locked — continuing can never beat taking the win (same waits, same
         // score, fewer draws left). Expanding their discards would also let
@@ -337,23 +339,17 @@ impl Solver {
         let discards: Vec<(u8, usize)> = if s14 == -1 {
             Vec::new()
         } else {
-            // Min-shanten discards only (shanten-back off).
-            let mut best = i8::MAX;
+            // Min-shanten discards only (shanten-back off): a 14-tile hand's
+            // shanten equals its best discard's, so these are exactly the
+            // keep-shanten discards.
             let mut cand: Vec<(u8, [u8; N_KINDS])> = Vec::new();
             for k in 0..N_KINDS {
-                if hand[k] == 0 {
+                if hand[k] == 0 || keep & (1 << fold_kind(k)) == 0 {
                     continue;
                 }
                 let mut h2 = hand;
                 h2[k] -= 1;
-                let s = self.shanten34(&h2);
-                if s < best {
-                    best = s;
-                    cand.clear();
-                }
-                if s == best {
-                    cand.push((k as u8, h2));
-                }
+                cand.push((k as u8, h2));
             }
             // Each discard edge also gets a reverse draw edge (redrawing the
             // discarded tile back into this 14-tile hand), letting the DP
@@ -615,8 +611,8 @@ impl Solver {
             ind34,
             n13: Vec::new(),
             n14: Vec::new(),
-            memo13: HashMap::new(),
-            memo14: HashMap::new(),
+            memo13: HashMap::default(),
+            memo14: HashMap::default(),
             root13_key: (n_tiles % 3 == 1).then(|| key(&root_hand)),
         };
         let root = if n_tiles % 3 == 1 {
@@ -681,6 +677,16 @@ pub fn hand_from_mpsz(s: &str) -> TileSet37 {
 mod tests {
     use super::*;
 
+    trait TileExt {
+        fn from_str_checked(s: &str) -> Tile;
+    }
+
+    impl TileExt for Tile {
+        fn from_str_checked(s: &str) -> Tile {
+            s.parse().unwrap()
+        }
+    }
+
     #[test]
     fn tenpai_hand_win_prob_matches_closed_form() {
         // 123456789m11p56s: 8 winning tiles, sum = 122.
@@ -694,15 +700,5 @@ mod tests {
         // v17 = 8 / (122 - 17)
         assert!((s.win_prob[17] - 8.0 / 105.0).abs() < 1e-12);
         assert_eq!(s.tenpai_prob[1], 1.0);
-    }
-}
-
-trait TileExt {
-    fn from_str_checked(s: &str) -> Tile;
-}
-
-impl TileExt for Tile {
-    fn from_str_checked(s: &str) -> Tile {
-        s.parse().unwrap()
     }
 }

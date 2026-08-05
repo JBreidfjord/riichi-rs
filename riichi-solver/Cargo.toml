@@ -7,6 +7,7 @@ edition = "2021"
 riichi = { path = "../riichi", version = "0.1.0" }
 riichi-decomp = { path = "../riichi-decomp", version = "0.1.0" }
 riichi-elements = { path = "../riichi-elements", features = ["std"], version = "0.1.0" }
+rustc-hash.workspace = true
 
 [dev-dependencies]
 serde_json = { workspace = true }
