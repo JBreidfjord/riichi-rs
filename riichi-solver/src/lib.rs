@@ -764,6 +764,83 @@ impl Solver {
         };
         Analysis::Simple { shanten, stats }
     }
+
+    /// Encoder fallback when [`Solver::analyze`] returns
+    /// [`Analysis::Unavailable`]: the current hand scored as a tsumo win with
+    /// no riichi and no uradora — the minimal interpretation. `hand` must be
+    /// a 3N+2 root that includes `winning_tile`. Returns 0 unless the hand is
+    /// a yaku-bearing agari on `winning_tile`.
+    pub fn min_tsumo_points(
+        &mut self,
+        hand: &TileSet37,
+        winning_tile: Tile,
+        cfg: &SolverConfig,
+    ) -> f64 {
+        let mut hand13 = hand.0;
+        let wk = winning_tile.encoding() as usize;
+        if hand13[wk] == 0 {
+            return 0.0;
+        }
+        hand13[wk] -= 1;
+        let folded13 = fold34(&hand13);
+        let n_tiles: u32 = folded13.0.iter().map(|&c| c as u32).sum();
+        if n_tiles % 3 != 1 {
+            return 0.0;
+        }
+        let wait_set = WaitSet::from_tile_set(&mut self.decomposer, &folded13);
+        if !wait_set.waiting_tiles.has(winning_tile.to_normal()) {
+            return 0.0;
+        }
+        let closed = to_tileset37(&hand13);
+        let input = AgariInput {
+            round_id: cfg.round_id,
+            winner: cfg.seat,
+            closed_hand: &closed,
+            riichi: None,
+            melds: &cfg.melds,
+            wait_set: &wait_set,
+            contributor: cfg.seat,
+            incoming_is_kan: false,
+            action_is_kan: false,
+            winning_tile,
+            is_first_chance: false,
+            is_last_draw: false,
+        };
+        let candidates = agari_candidates(&self.ruleset, &input);
+        if candidates.is_empty() {
+            return 0.0; // yakuless
+        }
+
+        let b = Build::new(cfg, &hand13);
+        let all34 = fold34(&hand.0);
+        let dora: u8 = cfg
+            .dora_indicators
+            .iter()
+            .map(|i| all34[i.indicated_dora()])
+            .sum::<u8>()
+            + b.meld_dora;
+        let aka: u8 = hand.0[34] + hand.0[35] + hand.0[36] + b.meld_aka;
+        let dh = DoraHits {
+            dora,
+            ura_dora: 0,
+            aka_dora: aka,
+        };
+        let basic = candidates
+            .iter()
+            .map(|c| {
+                Scoring {
+                    yakuman_total_value: c.scoring.yakuman_total_value,
+                    yaku_total_value: c.scoring.yaku_total_value,
+                    dora_hits: dh,
+                    fu: c.scoring.fu,
+                }
+                .basic_points()
+            })
+            .max()
+            .unwrap_or(0);
+        distribute_points(&self.ruleset, cfg.round_id, false, cfg.seat, cfg.seat, basic)
+            [cfg.seat.to_usize()] as f64
+    }
 }
 
 /// Folded (kind, wall copies) list for an advancing-tile mask of `hand`.
@@ -917,6 +994,31 @@ mod tests {
             }
             _ => panic!("junk reaction state must get simple mode"),
         }
+    }
+
+    #[test]
+    fn min_tsumo_points_scores_complete_hands() {
+        let mut solver = Solver::new();
+        // Complete closed hand (tanki on 8s): menzen tsumo at minimum.
+        let hand = hand_from_mpsz("234567m234567p88s");
+        let cfg = SolverConfig::new(14, vec![Tile::from_str_checked("3z")]);
+        let win = Tile::from_str_checked("8s");
+        let pts = solver.min_tsumo_points(&hand, win, &cfg);
+        assert!(pts > 0.0, "complete closed hand must score, got {pts}");
+        // No uradora: the same call is deterministic in the indicators given.
+        let pts2 = solver.min_tsumo_points(&hand, win, &cfg);
+        assert_eq!(pts, pts2);
+        // Incomplete hand: no agari, no points.
+        let junk = hand_from_mpsz("1147m258p369s123z");
+        assert_eq!(
+            solver.min_tsumo_points(&junk, Tile::from_str_checked("1m"), &cfg),
+            0.0
+        );
+        // Winning tile absent from the hand.
+        assert_eq!(
+            solver.min_tsumo_points(&hand, Tile::from_str_checked("1z"), &cfg),
+            0.0
+        );
     }
 
     #[test]
