@@ -103,6 +103,8 @@ fn meld_extra_fu(meld: &Meld) -> u8 {
         Meld::Kakan(kakan) => 8 * terminal_fu_multiplier(kakan.added),
         Meld::Daiminkan(daiminkan) => 8 * terminal_fu_multiplier(daiminkan.called),
         Meld::Ankan(ankan) => 16 * terminal_fu_multiplier(ankan.own[0]),
+        // 「何枚使っても0符で」 --- extracted Norths add no fu, however many there are.
+        Meld::Kita(_) => 0,
     }
 }
 

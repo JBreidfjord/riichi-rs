@@ -1,7 +1,7 @@
 use bitfield_struct::bitfield;
 
 use crate::tile::Tile;
-use super::{Meld, Chii, Pon, Kakan, Daiminkan, Ankan};
+use super::{Meld, Chii, Pon, Kakan, Daiminkan, Ankan, Kita};
 
 /// Defines the bit-fields for packing `Meld` into `u16`:
 ///
@@ -9,6 +9,8 @@ use super::{Meld, Chii, Pon, Kakan, Daiminkan, Ankan};
 /// - `[7:6]` -- dir
 /// - `[11:8]` -- red (see below)
 /// - `[14:12]` -- [`PackedMeldKind`]
+///
+/// [`Kita`] uses `tile` = North, `dir` = 0, `red` = 0 (there is no red North).
 ///
 /// ## Dir
 ///
@@ -77,6 +79,7 @@ pub(crate) enum PackedMeldKind {
     Kakan = 3,
     Daiminkan = 4,
     Ankan = 5,
+    Kita = 6,
 }
 
 impl TryFrom<PackedMeld> for Meld {
@@ -94,6 +97,8 @@ impl TryFrom<PackedMeld> for Meld {
                 Daiminkan::try_from(raw).map(Meld::Daiminkan),
             PackedMeldKind::Ankan =>
                 Ankan::try_from(raw).map(Meld::Ankan),
+            PackedMeldKind::Kita =>
+                Kita::try_from(raw).map(Meld::Kita),
         }
     }
 }
@@ -106,6 +111,7 @@ impl From<Meld> for PackedMeld {
             Meld::Kakan(kakan) => PackedMeld::from(kakan),
             Meld::Daiminkan(daiminkan) => PackedMeld::from(daiminkan),
             Meld::Ankan(ankan) => PackedMeld::from(ankan),
+            Meld::Kita(kita) => PackedMeld::from(kita),
         }
     }
 }

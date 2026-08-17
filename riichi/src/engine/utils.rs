@@ -350,6 +350,9 @@ pub fn get_all_tiles(
             Meld::Ankan(ankan) => {
                 for own in ankan.own { all_tiles[own] += 1; }
             }
+            // An extracted North is set aside, not held: it is not part of the 14-tile winning
+            // shape (「和了形にはカウントされず」), so it contributes no tile here.
+            Meld::Kita(_) => {}
         }
     }
     log::debug!("+meld      : {}", all_tiles);

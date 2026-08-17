@@ -1,4 +1,4 @@
-//! [`Meld`] (副露) = one of [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`].
+//! [`Meld`] (副露) = one of [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`], [`Kita`].
 //!
 //! ## Ref
 //!
@@ -13,6 +13,7 @@ mod ankan;
 mod chii;
 mod daiminkan;
 mod kakan;
+mod kita;
 mod packed;
 mod pon;
 mod utils;
@@ -21,11 +22,12 @@ pub use ankan::Ankan;
 pub use chii::Chii;
 pub use daiminkan::Daiminkan;
 pub use kakan::Kakan;
+pub use kita::{Kita, NORTH};
 pub use pon::Pon;
 
 /// Sum type of all kinds of melds (副露).
 ///
-/// This is one of: [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`].
+/// This is one of: [`Chii`], [`Pon`], [`Kakan`], [`Daiminkan`], [`Ankan`], [`Kita`].
 ///
 ///
 /// ## Optional `serde` support
@@ -39,6 +41,7 @@ pub use pon::Pon;
 /// - `{"type": "Kakan", "own": ["0p", "5p"], "called": "0p", "dir": 1, "added": "5p"}`
 /// - `{"type": "Daiminkan", "own": ["0s", "5s", "5s"], "called": "0s", "dir": 3}`
 /// - `{"type": "Ankan", "own": ["4z", "4z", "4z", "4z"]}`
+/// - `{"type": "Kita", "tile": "4z"}`
 ///
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -54,12 +57,27 @@ pub enum Meld {
     Daiminkan(Daiminkan),
     /// See [`Ankan`].
     Ankan(Ankan),
+    /// See [`Kita`]. Sanma only.
+    Kita(Kita),
 }
 
 impl Meld {
-    /// [`Ankan`]
+    /// [`Ankan`] or [`Kita`] --- i.e. this meld does not open the hand.
+    ///
+    /// [`Kita`] counts as closed because extracting a North leaves the hand menzen: riichi,
+    /// menzen tsumo and the closed-hand yaku all remain available afterwards. (An extraction is
+    /// "treated like a call" only for the purposes that kill Ippatsu / Chiihou / Kyuushuu /
+    /// Double Riichi --- see the Ippatsu handling in the engine, not here.)
     pub fn is_closed(&self) -> bool {
-        matches!(self, Meld::Ankan(_))
+        matches!(self, Meld::Ankan(_) | Meld::Kita(_))
+    }
+
+    /// [`Kita`] --- is this the North extraction rather than a called/formed group?
+    ///
+    /// A Kita is *not* part of the winning hand shape, contributes no fu, and must be excluded
+    /// from every group-shaped scan over a seat's meld list.
+    pub fn is_kita(&self) -> bool {
+        matches!(self, Meld::Kita(_))
     }
 
     /// [`Kakan`], [`Daiminkan`], or [`Ankan`]
@@ -75,6 +93,7 @@ impl Meld {
             Self::Daiminkan(daiminkan) => Some(daiminkan.called),
             Self::Kakan(kakan) => Some(kakan.pon.called),
             Self::Ankan(_) => None,
+            Self::Kita(_) => None,
         }
     }
 
@@ -88,21 +107,33 @@ impl Meld {
             Self::Daiminkan(daiminkan) => Some(daiminkan.dir),
             Self::Kakan(kakan) => Some(kakan.pon.dir),
             Self::Ankan(_) => None,
+            Self::Kita(_) => None,
         }
     }
 
     /// Maps to the equivalent closed-hand group. Useful for e.g. winning condition calculations.
     /// - [`Chii`] => [`HandGroup::Shuntsu`]
     /// - [`Pon`]/Kan => [`HandGroup::Koutsu`] (ignoring the 4th tile)
+    /// - [`Kita`] => `None`; an extracted North is not a group at all.
+    ///
+    /// Prefer [`Self::to_group`] at any site that must not silently treat a Kita as a triplet.
+    /// This method panics on [`Kita`] deliberately: every historical caller assumed a meld is
+    /// always a group, and a wrong answer there is a silently-inflated hand.
     pub fn to_equivalent_group(&self) -> HandGroup {
+        self.to_group().expect("Kita is not a hand group; use `to_group`")
+    }
+
+    /// Maps to the equivalent closed-hand group, or `None` for [`Kita`].
+    pub fn to_group(&self) -> Option<HandGroup> {
         use HandGroup::*;
-        match self {
+        Some(match self {
             Meld::Chii(chii) => Shuntsu(chii.min),
             Meld::Pon(pon) => Koutsu(pon.called.to_normal()),
             Meld::Kakan(kakan) => Koutsu(kakan.added.to_normal()),
             Meld::Daiminkan(daiminkan) => Koutsu(daiminkan.called.to_normal()),
             Meld::Ankan(ankan) => Koutsu(ankan.own[0].to_normal()),
-        }
+            Meld::Kita(_) => return None,
+        })
     }
 
     /// Removes this meld's "own tile(s)" from the closed hand.
@@ -114,6 +145,7 @@ impl Meld {
             Meld::Daiminkan(daiminkan) => daiminkan.consume_from_hand(hand),
             Meld::Kakan(kakan) => kakan.consume_from_hand(hand),
             Meld::Ankan(ankan) => ankan.consume_from_hand(hand),
+            Meld::Kita(kita) => kita.consume_from_hand(hand),
         }
     }
 
@@ -128,6 +160,9 @@ impl Meld {
                 vec![daiminkan.own[0], daiminkan.own[1], daiminkan.own[2], daiminkan.called]
             }
             Meld::Ankan(ankan) => ankan.own.to_vec(),
+            // The extracted North *is* set aside face-up and therefore visible, so it belongs
+            // here for wall-accounting purposes even though it is not part of the hand shape.
+            Meld::Kita(kita) => vec![kita.tile],
         }
     }
 }
@@ -141,6 +176,7 @@ impl Display for Meld {
             Meld::Kakan(kakan) => write!(f, "{}", kakan),
             Meld::Daiminkan(daiminkan) => write!(f, "{}", daiminkan),
             Meld::Ankan(ankan) => write!(f, "{}", ankan),
+            Meld::Kita(kita) => write!(f, "{}", kita),
         }
     }
 }
@@ -231,6 +267,47 @@ mod test {
         assert_eq!(meld.called(), None);
         assert_eq!(meld.dir(), None);
         assert_eq!(meld.to_equivalent_group(), HandGroup::Koutsu(t!("4z")));
+    }
+
+    #[test]
+    fn kita_example() {
+        let kita = Kita::new();
+        let meld = Meld::Kita(kita);
+        assert_eq!(Meld::from_packed(meld.packed()), Some(meld));
+        assert_eq!(kita.to_string(), "N4z");
+        assert_eq!(meld.to_string(), "N4z");
+
+        assert_eq!(meld.called(), None);
+        assert_eq!(meld.dir(), None);
+        // A Kita is not a hand group, and does not open the hand.
+        assert_eq!(meld.to_group(), None);
+        assert!(meld.is_closed());
+        assert!(meld.is_kita());
+        assert!(!meld.is_kan());
+        assert_eq!(meld.to_tiles(), vec![t!("4z")]);
+
+        // Only a North can be extracted.
+        assert_eq!(Kita::from_tile(t!("4z")), Some(kita));
+        assert_eq!(Kita::from_tile(t!("1z")), None);
+        assert_eq!(Kita::from_tile(t!("3z")), None);
+    }
+
+    #[test]
+    #[should_panic]
+    fn kita_is_not_a_hand_group() {
+        let _ = Meld::Kita(Kita::new()).to_equivalent_group();
+    }
+
+    /// Every existing meld kind must keep its exact packed encoding: the packed `u16` is
+    /// persisted downstream, so adding `Kita = 6` must not perturb kinds 1..=5.
+    #[test]
+    fn packed_encodings_are_stable() {
+        assert_eq!(Meld::Chii(Chii::from_tiles(t!("4s"), t!("6s"), t!("0s")).unwrap()).packed(),
+                   0x1155);
+        assert_eq!(Meld::Pon(Pon::from_tiles_dir(t!("5p"), t!("0p"), t!("0p"), P2)
+                       .unwrap()).packed(), 0x258D);
+        assert_eq!(Meld::Ankan(Ankan::from_tiles(
+                       [t!("4z"), t!("4z"), t!("4z"), t!("4z")]).unwrap()).packed(), 0x501E);
     }
 
     #[test]

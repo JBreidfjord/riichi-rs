@@ -82,6 +82,29 @@ pub struct Ruleset {
 
 
     /////////////////////////////////////////////
+    // Which game
+
+    /// Which game is being played: [`Variant::Yonma`] (4 players) or [`Variant::Sanma`]
+    /// (3 players, Tenhou-standard).
+    ///
+    /// **Default: [`Variant::Yonma`]**, so every existing ruleset keeps its exact behaviour.
+    ///
+    /// This is deliberately *not* a set of independent toggles. Seat count, Chii legality, Kita
+    /// legality, wall geometry, the 1m<->9m manzu dora chain, the Noten Bappu total, tsumo loss
+    /// and the abort set are all **derived** from this one field, so a "half-sanma" ruleset ---
+    /// three players with Chii legal, say --- cannot be expressed.
+    ///
+    /// Two things it does *not* derive, because they are a separate axis of a game's
+    /// configuration rather than a rule of the game: [`Self::kyoku_max_soft`] /
+    /// [`Self::kyoku_max_hard`] (game length --- use
+    /// [`Variant::last_kyoku_of_wind`] to compute them) and [`Self::points_min_qualify`] (the
+    /// return point --- [`Variant::return_points`] carries the Tenhou value).
+    /// [`Self::for_variant`] sets all four together.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub variant: Variant,
+
+
+    /////////////////////////////////////////////
     // How many rounds
 
     /// The Kyoku index of the "all-last" round.
@@ -277,6 +300,31 @@ pub struct Ruleset {
     // TODO
 }
 
+impl Ruleset {
+    /// A ruleset for the given [`Variant`], with the game-length and return-point fields set to
+    /// that variant's Tenhou ranked-lobby values for an **East-South** game.
+    ///
+    /// [`Ruleset::default()`] is [`Variant::Yonma`] East-South, and
+    /// `Ruleset::for_variant(Variant::Yonma)` is byte-identical to it --- the whole point being
+    /// that nothing about yonma changes.
+    ///
+    /// - yonma: South 4 all-last (`kyoku_max_soft == 7`), North 4 hard stop, qualify at 30000.
+    /// - sanma: South 3 all-last (`kyoku_max_soft == 6` under sparse kyoku numbering), West 3
+    ///   hard stop (「※最大局数=…三南:西3局」), qualify at 40000 (「35000開始の40000点返し」).
+    pub fn for_variant(variant: Variant) -> Self {
+        Ruleset {
+            variant,
+            kyoku_max_soft: variant.last_kyoku_of_wind(1),
+            kyoku_max_hard: variant.last_kyoku_of_wind(3 - (variant.num_players() == 3) as u8),
+            points_min_qualify: variant.return_points(),
+            ..Ruleset::default()
+        }
+    }
+
+    /// Shorthand for [`Ruleset::variant`].
+    pub fn variant(&self) -> Variant { self.variant }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -296,6 +344,8 @@ mod tests {
             };
             let json = serde_json::json!({
                 "version": crate::VERSION_STR,
+
+                "variant": "Yonma",
 
                 "kyoku_max_soft": 3,
                 "kyoku_max_hard": 7,

@@ -7,6 +7,7 @@ pub mod player;
 pub mod tile;
 pub mod tile_set;
 pub mod typedefs;
+pub mod variant;
 pub mod utils;
 pub mod wall;
 
@@ -18,6 +19,7 @@ pub mod prelude {
         tile::*,
         tile_set::*,
         typedefs::*,
+        variant::*,
         wall::{self, PartialWall, PartialWallDisplayMethod, Wall, WallDisplayMethod}
     };
 }

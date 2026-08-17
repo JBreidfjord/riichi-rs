@@ -18,7 +18,7 @@ use super::Discard;
 /// Examples:
 ///
 /// - [`Action::Discard`] <=> `{"type": "Discard", "tile": "1m", "riichi": true, "tsumo": true}`
-/// - [`Action::Ankan`], [`Action::Kakan`], [`Action::TsumoAgari`] <=>
+/// - [`Action::Ankan`], [`Action::Kakan`], [`Action::Kita`], [`Action::TsumoAgari`] <=>
 ///   `{"type": "TsumoAgari", "tile": "5z"}`
 /// - [`Action::AbortNineKinds`] <=> `{"type": "AbortNineKinds"}`
 ///
@@ -39,6 +39,18 @@ pub enum Action {
     #[strum(to_string = "加槓")]
     Kakan(Tile),
 
+    /// Declare a [`Kita`] (北抜き; set a North aside as a nuki-dora). Sanma only.
+    ///
+    /// Like [`Action::Kakan`] this is a turn action that opens a reaction window and draws a
+    /// replacement from the tail of the wall --- but the window is **ron-only** (no pon/kan is
+    /// ever called on an extracted North), and a ron on it grants no [`super::Yaku::Chankan`].
+    ///
+    /// The tile is carried (always a North) so that [`Action::tile`] returns it. That is what
+    /// makes a declined kita-ron attach Furiten through the engine's *generic* waived-win path,
+    /// with no kita-specific code --- which is the behaviour Tenhou and libriichi3p both show.
+    #[strum(to_string = "北抜き")]
+    Kita(Tile),
+
     /// Win by self-draw (ツモ和ガリ).
     /// See [`super::ActionResult::Agari`], [`super::AgariKind::Tsumo`].
     #[strum(to_string = "ツモ")]
@@ -56,6 +68,7 @@ impl Action {
         match meld {
             Meld::Kakan(kakan) => Some(Action::Kakan(kakan.added)),
             Meld::Ankan(ankan) => Some(Action::Ankan(ankan.own[0].to_normal())),
+            Meld::Kita(kita) => Some(Action::Kita(kita.tile)),
             _ =>  None,
         }
     }
@@ -67,6 +80,7 @@ impl Action {
             Action::Discard(discard) => Some(discard.tile),
             Action::Ankan(tile) => Some(tile),
             Action::Kakan(tile) => Some(tile),
+            Action::Kita(tile) => Some(tile),
             Action::TsumoAgari(tile) => Some(tile),
             Action::AbortNineKinds => None,
         }
@@ -78,8 +92,26 @@ impl Action {
     }
 
     /// Returns whether this action produces a Kan.
+    ///
+    /// [`Action::Kita`] is **not** a Kan: it draws a replacement from the tail like one, but it
+    /// reveals no dora indicator and grants no [`super::Yaku::Chankan`]. Both of those fall out
+    /// of this returning `false`, so do not "fix" it.
     pub fn is_kan(self) -> bool {
         matches!(self, Action::Ankan(_)| Action::Kakan(_))
+    }
+
+    /// Returns whether this action is a Kita (北抜き).
+    pub fn is_kita(self) -> bool {
+        matches!(self, Action::Kita(_))
+    }
+
+    /// Returns whether this action takes a replacement draw from the tail of the wall
+    /// (嶺上牌) --- any Kan, or a Kita.
+    ///
+    /// This is what the wall's draw accounting and [`super::Yaku::Rinshankaihou`] key on;
+    /// 「三人麻雀で北を抜いて嶺上牌でツモ和了すると常に嶺上開花がつく」.
+    pub fn draws_from_tail(self) -> bool {
+        self.is_kan() || self.is_kita()
     }
 }
 
@@ -89,6 +121,7 @@ impl Display for Action {
             Action::Discard(discard) => write!(f, "{}", discard),
             Action::Ankan(tile) => write!(f, "Ankan({})", tile),
             Action::Kakan(tile) => write!(f, "Kakan({})", tile),
+            Action::Kita(tile) => write!(f, "Kita({})", tile),
             Action::TsumoAgari(tile) => write!(f, "Tsumo({})", tile),
             Action::AbortNineKinds => write!(f, "NineKinds"),
         }
@@ -131,6 +164,12 @@ mod action_serde {
                     st.serialize_field("tile", &t)?;
                     st.end()
                 }
+                Action::Kita(t) => {
+                    let mut st = s.serialize_struct("Action", 2)?;
+                    st.serialize_field("type", "Kita")?;
+                    st.serialize_field("tile", &t)?;
+                    st.end()
+                }
                 Action::TsumoAgari(t) => {
                     let mut st = s.serialize_struct("Action", 2)?;
                     st.serialize_field("type", "TsumoAgari")?;
@@ -158,7 +197,7 @@ mod action_serde {
         type Value = Action;
 
         fn expecting(&self, f: &mut Formatter) -> std::fmt::Result {
-            write!(f, r#"{{"type": "Discard" or "Ankan" or "Kakan" or "TsumoAgari" or "AbortNineKinds", ...}}"#)
+            write!(f, r#"{{"type": "Discard" or "Ankan" or "Kakan" or "Kita" or "TsumoAgari" or "AbortNineKinds", ...}}"#)
         }
 
         fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error> where A: MapAccess<'de> {
@@ -191,6 +230,7 @@ mod action_serde {
                 })),
                 "Ankan" => Ok(Action::Ankan(tile)),
                 "Kakan" => Ok(Action::Kakan(tile)),
+                "Kita" => Ok(Action::Kita(tile)),
                 "TsumoAgari" => Ok(Action::TsumoAgari(tile)),
                 "AbortNineKinds" => Ok(Action::AbortNineKinds),
                 _ => Err(Error::custom("invalid type")),

@@ -127,6 +127,25 @@ pub fn next_normal(
             }
         }
 
+        Action::Kita(_) => {
+            // A Kita takes a bonus turn exactly like Ankan/Kakan: the North is set aside face-up,
+            // a replacement comes off the tail, and the same player acts again.
+            //
+            // Two deliberate differences from the Kan arm:
+            //
+            // - **No dora indicator is revealed.** Verified against houou 3p logs: the indicator
+            //   count at win time never exceeds `1 + kans`, at any Kita count.
+            // - The reaction window that just closed was **ron-only**. That needs no code here:
+            //   `check_reaction` rejects Chii/Pon/Daiminkan on anything that is not a Discard.
+            let kita = cache.meld[actor_i].unwrap();
+
+            next.actor = actor;
+            next.incoming_meld = Some(kita);
+            next.draw = Some(wall::kan_draw_in(
+                begin.ruleset.variant, &begin.wall, state.core.num_drawn_tail as usize));
+            next.num_drawn_tail += 1;
+        }
+
         Action::TsumoAgari(_) | Action::AbortNineKinds => panic!()
     }
 

@@ -44,6 +44,21 @@ pub enum ActionError {
     #[error("Cannot ankan/kakan on the last draw")]
     CannotKanOnLastDraw,
 
+    #[error("Kita (North extraction) is not allowed in {0:?}.")]
+    KitaNotAllowed(Variant),
+
+    #[error("Cannot Kita on {0}; only North can be extracted.")]
+    KitaNotNorth(Tile),
+
+    #[error("Cannot Kita on the last draw")]
+    CannotKitaOnLastDraw,
+
+    #[error("Cannot Kita; no North in the closed hand.")]
+    NoNorthForKita,
+
+    #[error("Cannot Kita under riichi unless the drawn tile is the North (drew {0:?}).")]
+    InvalidKitaUnderRiichi(Option<Tile>),
+
     #[error("Attempting invalid ankan on {0} under riichi.")]
     InvalidAnkanUnderRiichi(Tile),
 
@@ -175,6 +190,44 @@ pub fn check_action(
                 cache.update_wait_cache(actor, &hand);
             } else {
                 return Err(TileNotExist(added));
+            }
+        }
+
+        Action::Kita(tile) => {
+            let variant = begin.ruleset.variant;
+            if !variant.allows_kita() { return Err(KitaNotAllowed(variant)); }
+            if tile.to_normal() != NORTH { return Err(KitaNotNorth(tile)); }
+
+            // Barred on the Haitei draw, exactly like a Kan. Not stated anywhere in Tenhou's rule
+            // text, but decisive in the logs: of 23,104 extractions none happens after the 55th
+            // (last) draw, and at draw 55 the behaviour flips --- 34 players drew a North and
+            // discarded it, 0 extracted.
+            if num_draws(state) >= variant.max_num_draws() { return Err(CannotKitaOnLastDraw); }
+
+            // 「ポンの直後は抜けない」 --- no extraction right after one's own Pon. This needs no
+            // code: the Chii/Pon prologue above already rejects every non-Discard action there.
+
+            // Under riichi the hand is committed, so only a *just-drawn* North may be extracted;
+            // pulling a North out of the standing hand would change the wait (a North in a
+            // 13-tile tenpai hand is always load-bearing).
+            //
+            // UNSETTLED: no source states this and issue #115 did not test it --- all it
+            // establishes is that extraction after riichi is legal, routine and optional. This is
+            // the conservative reading, mirroring `riichi_ankan_strict_mode`'s Okuri-Kan
+            // prohibition. Since Norths are fungible, it costs a riichi player nothing.
+            if under_riichi && state.core.draw.map(|t| t.to_normal()) != Some(NORTH) {
+                return Err(InvalidKitaUnderRiichi(state.core.draw));
+            }
+
+            // Kita takes **any** North in the concealed hand, not only the drawn one: of 23,104
+            // extractions in the houou 3p sample, ~12,600 were of a North already held.
+            // (`hand` already has the draw merged in above.)
+            if let Some(kita) = Kita::from_hand(&hand) {
+                kita.consume_from_hand(&mut hand);  // 3N+2 - 1 = 3N+1
+                cache.meld[actor_i] = Some(Meld::Kita(kita));
+                cache.update_wait_cache(actor, &hand);
+            } else {
+                return Err(NoNorthForKita);
             }
         }
 

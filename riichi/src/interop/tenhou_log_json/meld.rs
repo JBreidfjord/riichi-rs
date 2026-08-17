@@ -79,6 +79,17 @@ pub fn parse_tenhou_meld(s: &str) -> Option<Meld> {
     }
 }
 
+/// Serializes a [`Meld`] back into a tenhou/6 JSON meld code.
+///
+/// # Panics
+///
+/// On [`Meld::Kita`]. This interop module covers the tenhou/6 **JSON** format, whose encoding of a
+/// North extraction is not established here --- Tenhou's own mjlog XML carries a nuki as an `<N>`
+/// element rather than an `m=` meld code, and the sanma log parser is a separate component
+/// (see ADR 0012, which forks `mjlog` because the crates.io version hard-errors on `<N>`).
+///
+/// A panic is deliberate: emitting a guessed code would silently corrupt a written log, and the
+/// existing 4-player samples never contain a Kita, so this is unreachable for them.
 pub fn to_tenhou_meld(meld: &Meld) -> String {
     // NOTE: Resorting own tiles is necessary for melds other than Chii due to Tenhou's convention
     // on red tiles going last.
@@ -127,6 +138,9 @@ pub fn to_tenhou_meld(meld: &Meld) -> String {
                 _ => panic!()
             }
         }
+        Meld::Kita(_) => unimplemented!(
+            "tenhou/6 JSON has no established meld code for a Kita (北抜き); \
+             sanma log parsing is the `mjlog` fork's job (ADR 0012)"),
         Meld::Ankan(ankan) => {
             let mut o = ankan.own.map(to_tenhou_tile);
             o.sort();
