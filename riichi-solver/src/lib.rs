@@ -1107,6 +1107,14 @@ mod tests {
     }
 
     /// The copies table must describe the tile set it claims to.
+    /// A cap, not a count. Sanma's 55-draw live wall gives ~18 tsumos, so it loses at most one
+    /// turn of lookahead on the first draw; raising this to 18 would change 4p solver output and
+    /// break the encoder's byte-parity contract.
+    #[test]
+    fn max_tsumos_left_is_17_for_both_variants() {
+        assert_eq!(MAX_TSUMOS_LEFT, 17);
+    }
+
     #[test]
     fn sanma_copies_table_sums_to_the_wall() {
         assert_eq!(DEFAULT_COPIES.iter().map(|&c| c as u32).sum::<u32>(), DEFAULT_WALL_SIZE);
