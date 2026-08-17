@@ -75,6 +75,28 @@ impl TileSet37 {
         TileSet37(a)
     }
 
+    /// The complete set of tiles in a game of the given [`Variant`], given the number of red 5's
+    /// in play.
+    ///
+    /// [`Variant::Yonma`] is exactly [`Self::complete_set`]. [`Variant::Sanma`] drops 2m--8m
+    /// (and with them red 5m, whose requested count is ignored rather than silently shifted onto
+    /// another suit), leaving 108 tiles.
+    pub fn complete_set_in(variant: crate::variant::Variant, num_reds: [u8; 3]) -> Self {
+        let mut set = Self::complete_set(num_reds);
+        for e in 0..34u8 {
+            if variant.num_copies_34(e) == 0 {
+                set.0[e as usize] = 0;
+            }
+        }
+        // Red fives of a suit that does not exist go with it.
+        for (red_slot, five_slot) in [(34usize, 4usize), (35, 13), (36, 22)] {
+            if variant.num_copies_34(five_slot as u8) == 0 {
+                set.0[red_slot] = 0;
+            }
+        }
+        set
+    }
+
     /// Same as [`super::TileSet34::packed_34`], but collapsing red 5's into normal 5's.
     pub fn packed_34(&self) -> [u32; 4] {
         let mut packed = [0u32; 4];

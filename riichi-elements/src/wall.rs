@@ -307,7 +307,10 @@ pub fn kan_draw_in(variant: Variant, wall: &Wall, i: usize) -> Tile {
 
 /// Deduces the set of unknown tiles from the given partially-known wall, and the known total number
 /// of red tiles.
-/// 
+///
+/// **[`Variant::Yonma`] only**; see [`get_missing_tiles_in_partial_wall_in`]. A sanma wall has no
+/// 2m--8m, so assuming a complete 136-tile set here would invent 28 tiles.
+///
 /// Panics when the partially-known wall is inconsistent with the assumed complete set of tiles. 
 pub fn get_missing_tiles_in_partial_wall(partial_wall: &PartialWall, num_reds: [u8; 3]) -> TileSet37 {
     let mut missing = TileSet37::complete_set(num_reds);
@@ -320,6 +323,49 @@ pub fn get_missing_tiles_in_partial_wall(partial_wall: &PartialWall, num_reds: [
         }
     }
     missing
+}
+
+/// Deduces the set of unknown tiles from the given partially-known wall, for the given
+/// [`Variant`].
+///
+/// Only the live prefix (`variant.wall_size()`) is consulted; the sanma tail is sentinel padding
+/// and is neither a known tile nor a hole to fill.
+///
+/// Panics when the partially-known wall is inconsistent with the variant's complete tile set.
+pub fn get_missing_tiles_in_partial_wall_in(
+    variant: Variant, partial_wall: &PartialWall, num_reds: [u8; 3],
+) -> TileSet37 {
+    let mut missing = TileSet37::complete_set_in(variant, num_reds);
+    for tile_or_hole in &partial_wall[..variant.wall_size()] {
+        if let &Some(tile) = tile_or_hole {
+            if missing[tile] == 0 {
+                panic!("More {} in the partial wall than expected for {:?}.", tile, variant)
+            }
+            missing[tile] -= 1;
+        }
+    }
+    missing
+}
+
+/// Combine the partially-known wall and (reordered) unknown tiles to form a fully-known wall,
+/// for the given [`Variant`].
+///
+/// Holes in the live prefix are filled from `missing_tiles`; the tail past `variant.wall_size()`
+/// is filled with the sentinel, so a mis-derived draw index still trips [`tile_at`].
+pub fn fill_missing_tiles_in_partial_wall_in(
+    variant: Variant,
+    partial_wall: &PartialWall,
+    missing_tiles: impl IntoIterator<Item=Tile>,
+) -> Wall {
+    let sentinel = Tile::from_encoding(SANMA_WALL_SENTINEL_ENCODING).unwrap();
+    let mut missing_iter = missing_tiles.into_iter();
+    let live = variant.wall_size();
+    let mut wall = [sentinel; 136];
+    for i in 0..live {
+        wall[i] = partial_wall[i].or_else(|| missing_iter.next())
+            .expect("not enough tiles to fill the partial wall");
+    }
+    wall
 }
 
 /// Combine the partially-known wall and (reordered) unknown tiles to form a fully-known wall.
