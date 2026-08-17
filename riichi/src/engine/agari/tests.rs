@@ -33,17 +33,18 @@ impl Hand {
 impl<'a> AgariInput<'a> {
     fn from_hand(hand: &'a Hand) -> AgariInput<'a> {
         AgariInput {
+            variant: Variant::Yonma,
             round_id: Default::default(),
 
             winner: Default::default(),
             closed_hand: &hand.closed_hand,
             riichi: Default::default(),
-            melds: &hand.melds,
+            melds: std::borrow::Cow::Borrowed(&hand.melds),
             wait_set: &hand.wait_set,
 
             contributor: Default::default(),
             winning_tile: Default::default(),
-            incoming_is_kan: false,
+            incoming_draws_from_tail: false,
             action_is_kan: false,
 
             is_first_chance: false,
@@ -336,7 +337,7 @@ fn haitei_negative_rinshan() {
     let agari_input = AgariInput {
         winning_tile: t!("9p"),
         is_last_draw: true,
-        incoming_is_kan: true,
+        incoming_draws_from_tail: true,
         ..AgariInput::from_hand(&hand)
     };
     let candidates = agari_candidates(&Default::default(), &agari_input);

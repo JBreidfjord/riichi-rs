@@ -29,10 +29,10 @@ pub fn detect_yakus_for_regular(
                   input.riichi);
     detect_mentsumo(ruleset, yaku_builder,
                     hand_common.agari_kind,
-                    input.melds);
+                    &input.melds);
     detect_rinshan(ruleset, yaku_builder,
                    hand_common.agari_kind,
-                   input.incoming_is_kan);
+                   input.incoming_draws_from_tail);
     detect_chankan(ruleset, yaku_builder,
                    input.action_is_kan,
                    hand_common.agari_kind);
@@ -50,34 +50,35 @@ pub fn detect_yakus_for_regular(
                            hand_common.is_closed);
     detect_winds(ruleset, yaku_builder,
                  &hand_common.all_tiles,
+                 input.variant,
                  input.round_id,
                  input.winner);
     detect_chuuren(ruleset, yaku_builder,
                    &hand_common.all_tiles_packed,  // TODO(summivox): replace with `all_tiles`
                    input.winning_tile,
-                   input.melds);
+                   &input.melds);
     detect_ankou(ruleset, yaku_builder,
                  hand_common.agari_kind,
-                 input.melds,
+                 &input.melds,
                  regular_wait,
                  wait_common.wait_group);
     detect_kan(ruleset, yaku_builder,
-               input.melds);
+               &input.melds);
     detect_toitoi(ruleset, yaku_builder,
-                  input.melds,
+                  &input.melds,
                   regular_wait,
                   wait_common.wait_group);
     detect_shuntsu(ruleset, yaku_builder,
-                   input.melds,
+                   &input.melds,
                    regular_wait,
                    wait_common.wait_group,
                    hand_common.is_closed);
     detect_sanshokudoukou(ruleset, yaku_builder,
-                          input.melds,
+                          &input.melds,
                           regular_wait,
                           wait_common.wait_group);
     detect_chanta(ruleset, yaku_builder,
-                  input.melds,
+                  &input.melds,
                   &hand_common.all_tiles,
                   regular_wait,
                   wait_common.wait_group,
@@ -97,10 +98,10 @@ pub fn detect_yakus_for_irregular(
                   input.riichi);
     detect_mentsumo(ruleset, yaku_builder,
                     hand_common.agari_kind,
-                    input.melds);
+                    &input.melds);
     detect_rinshan(ruleset, yaku_builder,
                    hand_common.agari_kind,
-                   input.incoming_is_kan);
+                   input.incoming_draws_from_tail);
     detect_chankan(ruleset, yaku_builder,
                    input.action_is_kan,
                    hand_common.agari_kind);
@@ -178,9 +179,11 @@ fn detect_rinshan(
     _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     agari_kind: AgariKind,
-    incoming_is_kan: bool,
+    incoming_draws_from_tail: bool,
 ) {
-    if incoming_is_kan && agari_kind == AgariKind::Tsumo {
+    // Kita counts: 「三人麻雀で北を抜いて嶺上牌でツモ和了すると常に嶺上開花がつく」 --- a tsumo on
+    // the replacement drawn after an extraction always scores Rinshan Kaihou.
+    if incoming_draws_from_tail && agari_kind == AgariKind::Tsumo {
         yaku_builder.add(Yaku::Rinshankaihou, 1);
     }
 }
@@ -192,6 +195,15 @@ fn detect_chankan(
     agari_kind: AgariKind,
 ) {
     // NOTE: The kokushi-ankan interaction is handled by `check_reaction`.
+    //
+    // NOTE: a kita-ron must NOT reach here. `Action::Kita` is deliberately not `is_kan()`, so the
+    // guard is already in place --- a ron on an extracted North is 搶北, which falls outside the
+    // definition of 搶槓 and grants no Chankan. Confirmed in the houou 3p logs by a non-yakuman
+    // kita-ron scoring riichi + dora + aka and nothing more. Do not "fix" `Action::is_kan`.
+    //
+    // This carve-out is for the *yaku only*. It must NOT be extended to Furiten: declining a
+    // kita-ron does attach same-turn (and, under riichi, permanent) Furiten, reaching that result
+    // through Tenhou's generic waived-win clauses rather than any chankan-specific rule.
     if agari_kind == AgariKind::Ron && action_is_kan {
         yaku_builder.add(Yaku::Chankan, 1);
     }
@@ -301,6 +313,7 @@ fn detect_winds(
     _ruleset: &Ruleset,
     yaku_builder: &mut YakuBuilder,
     all_tiles: &TileSet37,
+    variant: Variant,
     round_id: RoundId,
     winner: Player,
 ) {
@@ -311,7 +324,10 @@ fn detect_winds(
         3 if all_tiles[30] >= 3 => yaku_builder.add(Yaku::BakazehaiN, 1),
         _ => {}
     }
-    match round_id.self_wind_for_player(winner).to_u8() {
+    // Self wind reduces modulo the number of *playing* seats, not modulo 4 --- see
+    // `RoundId::self_wind_for_player_in`. In sanma the North seat wind never occurs, which is the
+    // same reason a North held in hand is always a guest wind: 「北を面子で使用した場合はオタ風」.
+    match round_id.self_wind_for_player_in(variant, winner).to_u8() {
         0 if all_tiles[27] >= 3 => yaku_builder.add(Yaku::JikazehaiE, 1),
         1 if all_tiles[28] >= 3 => yaku_builder.add(Yaku::JikazehaiS, 1),
         2 if all_tiles[29] >= 3 => yaku_builder.add(Yaku::JikazehaiW, 1),
@@ -328,6 +344,10 @@ fn detect_chuuren(
     melds: &[Meld],
 ) {
     // NOTE: This is more strict than just `is_closed` --- Ankan is not even allowed.
+    //
+    // Kita does not block Chuuren (or Pinfu, or anything else keyed on an empty meld list): it is
+    // filtered out of `AgariInput::melds` at construction, because an extracted North is not a
+    // group the hand formed. See `AgariInput::melds`.
     if !melds.is_empty() || winning_tile.suit() == 3 { return }
 
     if let Some(r_pos) = chuuren_agari(all_tiles_packed[winning_tile.suit() as usize]) {

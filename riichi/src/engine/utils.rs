@@ -200,42 +200,62 @@ pub fn num_draws(state: &State) -> u8 {
 }
 
 /// The prerequisite of Haitei and Houtei: no more draws available.
-pub fn is_last_draw(state: &State) -> bool {
-    debug_assert!(num_draws(state) <= wall::MAX_NUM_DRAWS);
-    num_draws(state) == wall::MAX_NUM_DRAWS
+///
+/// The horizon is [`Variant::max_num_draws`] --- 122 in yonma, 94 in sanma --- and because every
+/// tail draw is repaid out of the head's allowance, the sum is invariant under Kans *and* Kita.
+/// That is why the sanma live wall is exactly 55 draws no matter how many of either occurred.
+pub fn is_last_draw(variant: Variant, state: &State) -> bool {
+    debug_assert!(num_draws(state) <= variant.max_num_draws());
+    num_draws(state) == variant.max_num_draws()
 }
 
-/// First 4 turns of the game without being interrupted by any meld.
+/// The first go-around of the game without being interrupted by any meld: 4 turns in yonma,
+/// **3** in sanma.
 /// Affects:
 /// - [`AbortReason::NineKinds`] (active), [`AbortReason::FourWind`] (passive)
 /// - [`Riichi::is_double`]
 /// - [`crate::yaku::Yaku`]: Tenhou, Chiihou, Renhou (first-chance win)
-pub fn is_first_chance(state: &State) -> bool {
-    state.core.seq <= 3 && state.melds.iter().all(|melds| melds.is_empty())
+///
+/// A Kita counts as an interruption, because it lands in `state.melds`:
+/// 「抜きは鳴きと同じ扱い(一発/地和/九種/両立直は消える)」.
+pub fn is_first_chance(variant: Variant, state: &State) -> bool {
+    state.core.seq <= variant.first_chance_max_seq() &&
+        state.melds.iter().all(|melds| melds.is_empty())
 }
 
 /// Checks if [`AbortReason::NagashiMangan`] applies (during end-of-turn resolution) for the
 /// specified player.
 /// Assuming [`is_last_draw`].
-pub fn is_nagashi_mangan(state: &State, player: Player) -> bool {
-    state.discards[player.to_usize()].iter().all(|discard|
-        discard.tile.is_terminal() && discard.called_by == player)
+///
+/// The **absent seat** must be excluded explicitly: its discard list is empty, and
+/// `[].iter().all(..)` is vacuously `true`, so an unfiltered scan would hand it a Nagashi Mangan
+/// in every single sanma round. This is exactly the "silent wrong answer" the absent-seat design
+/// trades away compile-time safety for.
+pub fn is_nagashi_mangan(variant: Variant, state: &State, player: Player) -> bool {
+    variant.is_seat_active(player) &&
+        state.discards[player.to_usize()].iter().all(|discard|
+            discard.tile.is_terminal() && discard.called_by == player)
 }
 
 /// Checks if [`AbortReason::NagashiMangan`] applies (during end-of-turn resolution) for all
 /// players.
 /// Assuming [`is_last_draw`].
-pub fn is_any_player_nagashi_mangan(state: &State) -> bool {
-    ALL_PLAYERS.into_iter().any(|player| is_nagashi_mangan(state, player))
+pub fn is_any_player_nagashi_mangan(variant: Variant, state: &State) -> bool {
+    variant.active_seats().iter().any(|&player| is_nagashi_mangan(variant, state, player))
 }
 
 /// Checks if [`AbortReason::FourWind`] applies (during end-of-turn resolution).
-pub fn is_aborted_four_wind(state: &State, action: Action) -> bool {
+///
+/// Sanma has no such abort: only three first discards exist and **there is no three-wind
+/// variant**. The gate is explicit rather than left to fall out of the `seq` bound, so that
+/// nobody later "generalizes" it to `num_players - 1` and invents a rule Tenhou does not have.
+pub fn is_aborted_four_wind(variant: Variant, state: &State, action: Action) -> bool {
+    if !variant.allows_four_wind_abort() { return false; }
     if let Action::Discard(discard) = action {
-        return is_first_chance(state) &&
-            state.core.seq == 3 &&
+        return is_first_chance(variant, state) &&
+            state.core.seq == variant.first_chance_max_seq() &&
             discard.tile.is_wind() &&
-            other_players_after(state.core.actor).iter()
+            variant.other_active_players_after(state.core.actor)
                 .map(|actor| &state.discards[actor.to_usize()])
                 .all(|discards|
                     discards.len() == 1 && discards[0].tile == discard.tile)
@@ -266,45 +286,82 @@ pub fn is_aborted_four_kan(state: &State, action: Action, reaction: Option<React
 }
 
 /// Checks if [`AbortReason::FourRiichi`] applies (during end-of-turn resolution).
-pub fn is_aborted_four_riichi(state: &State, action: Action) -> bool {
+///
+/// Sanma has no such abort: 「三人打ちの三人立直は流局にならない」 --- all *three* players under
+/// riichi is explicitly **not** an abort, so this must not be rewritten as "all players riichi".
+pub fn is_aborted_four_riichi(variant: Variant, state: &State, action: Action) -> bool {
+    if !variant.allows_all_riichi_abort() { return false; }
     matches!(action, Action::Discard(Discard{declares_riichi: true, ..})) &&
-        num_active_riichi(state) == 3  // not a typo --- the last player only declared => not active yet
+        // not a typo --- the last player only declared => not active yet
+        num_active_riichi(state) as u8 == variant.num_players() - 1
 }
 
 /// When the wall has been exhausted and no player has achieved
 /// [`AbortReason::NagashiMangan`], given whether each player is waiting (1) or not (0),
 /// returns the points delta for each player.
-pub fn calc_wall_exhausted_delta(waiting: [u8; 4]) -> [GamePoints; 4] {
+///
+/// The pot is [`Variant::noten_penalty_total`]: 3000 in yonma, **2000** in sanma. The sanma value
+/// is *not* the yonma schedule with a seat removed --- the pot itself shrinks --- and is verified
+/// against 1,127 houou 3p exhaustive draws: 1 tenpai is `+2000 / -1000 / -1000` (635 cases),
+/// 2 tenpai is `+1000 / +1000 / -2000` (401), 0 or 3 tenpai transfers nothing.
+///
+/// The **absent seat**'s `waiting` entry must be 0 and its delta is always 0; callers build the
+/// array from [`Variant::active_seats`].
+pub fn calc_wall_exhausted_delta(variant: Variant, waiting: [u8; 4]) -> [GamePoints; 4] {
     // TODO(summivox): rules (ten-no-ten points)
-    const NO_WAIT_PENALTY_TOTAL: GamePoints = 3000;
-    let no_wait = NO_WAIT_PENALTY_TOTAL;
+    let total = variant.noten_penalty_total();
+    let n = variant.num_players() as GamePoints;
 
-    let num_waiting = waiting.into_iter().sum();
-    let (down, up) = match num_waiting {
-        1 => (-no_wait / 3, no_wait / 1),
-        2 => (-no_wait / 2, no_wait / 2),
-        3 => (-no_wait / 1, no_wait / 3),
-        _ => (0, 0),
-    };
-    waiting.map(|w| if w > 0 { up } else { down })
+    debug_assert!(variant.absent_seat().map_or(true, |p| waiting[p.to_usize()] == 0),
+                  "{:?}: the absent seat cannot be waiting", variant);
+
+    let num_waiting = waiting.into_iter().sum::<u8>() as GamePoints;
+    let num_noten = n - num_waiting;
+    if num_waiting == 0 || num_noten == 0 { return [0; 4]; }
+    let (down, up) = (-total / num_noten, total / num_waiting);
+    let mut delta = [0; 4];
+    for &p in variant.active_seats() {
+        let i = p.to_usize();
+        delta[i] = if waiting[i] > 0 { up } else { down };
+    }
+    delta
 }
 
 /// When the wall has been exhausted and some player has achieved
 /// [`AbortReason::NagashiMangan`], returns the points delta for each player.
-pub fn calc_nagashi_mangan_delta(state: &State, button: Player) -> [GamePoints; 4] {
+///
+/// Settled as a **Mangan Tsumo**, which is what makes tsumo loss apply to it in sanma: the
+/// per-payer amounts are the yonma ones (4000 from the dealer, 2000 from each other non-dealer)
+/// and the **absent seat** simply never pays. Verified: 19/19 non-dealer nagashi in the houou 3p
+/// sample settle at `4000 + 2000 = 6000`, not the 8000 a yonma non-dealer mangan tsumo pays.
+///
+/// It also *replaces* the tenpai settlement rather than adding to it
+/// (「聴牌清算を満貫清算に代替」) --- no Noten Bappu component appears in the observed deltas.
+///
+/// The dealer case (`4000 x num_payers`: 12000 in yonma, **8000** in sanma) did not occur in the
+/// sample and stays inferred.
+///
+/// Rewritten from a whole-table lump into an explicit per-payer loop. In yonma the output is
+/// byte-identical --- see `nagashi_mangan_delta_is_unchanged_in_yonma`.
+pub fn calc_nagashi_mangan_delta(
+    variant: Variant, state: &State, button: Player,
+) -> [GamePoints; 4] {
     // TODO(summivox): rules (nagashi-mangan-points)
+    const MANGAN_BASE: GamePoints = 2000;
 
     let mut delta = [0; 4];
-    for player in ALL_PLAYERS {
-        if is_nagashi_mangan(state, player) {
-            if player == button {
-                delta[player.to_usize()] += 12000 + 4000;
-                for qq in 0..4 { delta[qq] -= 4000; }
+    for &player in variant.active_seats() {
+        if !is_nagashi_mangan(variant, state, player) { continue; }
+        for payer in variant.other_active_players_after(player) {
+            // Dealer pays double, exactly as in a normal Mangan Tsumo. A dealer winner collects
+            // the doubled amount from everyone.
+            let amount = if player == button || payer == button {
+                2 * MANGAN_BASE
             } else {
-                delta[player.to_usize()] += 8000 + 2000;
-                delta[button.to_usize()] -= 2000;
-                for qq in 0..4 { delta[qq] -= 2000; }
-            }
+                MANGAN_BASE
+            };
+            delta[player.to_usize()] += amount;
+            delta[payer.to_usize()] -= amount;
         }
     }
     delta
@@ -351,7 +408,8 @@ pub fn get_all_tiles(
                 for own in ankan.own { all_tiles[own] += 1; }
             }
             // An extracted North is set aside, not held: it is not part of the 14-tile winning
-            // shape (「和了形にはカウントされず」), so it contributes no tile here.
+            // shape (「和了形にはカウントされず」), so it contributes no tile here. Its value
+            // arrives as `DoraHits::nuki_dora` instead.
             Meld::Kita(_) => {}
         }
     }
@@ -359,45 +417,64 @@ pub fn get_all_tiles(
     all_tiles
 }
 
+/// Counts the Dora hits for a winning hand.
+///
+/// `num_kita` is how many Norths *this seat* has extracted. Each is worth `+1` han
+/// (「1枚抜くごとに手牌に抜きドラの1翻がつく」) and stacks with an ordinary West indicator, which
+/// is why it is a separate component rather than folded into `dora`: an extracted North is no
+/// longer in `all_tiles`, so no indicator arithmetic can reproduce it.
 pub fn count_doras(
     ruleset: &Ruleset,
     all_tiles: &TileSet37,
     num_dora_indicators: u8,
     wall: &Wall,
     is_riichi: bool,
+    num_kita: u8,
 ) -> DoraHits {
+    let variant = ruleset.variant;
     let all_tiles_normal = TileSet34::from(all_tiles);
 
     let n = if ruleset.dora_allow_kan { num_dora_indicators as usize } else { 1 };
     let n_ura = if ruleset.dora_allow_kan_ura { n } else { 1 };
 
+    let indicators = wall::dora_indicators_in(variant, wall);
+    let ura_indicators = wall::ura_dora_indicators_in(variant, wall);
+
     if log_enabled!(log::Level::Debug) {
-        log::debug!("count doras: n={} n_ura={} di={} udi={}, all_tiles={}",
+        log::debug!("count doras: n={} n_ura={} di={} udi={} kita={}, all_tiles={}",
             n,
             n_ura,
-            wall::dora_indicators(wall).iter().map(|t| t.as_str()).join(","),
-            wall::ura_dora_indicators(wall).iter().map(|t| t.as_str()).join(","),
+            indicators.iter().map(|t| t.as_str()).join(","),
+            ura_indicators.iter().map(|t| t.as_str()).join(","),
+            num_kita,
             all_tiles,
         );
     }
 
     DoraHits {
         dora:
-        (&wall::dora_indicators(wall)[0..n])
+        (&indicators[0..n])
             .iter()
-            .map(|t| all_tiles_normal[t.indicated_dora()])
+            .map(|t| all_tiles_normal[variant.indicated_dora(*t)])
             .sum(),
 
         ura_dora:
         if is_riichi && ruleset.dora_allow_ura {
-            (&wall::ura_dora_indicators(wall)[0..n_ura])
+            (&ura_indicators[0..n_ura])
                 .iter()
-                .map(|t| all_tiles_normal[t.indicated_dora()])
+                .map(|t| all_tiles_normal[variant.indicated_dora(*t)])
                 .sum()
         } else { 0 },
 
         aka_dora: all_tiles[34] + all_tiles[35] + all_tiles[36],
+
+        nuki_dora: num_kita,
     }
+}
+
+/// How many Kita (北抜き) this seat has extracted.
+pub fn num_kita(melds: &[Meld]) -> u8 {
+    melds.iter().filter(|m| m.is_kita()).count() as u8
 }
 
 #[cfg(test)]

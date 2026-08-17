@@ -118,7 +118,7 @@ impl Engine {
     /// Within the same round, resets the engine to start from the given state.
     pub fn jump_to_state(&mut self, state: State) -> &mut Self {
         // sanity check: must have valid begin
-        debug_assert!(wall::is_valid_wall(self.begin.wall));
+        debug_assert!(wall::is_valid_wall_in(self.begin.ruleset.variant, self.begin.wall));
 
         self.state = state;
         self.action = Default::default();
@@ -130,8 +130,9 @@ impl Engine {
 
     /// Validates the given action against the current state, then caches it in the engine if valid.
     pub fn register_action(&mut self, action: Action) -> Result<&mut Self, ActionError> {
-        // sanity check: must have valid state
-        assert!(self.state.core.num_drawn_head >= 53);
+        // sanity check: must have valid state (the deal, plus the button's first self draw)
+        assert!(self.state.core.num_drawn_head >=
+                    self.begin.ruleset.variant.initial_num_drawn_head());
 
         self.action = None;
         self.reactions = Default::default();

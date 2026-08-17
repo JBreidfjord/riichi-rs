@@ -42,35 +42,48 @@ pub fn calc_scoring(
 /// Calculates the points gains and losses for each player given a win.
 ///
 /// Tsumo:
-/// - Button gets 2x from each of the 3 non-button players.
-/// - Non-button gets 1x from each of the 2 non-button players and 2x from the button player.
-/// - Honba payout is 100 per honba per player (total 3 players => 300 per honba total).
+/// - Button gets 2x from each non-button player.
+/// - Non-button gets 1x from each other non-button player and 2x from the button player.
+/// - Honba payout is 100 per honba **per payer** (300 per honba in yonma, 200 in sanma).
 ///
 /// Ron:
 /// - Button gets 6x from the contributor
 /// - Non-button gets 4x from the contributor
-/// - Honba payout is 300 per honba.
+/// - Honba payout is `(num_players - 1) x 100` per honba: 300 in yonma, **200** in sanma.
 ///
 /// Each transaction between two players is separately rounded up to the nearest 100 points.
 /// Note that this is the _only_ rounding step for points --- basic points are _not_ rounded.
+///
+/// # Tsumo loss
+///
+/// Sanma's 純正ツモ損 needs no branch: it *is* this per-payer loop run over three seats instead
+/// of four. Every per-payer amount is exactly the yonma amount, and the **absent seat**'s
+/// non-dealer share is simply never paid --- 「純粋ツモ損。基本の点数計算は四人打ちとすべて同じ
+/// だが、ツモ和了の際、空席にあたる子の一人分がもらえない」. So a non-dealer tsumo collects 3/4
+/// of the yonma total and a dealer tsumo 2/3, and ron totals are unchanged.
+///
+/// The one thing that genuinely had to become variant-derived is the ron-side honba lump, which
+/// was hardcoded `3 * k_honba`. Verified against 3,265 houou 3p wins: 200 per honba on ron, and
+/// 100 per payer on tsumo (1,677/1,677 consistent).
 pub fn distribute_points(
-    _ruleset: &Ruleset,
+    ruleset: &Ruleset,
     round_id: RoundId,
     take_pot: bool,
     winner: Player,
     contributor: Player,
     basic_points: GamePoints,
 ) -> [GamePoints; 4] {
+    let variant = ruleset.variant;
     let button = round_id.button();
     // TODO(summivox): ruleset (atama-hane), ruleset (basengo)
     let honba = if take_pot { round_id.honba as GamePoints } else { 0 };
-    let k_honba = 100;
+    let k_honba = variant.honba_points_per_payer();
 
     let mut delta = [0; 4];
     if winner == contributor {
         // Tsumo
         let (k_non_button, k_button) = if winner == button { (2, 0) } else { (1, 2) };
-        for player in other_players_after(winner) {
+        for player in variant.other_active_players_after(winner) {
             let k = if player == button { k_button } else { k_non_button };
             let points = round_points_up(k * basic_points + k_honba * honba);
             delta[winner.to_usize()] += points;
@@ -79,7 +92,7 @@ pub fn distribute_points(
     } else {
         // Ron
         let k = if winner == button { 6 } else { 4 };
-        let points = round_points_up(k * basic_points + 3 * k_honba * honba);
+        let points = round_points_up(k * basic_points + variant.honba_points_on_ron() * honba);
         delta[winner.to_usize()] += points;
         delta[contributor.to_usize()] -= points;
     }

@@ -41,21 +41,31 @@ pub const NORTH: Tile = match Tile::from_encoding(30) {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[non_exhaustive]
 pub struct Kita {
-    /// The extracted tile. Always [`NORTH`] --- there is no red North --- but carried explicitly
-    /// so that `Meld`'s accessors and the packed representation stay uniform.
-    pub tile: Tile,
+    /// The extracted tile, as a one-element array.
+    ///
+    /// Always `[NORTH]` --- there is no red North --- but carried explicitly, and named `own` in
+    /// the array form every other [`Meld`](super::Meld) variant uses, so that "`own` = the tiles
+    /// this meld took out of my own hand" holds uniformly across the whole family. That is the
+    /// load-bearing fact about a Kita: the North comes out of the concealed hand and is set
+    /// aside, never called from anyone and never discarded.
+    ///
+    /// The serde shape is therefore `{"type": "Kita", "own": ["4z"]}`.
+    pub own: [Tile; 1],
 }
 
 impl Kita {
     /// The one and only Kita.
-    pub const fn new() -> Self { Kita { tile: NORTH } }
+    pub const fn new() -> Self { Kita { own: [NORTH] } }
 
-    pub const fn num(self) -> u8 { self.tile.normal_num() }
-    pub const fn suit(self) -> u8 { self.tile.suit() }
+    /// The extracted tile. Always [`NORTH`].
+    pub const fn tile(self) -> Tile { self.own[0] }
+
+    pub const fn num(self) -> u8 { self.own[0].normal_num() }
+    pub const fn suit(self) -> u8 { self.own[0].suit() }
 
     /// Constructs from the extracted tile; `None` unless it is a North.
     pub fn from_tile(tile: Tile) -> Option<Self> {
-        if tile.to_normal() == NORTH { Some(Kita { tile: NORTH }) } else { None }
+        if tile.to_normal() == NORTH { Some(Kita::new()) } else { None }
     }
 
     /// Constructs from the closed hand, if it holds at least one North.
@@ -80,7 +90,7 @@ impl Default for Kita {
 
 impl Display for Kita {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "N{}{}", self.tile.num(), self.tile.suit_char())
+        write!(f, "N{}{}", self.own[0].num(), self.own[0].suit_char())
     }
 }
 
@@ -100,7 +110,7 @@ impl TryFrom<PackedMeld> for Kita {
 impl From<Kita> for PackedMeld {
     fn from(kita: Kita) -> Self {
         PackedMeld::new()
-            .with_tile(kita.tile.normal_encoding())
+            .with_tile(kita.own[0].normal_encoding())
             .with_dir(0)
             .with_red(0)
             .with_kind(PackedMeldKind::Kita as u8)

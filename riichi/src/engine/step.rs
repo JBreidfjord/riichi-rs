@@ -23,6 +23,7 @@ pub fn next_normal(
     cache: &EngineCache,
 ) -> StateCore {
     let mut next = state.core;
+    let variant = begin.ruleset.variant;
     let actor = state.core.actor;
     let actor_i = actor.to_usize();
 
@@ -61,15 +62,18 @@ pub fn next_normal(
                 // Round has not ended => the new riichi is successful.
                 next.riichi[actor_i] = Some(Riichi {
                     is_ippatsu: caller == actor,  // no ippatsu if immediately called
-                    is_double: is_first_chance(state),
+                    is_double: is_first_chance(variant, state),
                 })
             }
 
             if caller == actor {
                 // No one called. Next turn is the next player (surprise!).
-                next.actor = actor.succ();
+                // `variant.succ` skips the absent seat: with three seats, P2's mod-4 successor is
+                // the absent seat, not P0.
+                next.actor = variant.succ(actor);
                 next.incoming_meld = None;
-                next.draw = Some(begin.wall[state.core.num_drawn_head as usize]);
+                next.draw = Some(
+                    wall::tile_at(variant, &begin.wall, state.core.num_drawn_head as usize));
                 next.num_drawn_head += 1;
             } else {
                 // Someone called and will take the next turn instead.
@@ -78,7 +82,8 @@ pub fn next_normal(
                 next.actor = caller;
                 next.incoming_meld = Some(meld);
                 if meld.is_kan() {
-                    next.draw = Some(wall::kan_draw(&begin.wall, state.core.num_drawn_tail as usize));
+                    next.draw = Some(wall::kan_draw_in(
+                        variant, &begin.wall, state.core.num_drawn_tail as usize));
                     next.num_drawn_tail += 1;
                 } else {
                     next.draw = None
@@ -114,7 +119,8 @@ pub fn next_normal(
 
             next.actor = actor;
             next.incoming_meld = Some(ankan_or_kakan);
-            next.draw = Some(wall::kan_draw(&begin.wall, state.core.num_drawn_tail as usize));
+            next.draw = Some(wall::kan_draw_in(
+                variant, &begin.wall, state.core.num_drawn_tail as usize));
             next.num_drawn_tail += 1;
 
             // Only for Ankan: reveal the next dora indicator immediately.
@@ -142,7 +148,7 @@ pub fn next_normal(
             next.actor = actor;
             next.incoming_meld = Some(kita);
             next.draw = Some(wall::kan_draw_in(
-                begin.ruleset.variant, &begin.wall, state.core.num_drawn_tail as usize));
+                variant, &begin.wall, state.core.num_drawn_tail as usize));
             next.num_drawn_tail += 1;
         }
 
@@ -158,8 +164,18 @@ pub fn next_normal(
     // For another player who misses the chance to win (discard in waiting set):
     // - Immediately enters temporary miss state
     // - Immediately enters permanent miss state if under riichi
+    // This loop is generic in exactly the way Tenhou's rule text is: it keys on `action.tile()`
+    // with no chankan-specific path, so `Action::Kita(north)` falls into the same `else` as
+    // `Action::Kakan(tile)` and a declined kita-ron attaches Furiten with **zero** new code ---
+    // temporary for a non-riichi seat, permanent under riichi. That matches Tenhou
+    // (「和了放棄後は同巡フリテン」 / 「リーチ後の当たり牌見逃しは以降振聴」) and libriichi3p,
+    // which was observed producing a schedule byte-identical to a declined discard-ron.
+    //
+    // Note what must NOT happen here: the exposed North is never added to `discard_sets` or any
+    // river. 「フリテンは河に捨てられた牌でのみ判定(加槓・抜きでさらした非純手牌を除く)」 --- the
+    // lockout is a flag set by waiving, not a tile recorded in a pile.
     let action_tile = action.tile().unwrap();
-    for other_player in other_players_after(actor) {
+    for other_player in variant.other_active_players_after(actor) {
         let other_player_i = other_player.to_usize();
         let furiten = &mut next.furiten[other_player_i];
 
@@ -191,6 +207,7 @@ pub fn next_agari(
     agari_kind: AgariKind,
     cache: &EngineCache,
 ) -> RoundEnd {
+    let variant = begin.ruleset.variant;
     let mut agari_result: [Option<AgariResult>; 4] = [None, None, None, None];
     let mut delta = [0; 4];
     let mut extra_dora_indicator = 0;
@@ -225,7 +242,7 @@ pub fn next_agari(
             let contributor = state.core.actor;
             let winning_tile = action.tile().unwrap();
             let mut take_pot = true;
-            for winner in other_players_after(contributor) {
+            for winner in variant.other_active_players_after(contributor) {
                 if let Some(Reaction::RonAgari) = reactions[winner.to_usize()] {
                     let agari_result_one = finalize_agari(
                         begin, state, cache,
@@ -254,9 +271,9 @@ pub fn next_agari(
 
     // determine the next round
     let next_round_id = if renchan {
-        begin.round_id.next_honba(true)
+        begin.round_id.next_honba_in(true, variant)
     } else {
-        begin.round_id.next_kyoku()
+        begin.round_id.next_kyoku_in(variant)
     };
     // filter the game-end condition
     let next_round_id_or_end = next_round_id_or_game_end(
@@ -300,6 +317,7 @@ fn finalize_agari(
         state.core.num_dora_indicators + extra_dora_indicator,
         &begin.wall,
         state.core.riichi[winner_i].is_some(),
+        num_kita(&state.melds[winner_i]),
     );
     let candidates = &cache.win[winner.to_usize()];
     let mut best_candidate = candidates.iter().max_by_key(|candidate| {
@@ -339,29 +357,36 @@ pub fn next_abort(
         ..RoundEnd::default()
     };
 
+    let variant = begin.ruleset.variant;
     let round_id = begin.round_id;
     let button = round_id.button();
-    // ugly syntax gets around array::map moving the Vec value
-    let waiting = [0, 1, 2, 3].map(|i| cache.wait[i].waiting_tiles.any() as u8);
+    // ugly syntax gets around array::map moving the Vec value.
+    //
+    // The absent seat must read 0 regardless of what the wait cache holds for it: it was never
+    // dealt, so its "hand" is an empty `TileSet37` whose decomposition is not meaningful. Noten
+    // Bappu is one of the scans with no identity element.
+    let waiting = [0, 1, 2, 3].map(|i|
+        (variant.is_seat_active(Player::new(i as u8)) &&
+            cache.wait[i].waiting_tiles.any()) as u8);
     let waiting_renchan = waiting[button.to_usize()] > 0;
     let next_round_id;
     match abort_reason {
         AbortReason::WallExhausted => {
-            end.points_delta = calc_wall_exhausted_delta(waiting);
+            end.points_delta = calc_wall_exhausted_delta(variant, waiting);
             end.renchan = waiting_renchan;
-            next_round_id = round_id.next_honba(waiting_renchan);
+            next_round_id = round_id.next_honba_in(waiting_renchan, variant);
         }
         AbortReason::NagashiMangan => {
-            end.points_delta = calc_nagashi_mangan_delta(state, button);
+            end.points_delta = calc_nagashi_mangan_delta(variant, state, button);
             end.renchan = waiting_renchan;
-            next_round_id = round_id.next_honba(waiting_renchan);
+            next_round_id = round_id.next_honba_in(waiting_renchan, variant);
         }
 
         AbortReason::NineKinds | AbortReason::FourKan | AbortReason::FourWind |
         AbortReason::FourRiichi | AbortReason::DoubleRon | AbortReason::TripleRon => {
             // force renchan with honba + 1
             end.renchan = true;
-            next_round_id = round_id.next_honba(true);
+            next_round_id = round_id.next_honba_in(true, variant);
         }
     }
 
@@ -397,7 +422,7 @@ fn next_round_id_or_game_end(
             None
         }
     } else if next_round_id.kyoku == ruleset.kyoku_max_soft && renchan &&
-        other_players_after(button).iter()
+        ruleset.variant.other_active_players_after(button)
             .all(|p| points[p.to_usize()] < points[button.to_usize()]) {
         None
     } else {

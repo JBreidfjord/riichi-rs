@@ -41,7 +41,7 @@ pub use pon::Pon;
 /// - `{"type": "Kakan", "own": ["0p", "5p"], "called": "0p", "dir": 1, "added": "5p"}`
 /// - `{"type": "Daiminkan", "own": ["0s", "5s", "5s"], "called": "0s", "dir": 3}`
 /// - `{"type": "Ankan", "own": ["4z", "4z", "4z", "4z"]}`
-/// - `{"type": "Kita", "tile": "4z"}`
+/// - `{"type": "Kita", "own": ["4z"]}`
 ///
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -162,7 +162,7 @@ impl Meld {
             Meld::Ankan(ankan) => ankan.own.to_vec(),
             // The extracted North *is* set aside face-up and therefore visible, so it belongs
             // here for wall-accounting purposes even though it is not part of the hand shape.
-            Meld::Kita(kita) => vec![kita.tile],
+            Meld::Kita(kita) => kita.own.to_vec(),
         }
     }
 }
@@ -285,6 +285,8 @@ mod test {
         assert!(meld.is_kita());
         assert!(!meld.is_kan());
         assert_eq!(meld.to_tiles(), vec![t!("4z")]);
+        assert_eq!(kita.tile(), t!("4z"));
+        assert_eq!(kita.own, [t!("4z")]);
 
         // Only a North can be extracted.
         assert_eq!(Kita::from_tile(t!("4z")), Some(kita));

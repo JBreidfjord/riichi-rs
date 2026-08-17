@@ -149,11 +149,25 @@ pub struct DoraHits {
 
     /// The mere presence of red 5's in the hand also counts as Dora hits (赤ドラ).
     pub aka_dora: u8,
+
+    /// Number of Norths this seat set aside with [`Kita`](riichi_elements::meld::Kita)
+    /// (抜きドラ). Sanma only; always 0 in yonma.
+    ///
+    /// This is a separate component rather than part of `dora` because an extracted North is no
+    /// longer in the hand: no indicator arithmetic can reproduce it (a West indicator would make
+    /// every North still *in hand* dora instead). It stacks with an ordinary West indicator ---
+    /// 「ドラ表示牌が西の場合、通常のドラと抜きドラで重複してカウントされ1枚あたり2翻以上になる」.
+    ///
+    /// It is dora, not a yaku: 「抜きドラは役ではないためそれ単体では和了できない」, so a hand of
+    /// nuki-dora alone still cannot win. That falls out of this living in `DoraHits`, which
+    /// `agari_candidates` evaluates only *after* a yaku has been found.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub nuki_dora: u8,
 }
 
 impl DoraHits {
     /// Total Han-value (飜) of all Dora's.
     pub fn sum(self) -> u8 {
-        self.dora + self.ura_dora + self.aka_dora
+        self.dora + self.ura_dora + self.aka_dora + self.nuki_dora
     }
 }

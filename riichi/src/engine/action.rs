@@ -90,6 +90,7 @@ pub fn check_action(
 
     use ActionError::*;
 
+    let variant = begin.ruleset.variant;
     let actor = state.core.actor;
     let actor_i = actor.to_usize();
 
@@ -151,7 +152,7 @@ pub fn check_action(
 
         Action::Ankan(tile) => {
             let tile = tile.to_normal();
-            if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
+            if is_last_draw(variant, state) { return Err(CannotKanOnLastDraw); }
             if under_riichi && !is_ankan_ok_under_riichi(
                 &begin.ruleset,
                 &mut cache.decomposer,
@@ -172,7 +173,7 @@ pub fn check_action(
             }
         }
         Action::Kakan(added) => {
-            if is_last_draw(state) { return Err(CannotKanOnLastDraw); }
+            if is_last_draw(variant, state) { return Err(CannotKanOnLastDraw); }
             let pon = state.melds[actor_i]
                 .iter()
                 .find_map(|meld| {
@@ -194,7 +195,6 @@ pub fn check_action(
         }
 
         Action::Kita(tile) => {
-            let variant = begin.ruleset.variant;
             if !variant.allows_kita() { return Err(KitaNotAllowed(variant)); }
             if tile.to_normal() != NORTH { return Err(KitaNotNorth(tile)); }
 
@@ -202,7 +202,7 @@ pub fn check_action(
             // text, but decisive in the logs: of 23,104 extractions none happens after the 55th
             // (last) draw, and at draw 55 the behaviour flips --- 34 players drew a North and
             // discarded it, 0 extracted.
-            if num_draws(state) >= variant.max_num_draws() { return Err(CannotKitaOnLastDraw); }
+            if is_last_draw(variant, state) { return Err(CannotKitaOnLastDraw); }
 
             // 「ポンの直後は抜けない」 --- no extraction right after one's own Pon. This needs no
             // code: the Chii/Pon prologue above already rejects every non-Discard action there.
@@ -248,6 +248,7 @@ pub fn check_action(
             }
 
             let agari_input = AgariInput::new(
+                variant,
                 begin.round_id,
                 state,
                 &cache.wait[actor_i],
@@ -261,7 +262,7 @@ pub fn check_action(
         }
 
         Action::AbortNineKinds => {
-            if !is_first_chance(state) { return Err(NotInitAbortable); }
+            if !is_first_chance(variant, state) { return Err(NotInitAbortable); }
             let n = terminal_kinds(&hand);
             if n < 9 {
                 return Err(NotEnoughKindsForNineKinds(n));

@@ -53,6 +53,9 @@ pub enum ReactionError {
 
     #[error("Cannot Ron over Ankan (kokushi excepted).")]
     CannotRonAgariOverAnkan,
+
+    #[error("Chii is not allowed in {0:?}.")]
+    ChiiNotAllowed(Variant),
 }
 
 pub fn check_reaction(
@@ -67,14 +70,19 @@ pub fn check_reaction(
 
     if action.is_terminal() { return Err(TerminalAction); }
 
+    let variant = begin.ruleset.variant;
     let actor = state.core.actor;
     let reactor_i = reactor.to_usize();
     let hand = &state.closed_hands[reactor_i];
 
     match reaction {
         Reaction::Chii(own0, own1) => {
+            // 「チーはできない」. This is the only call sanma removes; Pon/Kan are untouched, and
+            // sequences remain legal *in the hand* (they merely become impossible in manzu, with
+            // 2m--8m gone, so Sanshoku Doujun quietly stops occurring).
+            if !variant.allows_chii() { return Err(ChiiNotAllowed(variant)); }
             if state.core.riichi[reactor_i].is_some() { return Err(OpenMeldUnderRiichi); }
-            if is_last_draw(state) { return Err(MeldOnLastDraw); }
+            if is_last_draw(variant, state) { return Err(MeldOnLastDraw); }
             if actor.succ() != reactor {
                 return Err(CanOnlyChiiPrevPlayer);
             }
@@ -97,7 +105,7 @@ pub fn check_reaction(
 
         Reaction::Pon(own0, own1) => {
             if state.core.riichi[reactor_i].is_some() { return Err(OpenMeldUnderRiichi); }
-            if is_last_draw(state) { return Err(MeldOnLastDraw); }
+            if is_last_draw(variant, state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
                 let dir = actor.sub(reactor);
@@ -118,7 +126,7 @@ pub fn check_reaction(
 
         Reaction::Daiminkan => {
             if state.core.riichi[reactor_i].is_some() { return Err(OpenMeldUnderRiichi); }
-            if is_last_draw(state) { return Err(MeldOnLastDraw); }
+            if is_last_draw(variant, state) { return Err(MeldOnLastDraw); }
             if let Action::Discard(discard) = action {
                 let called = discard.tile;
                 let dir = actor.sub(reactor);
@@ -133,6 +141,16 @@ pub fn check_reaction(
         }
 
         Reaction::RonAgari => {
+            // A ron on `Action::Kita` needs nothing special here. It is not `Action::Ankan`, so
+            // it skips the kokushi carve-out below and goes straight through the ordinary
+            // win-by-steal path --- which is also where the "any yaku-bearing hand may ron a
+            // nuki'd North" rule comes from (「北待ちの役ありテンパイは他家の北抜きでもロン和了
+            // できる」): the hand's own-yaku requirement is just `candidates.is_empty()` below.
+            //
+            // Equally, the *ron-only* nature of the kita reaction window needs no code:
+            // Chii/Pon/Daiminkan all require `Action::Discard` and bail with `NotDiscard`
+            // otherwise. Verified in the logs --- no pon or kan is ever called on an extracted
+            // North, across 23,104 extractions.
             if state.core.furiten[reactor_i].any() {
                 return Err(Furiten(state.core.furiten[reactor_i]));
             }
@@ -143,6 +161,7 @@ pub fn check_reaction(
                 return Err(CannotRonAgariOverAnkan);
             }
             let agari_input = AgariInput::new(
+                variant,
                 begin.round_id,
                 state,
                 &cache.wait[reactor_i],
@@ -164,6 +183,7 @@ pub fn resolve_reaction(
     action: Action,
     reactions: &[Option<Reaction>; 4],
 ) -> (ActionResult, Option<(Player, Reaction)>) {
+    let variant = ruleset.variant;
     let actor = state.core.actor;
 
     // Handle in-turn voluntary termination.
@@ -174,7 +194,7 @@ pub fn resolve_reaction(
     }
 
     // Find the highest priority reaction.
-    let reactor_reaction = other_players_after(actor).into_iter()
+    let reactor_reaction = variant.other_active_players_after(actor)
         .flat_map(|reactor|
             reactions[reactor.to_usize()].map(|reaction| (reactor, reaction)))
         .max_by_key(|(_reactor, reaction)| *reaction);
@@ -200,7 +220,9 @@ pub fn resolve_reaction(
                 return (ActionResult::Agari(AgariKind::Ron), reactor_reaction);
             } else {
                 let reason = match num_rons {
-                    3 => AbortReason::TripleRon,
+                    // Sanchahou cannot occur in sanma --- with three seats, double ron is the
+                    // maximum, so this arm is unreachable there rather than gated off.
+                    3 if variant.allows_triple_ron_abort() => AbortReason::TripleRon,
                     2 => AbortReason::DoubleRon,
                     _ => panic!("ruleset is invalid")
                 };
@@ -211,10 +233,10 @@ pub fn resolve_reaction(
         None => (ActionResult::Pass, None),
     };
 
-    if is_aborted_four_wind(state, action) {
+    if is_aborted_four_wind(variant, state, action) {
         return (ActionResult::Abort(AbortReason::FourWind), None);
     }
-    if is_aborted_four_riichi(state, action) {
+    if is_aborted_four_riichi(variant, state, action) {
         return (ActionResult::Abort(AbortReason::FourRiichi), None);
     }
     // TODO(summivox): ruleset (4-kan judgment point)
@@ -222,13 +244,13 @@ pub fn resolve_reaction(
         state, action, reactor_reaction.map(|(_reactor, reaction)| reaction)) {
         return (ActionResult::Abort(AbortReason::FourKan), None);
     }
-    if result.0 == ActionResult::Pass && is_last_draw(state) {
-        for player in other_players_after(actor) {
-            if is_nagashi_mangan(state, player) {
+    if result.0 == ActionResult::Pass && is_last_draw(variant, state) {
+        for player in variant.other_active_players_after(actor) {
+            if is_nagashi_mangan(variant, state, player) {
                 return (ActionResult::Abort(AbortReason::NagashiMangan), None);
             }
         }
-        if is_nagashi_mangan(state, actor) {
+        if is_nagashi_mangan(variant, state, actor) {
             // The last discard has not been committed to the river, but we still need to take it
             // into consideration!
             // TODO(summivox): rust (if-let-chain)

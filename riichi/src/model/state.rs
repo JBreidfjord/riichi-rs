@@ -138,14 +138,22 @@ pub struct StateCore {
 }
 
 impl State {
-    /// Returns the initial state of a round, with all 4 players' initial hands dealt (13 x 4),
-    /// and the button player's first self draw added.
+    /// Returns the initial state of a round, with every **active seat**'s initial hand dealt
+    /// (13 each) and the button player's first self draw added.
+    ///
+    /// In sanma the **absent seat**'s `closed_hands` entry stays empty. That is the one
+    /// representation that cannot be mistaken for a real hand: a 13-tile dummy would be
+    /// indistinguishable from a player, and a partial hand would look like a bug.
     pub fn new(begin: &RoundBegin) -> Self {
+        let variant = begin.ruleset.variant;
         let button = begin.round_id.button();
+        debug_assert!(variant.is_seat_active(button),
+                      "{:?}: kyoku {} puts the button on the absent seat",
+                      variant, begin.round_id.kyoku);
         Self {
             core: StateCore::new(begin),
 
-            closed_hands: wall::deal(&begin.wall, button),
+            closed_hands: wall::deal_in(variant, &begin.wall, button),
             melds: Default::default(),
             discards: Default::default(),
             discard_sets: Default::default(),
@@ -154,17 +162,20 @@ impl State {
 }
 
 impl StateCore {
-    /// Returns the initial state of a round, with all 4 players' initial hands dealt (13 x 4),
-    /// and the button player's first self draw added.
+    /// Returns the initial core state of a round: every **active seat** dealt 13 tiles, and the
+    /// button player's first self draw added.
     pub fn new(begin: &RoundBegin) -> Self {
+        let variant = begin.ruleset.variant;
         let button = begin.round_id.button();
+        // 13 x num_players + 1: 53 in yonma, 40 in sanma.
+        let num_drawn_head = variant.initial_num_drawn_head();
         Self {
             seq: 0,
             actor: button,
-            num_drawn_head: 53,  // 13 x 4 + 1
+            num_drawn_head,
             num_drawn_tail: 0,
             num_dora_indicators: 1,
-            draw: Some(begin.wall[52]),
+            draw: Some(wall::tile_at(variant, &begin.wall, num_drawn_head as usize - 1)),
             incoming_meld: None,
             furiten: Default::default(),
             riichi: Default::default(),

@@ -479,6 +479,7 @@ impl Solver {
         }
         let closed = to_tileset37(hand13);
         let input = AgariInput {
+            variant: self.ruleset.variant,
             round_id: b.cfg.round_id,
             winner: b.cfg.seat,
             closed_hand: &closed,
@@ -486,10 +487,10 @@ impl Solver {
                 is_double: false,
                 is_ippatsu: false,
             }),
-            melds: &b.cfg.melds,
+            melds: std::borrow::Cow::Borrowed(&b.cfg.melds),
             wait_set,
             contributor: b.cfg.seat,
-            incoming_is_kan: false,
+            incoming_draws_from_tail: false,
             action_is_kan: false,
             winning_tile: win_tile,
             is_first_chance: false,
@@ -518,6 +519,7 @@ impl Solver {
                 dora,
                 ura_dora: ura,
                 aka_dora: aka,
+                nuki_dora: 0,
             };
             let basic = candidates
                 .iter()
@@ -793,14 +795,15 @@ impl Solver {
         }
         let closed = to_tileset37(&hand13);
         let input = AgariInput {
+            variant: self.ruleset.variant,
             round_id: cfg.round_id,
             winner: cfg.seat,
             closed_hand: &closed,
             riichi: None,
-            melds: &cfg.melds,
+            melds: std::borrow::Cow::Borrowed(&cfg.melds),
             wait_set: &wait_set,
             contributor: cfg.seat,
-            incoming_is_kan: false,
+            incoming_draws_from_tail: false,
             action_is_kan: false,
             winning_tile,
             is_first_chance: false,
@@ -824,6 +827,7 @@ impl Solver {
             dora,
             ura_dora: 0,
             aka_dora: aka,
+            nuki_dora: 0,
         };
         let basic = candidates
             .iter()

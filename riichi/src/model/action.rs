@@ -68,7 +68,7 @@ impl Action {
         match meld {
             Meld::Kakan(kakan) => Some(Action::Kakan(kakan.added)),
             Meld::Ankan(ankan) => Some(Action::Ankan(ankan.own[0].to_normal())),
-            Meld::Kita(kita) => Some(Action::Kita(kita.tile)),
+            Meld::Kita(kita) => Some(Action::Kita(kita.tile())),
             _ =>  None,
         }
     }

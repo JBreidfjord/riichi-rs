@@ -25,7 +25,7 @@ pub fn calc_regular_wait_common(
     let extra_fu = calc_extra_fu(
         input.round_id,
         input.winner,
-        input.melds,
+        &input.melds,
         hand_common,
         wait,
         wait_group,
