@@ -23,6 +23,7 @@ pub fn calc_regular_wait_common(
 ) -> RegularWaitCommon {
     let wait_group = calc_waiting_group(wait);
     let extra_fu = calc_extra_fu(
+        input.variant,
         input.round_id,
         input.winner,
         &input.melds,
@@ -50,6 +51,7 @@ fn calc_waiting_group(wait: &RegularWait) -> Option<HandGroup> {
 }
 
 fn calc_extra_fu(
+    variant: Variant,
     round_id: RoundId,
     winner: Player,
     melds: &[Meld],
@@ -81,8 +83,14 @@ fn calc_extra_fu(
             2
         } else if let Some(wind) = pair.wind() {
             // TODO(summivox): rules (double wind pair fu)
+            //
+            // Self wind must reduce modulo the number of *playing* seats -- see
+            // `RoundId::self_wind_for_player_in`. This is the second call site of that bug, and
+            // the one the sanma replay oracle caught: in sanma E3 with the button on seat 2, the
+            // mod-4 form calls seat 1's wind North (a guest wind, worth nothing) where it is
+            // really West. That silently granted Pinfu on a West pair and dropped 2 fu.
             2 * ((wind == round_id.prevailing_wind()) as u8 +
-                 (wind == round_id.self_wind_for_player(winner)) as u8)
+                 (wind == round_id.self_wind_for_player_in(variant, winner)) as u8)
         } else { 0 }
     } else { 0 };
 

@@ -432,7 +432,17 @@ pub fn count_doras(
     num_kita: u8,
 ) -> DoraHits {
     let variant = ruleset.variant;
-    let all_tiles_normal = TileSet34::from(all_tiles);
+    let mut all_tiles_normal = TileSet34::from(all_tiles);
+
+    // Extracted Norths sit outside the winning shape and carry no fu, so `get_all_tiles` leaves
+    // them out -- but they are still tiles this seat owns, face-up. An indicator showing West
+    // therefore makes each of them an ordinary dora **as well as** a nuki-dora:
+    // 「ドラ表示牌が西の場合、通常のドラと抜きドラで重複してカウントされ1枚あたり2翻以上になる」,
+    // and an ura-West stacks again. Adding them here, and only here, gets both at once without
+    // letting them near the yaku detectors (which read `hand_common.all_tiles`, not this).
+    if num_kita > 0 {
+        all_tiles_normal[NORTH] += num_kita;
+    }
 
     let n = if ruleset.dora_allow_kan { num_dora_indicators as usize } else { 1 };
     let n_ura = if ruleset.dora_allow_kan_ura { n } else { 1 };

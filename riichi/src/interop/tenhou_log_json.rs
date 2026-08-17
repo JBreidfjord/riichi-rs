@@ -16,7 +16,11 @@
 mod end_info;
 mod entry;
 mod meld;
-mod recovery;
+/// Reconstruction of a playable round from a log.
+///
+/// Public because a second log format (mjlog XML, which is the only one that carries a Kita)
+/// needs to build the same [`recovery::RecoveredRound`] to drive the replay oracle.
+pub mod recovery;
 mod round;
 mod scoring;
 pub mod test_utils;

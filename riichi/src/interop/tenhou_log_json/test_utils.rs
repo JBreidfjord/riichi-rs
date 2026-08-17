@@ -32,6 +32,32 @@ pub fn run_a_round(
     recovered: &RecoveredRound,
     end_info: &TenhouEndInfo
 ) -> RoundHistory {
+    run_a_round_against(num_reds, recovered, &ExpectedEnd {
+        overall_delta: end_info.overall_delta,
+        // Pao / Sekinin-barai is not modelled by the engine, so its delta is not comparable.
+        check_delta: end_info.agari.iter().all(|x| x.liable_player == x.winner),
+    })
+}
+
+/// What a log says a round ended with, reduced to the part the oracle actually checks.
+///
+/// This exists so that a second log format can drive the same assertions without having to
+/// fabricate a `TenhouEndInfo` (whose scoring and yaku detail the oracle never reads).
+#[derive(Clone, Debug)]
+pub struct ExpectedEnd {
+    /// Points delta for all four seats, including honba and the riichi pot.
+    pub overall_delta: [GamePoints; 4],
+    /// Whether `overall_delta` is comparable at all. Set `false` where the log records something
+    /// the engine deliberately does not model (Pao being the only case today).
+    pub check_delta: bool,
+}
+
+/// See [`run_a_round`]; this is the same oracle, taking the expectations directly.
+pub fn run_a_round_against(
+    num_reds: [u8; 3],
+    recovered: &RecoveredRound,
+    expected: &ExpectedEnd,
+) -> RoundHistory {
     let lite = &recovered.history;
     let variant = lite.begin.ruleset.variant;
     println!("\n{:?} ({:?})", lite.begin.round_id, variant);
@@ -101,9 +127,9 @@ pub fn run_a_round(
                 let pot_delta = calc_pot_delta(&engine.state().core.riichi);
                 for i in 0..4 { delta[i] -= pot_delta[i]; }
 
-                // Exclude cases where Pao / Liability apply.
-                if end_info.agari.iter().all(|x| x.liable_player == x.winner) {
-                    assert_eq!(delta, end_info.overall_delta);
+                if expected.check_delta {
+                    assert_eq!(delta, expected.overall_delta,
+                               "points delta disagrees with the log");
                 }
             }
             _ => {}

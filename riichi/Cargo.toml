@@ -36,6 +36,14 @@ riichi-decomp = { path = "../riichi-decomp", version = "0.1.0" }
 
 [dev-dependencies]
 assert-json-diff = "2.0"
+
+# --- sanma replay oracle (dev-only; see riichi/tests/sanma_replay.rs) ---
+# Our own `mjlog` fork: the crates.io 0.1.3 hard-errors on `<N>` kita and on the empty `hai3=""`
+# a 3-player `<INIT>` ships for the absent seat. Dev-only on purpose -- the engine's *library*
+# dependency graph gains nothing, so downstream builds (including wasm) are untouched.
+mjlog = { git = "https://github.com/jbreidfjord/mjlog2json.git", branch = "kita" }
+flate2 = "1.0"
+rusqlite = { version = "0.28", features = ["bundled"] }
 bencher = "0.1.5"
 env_logger = "0.9"
 glob = "0.3"

@@ -211,6 +211,80 @@ fn chii_is_rejected_in_sanma_and_no_call_reacts_to_a_kita() {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+// Kita and dora
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/// 「ドラ表示牌が西の場合、通常のドラと抜きドラで重複してカウントされ1枚あたり2翻以上になる」 --
+/// with a West indicator up, each extracted North is worth an ordinary dora **as well as** its
+/// nuki-dora, and an ura-West stacks again.
+///
+/// Found by the replay oracle: the engine was scoring these hands exactly one han light, because
+/// `get_all_tiles` (rightly) leaves an extracted North out of the winning shape, which also took
+/// it out of reach of the indicator count.
+#[test]
+fn kita_stacks_with_a_west_dora_indicator() {
+    let v = Variant::Sanma;
+    let ruleset = sanma_ruleset();
+    let mut wall = wall::make_sorted_wall_in(v, [0, 0, 0]);
+    // Put West up as the first dora indicator, so North is dora.
+    wall[v.dora_indicator_index()[0]] = t!("3z");
+    wall[v.ura_dora_indicator_index()[0]] = t!("1z");
+
+    // A hand with no North left in it -- the only Norths this seat has are the extracted ones.
+    let hand = TileSet37::from_iter(tiles_from_str("119m123456789p11s"));
+
+    let none = count_doras(&ruleset, &hand, 1, &wall, false, 0);
+    assert_eq!(none.dora, 0);
+    assert_eq!(none.nuki_dora, 0);
+
+    let two_kita = count_doras(&ruleset, &hand, 1, &wall, false, 2);
+    // Each extracted North counts twice: once as indicator dora, once as nuki dora.
+    assert_eq!(two_kita.dora, 2, "extracted Norths must count against a West indicator");
+    assert_eq!(two_kita.nuki_dora, 2);
+    assert_eq!(two_kita.sum(), 4);
+
+    // An indicator that does not point at North gives the kita their nuki value only.
+    let mut other = wall;
+    other[v.dora_indicator_index()[0]] = t!("1p");
+    let hits = count_doras(&ruleset, &hand, 1, &other, false, 2);
+    assert_eq!(hits.dora, 1, "1p indicator -> 2p dora, one in hand");
+    assert_eq!(hits.nuki_dora, 2);
+
+    // Ura-West stacks again, but only for a riichi win.
+    let mut ura_west = wall;
+    ura_west[v.dora_indicator_index()[0]] = t!("1p");
+    ura_west[v.ura_dora_indicator_index()[0]] = t!("3z");
+    let no_riichi = count_doras(&ruleset, &hand, 1, &ura_west, false, 2);
+    assert_eq!(no_riichi.ura_dora, 0);
+    let riichi = count_doras(&ruleset, &hand, 1, &ura_west, true, 2);
+    assert_eq!(riichi.ura_dora, 2, "ura-West stacks on the extracted Norths too");
+}
+
+/// An extracted North is dora, never part of the hand shape: no fu, and not among the 14 tiles.
+#[test]
+fn kita_is_outside_the_winning_shape() {
+    let hand = TileSet37::from_iter(tiles_from_str("119m123456789p1s"));
+    let melds = [Meld::Kita(Kita::new()), Meld::Kita(Kita::new())];
+    let all = get_all_tiles(&hand, t!("1s"), &melds);
+    // 13 + the winning tile, and not a tile more: the two Norths are set aside, not held.
+    assert_eq!(all.0.iter().map(|&n| n as u32).sum::<u32>(), 14);
+    assert_eq!(all[t!("4z")], 0);
+}
+
+/// Seat wind in sanma is the seat's distance around a **three**-seat ring. The mod-4 form calls
+/// seat 1's wind North in E3 -- a guest wind worth nothing -- where it is really West, which
+/// silently granted Pinfu on a West pair and dropped 2 fu. Found by the replay oracle.
+#[test]
+fn sanma_seat_wind_reaches_the_fu_calculation() {
+    let v = Variant::Sanma;
+    // E3: button is seat 2, so seat 1 is West and seat 0 is South.
+    let e3 = RoundId { kyoku: 2, honba: 0 };
+    assert_eq!(e3.self_wind_for_player_in(v, P1), Wind::new(2));
+    // The mod-4 form disagrees, and would call it North.
+    assert_eq!(e3.self_wind_for_player(P1), Wind::new(3));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 // Settlement arithmetic
 //////////////////////////////////////////////////////////////////////////////////////////////////
 

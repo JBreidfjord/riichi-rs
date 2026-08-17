@@ -164,8 +164,11 @@ impl State {
 
                 log::debug!("P{}:{} => hand={}", actor_i, discard, self.closed_hands[actor_i]);
             }
-            Action::Kakan(_) | Action::Ankan(_) => {}  // No-op, but valid.
-            _ => panic!("inconsistent")
+            // No-op here, but valid: the tiles these take out of the closed hand are removed by
+            // `meld.consume_from_hand` below, from `next.incoming_meld`.
+            Action::Kakan(_) | Action::Ankan(_) | Action::Kita(_) => {}
+            Action::TsumoAgari(_) | Action::AbortNineKinds =>
+                panic!("terminal action {:?} cannot evolve the state", action),
         }
 
         // Move the meld of this turn from the closed hand to the meld section.
@@ -179,7 +182,10 @@ impl State {
                     .unwrap();
                 self.melds[next_actor_i][pon_i] = meld;
             } else {
-                // Chii/Pon/Daiminkan/Ankan all introduce a new meld.
+                // Chii/Pon/Daiminkan/Ankan/Kita all introduce a new meld.
+                //
+                // A Kita is appended in chronological order alongside the calls, which is what
+                // the encoder's kita-count planes and the wire format expect.
                 self.melds[next_actor_i].push(meld);
             }
 
