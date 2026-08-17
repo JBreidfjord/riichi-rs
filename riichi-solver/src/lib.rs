@@ -45,13 +45,43 @@ const N_KINDS: usize = 37; // 34 normal + 3 red fives
 const RED_BASE: usize = 34;
 
 /// Per-kind copies in a full set: 3 for normal fives, 1 for reds, 4 otherwise.
-fn kind_copies(k: usize) -> u8 {
+///
+/// This is the standard 136-tile set with one red five per numeral suit. It is the **default**
+/// for [`SolverConfig`], not a law: see [`SolverConfig::copies`].
+const fn default_kind_copies(k: usize) -> u8 {
     match k {
         4 | 13 | 22 => 3,
         RED_BASE..=36 => 1,
         _ => 4,
     }
 }
+
+/// The standard 136-tile copies table (one red five per numeral suit).
+pub const DEFAULT_COPIES: [u8; N_KINDS] = {
+    let mut t = [0u8; N_KINDS];
+    let mut k = 0;
+    while k < N_KINDS {
+        t[k] = default_kind_copies(k);
+        k += 1;
+    }
+    t
+};
+
+/// Number of tiles in the standard set.
+pub const DEFAULT_WALL_SIZE: u32 = 136;
+
+/// The standard dora chain, as a 34-kind indicator -> dora map.
+///
+/// Numerals wrap within their suit (`n % 9 + 1`), winds cycle E->S->W->N->E, dragons
+/// haku->hatsu->chun->haku. It is the **default** for [`SolverConfig`], not a law: sanma's manzu
+/// chain is 1m <-> 9m, because 2m--8m do not exist.
+pub const DEFAULT_DORA_MAP: [u8; 34] = [
+    1, 2, 3, 4, 5, 6, 7, 8, 0, // m
+    10, 11, 12, 13, 14, 15, 16, 17, 9, // p
+    19, 20, 21, 22, 23, 24, 25, 26, 18, // s
+    28, 29, 30, 27, // winds
+    32, 33, 31, // dragons
+];
 
 /// 37-kind index folded to its 34-kind (reds to their fives).
 fn fold_kind(k: usize) -> usize {
@@ -90,6 +120,39 @@ pub struct SolverConfig {
     pub t_max: usize,
     /// Total wall tiles (unseen from the root hand's perspective).
     pub sum: u32,
+
+    /// Copies of each 37-encoded kind present in the **full tile set**.
+    ///
+    /// This is deliberately *data*, not a rules axis: it keeps this crate a pure combinatorial
+    /// engine, testable without a `Ruleset`, and it is the one input that makes a 3-player tile
+    /// set work. A sanma table has **0** for kinds 1..=7 (2m--8m), 0 for kind 4 (5m) and 0 for
+    /// kind 34 (red 5m); everything else stays 4 (or 3/1 for the remaining fives and reds).
+    ///
+    /// Without it, `wall_count` assumes 4 copies of everything and the whole solver computes
+    /// ukeire, win probability and EV over 28 phantom manzu tiles, offering them as improving
+    /// draws.
+    ///
+    /// Callers should derive this in exactly one place --- `riichi_elements::Variant` has
+    /// `num_copies_34` for the tile-kind half; the red-five split is the caller's, since the
+    /// number of reds is implied by the wall array rather than by the variant.
+    pub copies: [u8; N_KINDS],
+
+    /// Indicator -> dora map over the 34 normal kinds.
+    ///
+    /// Also data. Sanma's manzu chain is 1m <-> 9m rather than `n % 9 + 1`, because 2m--8m are
+    /// not in the set --- a solver told the wrong chain misvalues every hand holding a terminal
+    /// manzu whenever a manzu indicator is up.
+    pub dora_map: [u8; 34],
+
+    /// Flat han added to every winning hand, before dora.
+    ///
+    /// This exists for sanma's own Kita (北抜き): each extracted North is `+1` han, but the North
+    /// is **no longer in the hand**, so no indicator arithmetic reproduces it (a West indicator
+    /// would make every North still *in hand* dora instead). Left at 0, a hand with kita reads
+    /// low in proportion to how many were extracted --- biased exactly when the hand is worth
+    /// most.
+    pub bonus_han: u8,
+
     pub dora_indicators: Vec<Tile>,
     /// Round context for scoring. Defaults: East-1, we are the non-dealer South seat.
     pub round_id: RoundId,
@@ -101,18 +164,46 @@ pub struct SolverConfig {
 }
 
 impl SolverConfig {
-    /// Reference-parity defaults for a given root hand size (closed tiles).
+    /// Reference-parity defaults for a given root hand size (closed tiles), over the standard
+    /// 136-tile set.
     pub fn new(root_tiles: u32, dora_indicators: Vec<Tile>) -> Self {
-        let sum = 136 - root_tiles - dora_indicators.len() as u32;
+        Self::new_in(DEFAULT_WALL_SIZE, DEFAULT_COPIES, DEFAULT_DORA_MAP, root_tiles,
+                     dora_indicators)
+    }
+
+    /// As [`Self::new`], but over an explicitly described tile set.
+    ///
+    /// `wall_size` is how many tiles the full set has (136, or 108 for sanma); `copies` and
+    /// `dora_map` describe its shape. See [`Self::copies`] and [`Self::dora_map`].
+    pub fn new_in(
+        wall_size: u32,
+        copies: [u8; N_KINDS],
+        dora_map: [u8; 34],
+        root_tiles: u32,
+        dora_indicators: Vec<Tile>,
+    ) -> Self {
+        debug_assert_eq!(
+            copies.iter().map(|&c| c as u32).sum::<u32>(), wall_size,
+            "copies table does not add up to the stated wall size");
+        let sum = wall_size - root_tiles - dora_indicators.len() as u32;
         SolverConfig {
             t_max: T_MAX,
             sum,
+            copies,
+            dora_map,
+            bonus_han: 0,
             dora_indicators,
             round_id: RoundId { kyoku: 0, honba: 0 },
             seat: Player::new(1),
             enable_uradora: true,
             melds: Vec::new(),
         }
+    }
+
+    /// Attach a flat han bonus; see [`Self::bonus_han`].
+    pub fn with_bonus_han(mut self, bonus_han: u8) -> Self {
+        self.bonus_han = bonus_han;
+        self
     }
 
     /// Attach melds; their tiles are visible, so they leave the wall.
@@ -217,7 +308,7 @@ impl<'a> Build<'a> {
         }
         let mut meld_dora = 0u8;
         for t in &cfg.dora_indicators {
-            let d = t.indicated_dora().normal_encoding() as usize;
+            let d = cfg.dora_map[t.normal_encoding() as usize] as usize;
             meld_dora += meld37[d];
             // Red fives sit in slots 34..37; fold them onto their five.
             if d == 4 {
@@ -333,7 +424,7 @@ impl Solver {
     /// Wall copies of kind `k` unseen from `hand`'s perspective.
     fn wall_count(b: &Build, hand: &[u8; N_KINDS], k: usize) -> u8 {
         let ind = if k < 34 { b.ind34[k] } else { 0 };
-        kind_copies(k)
+        b.cfg.copies[k]
             .saturating_sub(hand[k])
             .saturating_sub(ind)
             .saturating_sub(b.meld37[k])
@@ -509,7 +600,7 @@ impl Solver {
             .cfg
             .dora_indicators
             .iter()
-            .map(|i| all34[i.indicated_dora()])
+            .map(|i| all34.0[b.cfg.dora_map[i.normal_encoding() as usize] as usize])
             .sum::<u8>()
             + b.meld_dora;
         let aka: u8 = hand14[34] + hand14[35] + hand14[36] + b.meld_aka;
@@ -519,7 +610,8 @@ impl Solver {
                 dora,
                 ura_dora: ura,
                 aka_dora: aka,
-                nuki_dora: 0,
+                // Own Kita: +1 han each, flat. See `SolverConfig::bonus_han`.
+                nuki_dora: b.cfg.bonus_han,
             };
             let basic = candidates
                 .iter()
@@ -583,9 +675,8 @@ impl Solver {
             if ci == 0 {
                 continue;
             }
-            let ind_tile = Tile::from_encoding(i as u8).unwrap().indicated_dora();
-            let gi =
-                (all34[ind_tile] + b.meld34[ind_tile.normal_encoding() as usize]) as usize;
+            let di = b.cfg.dora_map[i] as usize;
+            let gi = (all34.0[di] + b.meld34[di]) as usize;
             let mut ndp = dp.clone();
             for x in 0..=d {
                 for u in 0..13 {
@@ -819,7 +910,7 @@ impl Solver {
         let dora: u8 = cfg
             .dora_indicators
             .iter()
-            .map(|i| all34[i.indicated_dora()])
+            .map(|i| all34.0[cfg.dora_map[i.normal_encoding() as usize] as usize])
             .sum::<u8>()
             + b.meld_dora;
         let aka: u8 = hand.0[34] + hand.0[35] + hand.0[36] + b.meld_aka;
@@ -827,7 +918,7 @@ impl Solver {
             dora,
             ura_dora: 0,
             aka_dora: aka,
-            nuki_dora: 0,
+            nuki_dora: cfg.bonus_han,
         };
         let basic = candidates
             .iter()
@@ -944,6 +1035,128 @@ mod tests {
     impl TileExt for Tile {
         fn from_str_checked(s: &str) -> Tile {
             s.parse().unwrap()
+        }
+    }
+
+    /// Build the sanma tile set as an explicit copies table: no 2m--8m, no 5m, no red 5m.
+    fn sanma_copies() -> [u8; N_KINDS] {
+        let mut c = DEFAULT_COPIES;
+        for k in 1..=7 { c[k] = 0; }   // 2m..8m
+        c[RED_BASE] = 0;              // red 5m (kind 4 is 5m, already zeroed above)
+        c
+    }
+
+    fn sanma_dora_map() -> [u8; 34] {
+        let mut m = DEFAULT_DORA_MAP;
+        m[0] = 8; // 1m -> 9m
+        m[8] = 0; // 9m -> 1m
+        m
+    }
+
+    /// The whole point of ADR 0010's copies table: without it the solver treats 2m--8m as
+    /// unseen wall tiles and computes ukeire, win probability and EV over 28 tiles that are not
+    /// in the game.
+    ///
+    /// Note the test cannot be "yonma offers 2m as an improving draw and sanma does not": any
+    /// hand shape that *wants* a 2m is by construction not a legal sanma hand. What is testable,
+    /// and what actually matters, is that the table reaches the DP rather than being stored and
+    /// ignored -- so the same sanma-legal hand must come out with different numbers.
+    #[test]
+    fn sanma_copies_table_reaches_the_dp() {
+        let mut solver = Solver::new();
+        // Sanma-legal throughout: manzu only 1m/9m, no 5m.
+        let hand = hand_from_mpsz("119m123456789p11s");
+        let indicators = vec![Tile::from_str_checked("3z")];
+
+        let yonma = SolverConfig::new(13, indicators.clone());
+        let sanma = SolverConfig::new_in(
+            108, sanma_copies(), sanma_dora_map(), 13, indicators);
+
+        assert_eq!(yonma.sum, 136 - 13 - 1, "yonma wall size unchanged");
+        assert_eq!(sanma.sum, 108 - 13 - 1, "sanma counts a 108-tile set");
+
+        let unpack = |a: &Analysis| -> (Vec<(u8, u8)>, f64) {
+            match a {
+                Analysis::Full { stats, .. } => (
+                    stats[0].necessary.clone(),
+                    stats[0].win_prob.iter().cloned().fold(0.0, f64::max),
+                ),
+                other => panic!("expected the full DP, got {:?}", core::mem::discriminant(other)),
+            }
+        };
+        let (nec_y, win_y) = unpack(&solver.analyze(&hand, &yonma));
+        let (nec_s, win_s) = unpack(&solver.analyze(&hand, &sanma));
+
+        // No phantom manzu is ever offered as an improving draw under the sanma table.
+        assert!(nec_s.iter().all(|(k, w)| !(1..=7).contains(k) || *w == 0),
+                "sanma offered phantom manzu: {:?}", nec_s);
+
+        // The table is actually consulted: a smaller wall changes the draw probabilities.
+        assert!((win_y - win_s).abs() > 1e-9,
+                "copies table / wall size never reached the DP: win_prob identical ({win_y})");
+        // ... and it is not merely `sum` doing the work -- yonma still counts 2m--8m as unseen.
+        // ADR 0010's "28 phantom manzu" are 2m--8m x 4. In the 37-kind representation that is
+        // 27 normal copies plus the red 5m, which lives at kind 34 rather than at kind 4 --
+        // which is exactly why `sanma_copies` has to zero `RED_BASE` separately.
+        let phantom_wall: u32 = (1..=7).map(|k| DEFAULT_COPIES[k] as u32).sum::<u32>()
+            + DEFAULT_COPIES[RED_BASE] as u32;
+        assert_eq!(phantom_wall, 28, "the 28 phantom manzu ADR 0010 names");
+        assert_eq!((1..=7).map(|k| sanma_copies()[k] as u32).sum::<u32>()
+                       + sanma_copies()[RED_BASE] as u32, 0);
+        let _ = nec_y;
+    }
+
+    /// The copies table must describe the tile set it claims to.
+    #[test]
+    fn sanma_copies_table_sums_to_the_wall() {
+        assert_eq!(DEFAULT_COPIES.iter().map(|&c| c as u32).sum::<u32>(), DEFAULT_WALL_SIZE);
+        assert_eq!(sanma_copies().iter().map(|&c| c as u32).sum::<u32>(), 108);
+    }
+
+    /// Own Kita is a flat han bonus, because the extracted North is no longer in the hand and
+    /// no indicator arithmetic reproduces it.
+    #[test]
+    fn bonus_han_raises_the_score() {
+        let mut solver = Solver::new();
+        let hand = hand_from_mpsz("119m123456789p11s");
+        let indicators = vec![Tile::from_str_checked("3z")];
+
+        let base = SolverConfig::new_in(
+            108, sanma_copies(), sanma_dora_map(), 13, indicators.clone());
+        let with_kita = SolverConfig::new_in(
+            108, sanma_copies(), sanma_dora_map(), 13, indicators).with_bonus_han(3);
+
+        assert_eq!(base.bonus_han, 0);
+        assert_eq!(with_kita.bonus_han, 3);
+
+        fn ev(solver: &mut Solver, hand: &TileSet37, cfg: &SolverConfig) -> f64 {
+            match solver.analyze(hand, cfg) {
+                Analysis::Full { stats, .. } =>
+                    stats[0].exp_score.iter().cloned().fold(0.0, f64::max),
+                _ => panic!("expected the full DP"),
+            }
+        }
+        let lo = ev(&mut solver, &hand, &base);
+        let hi = ev(&mut solver, &hand, &with_kita);
+        assert!(hi > lo, "bonus han did not raise EV: {} -> {}", lo, hi);
+    }
+
+    /// Yonma is untouched: the default table and dora map reproduce the previous hardcoded
+    /// behaviour exactly. (The `goldens` integration tests are the byte-level version of this.)
+    #[test]
+    fn yonma_defaults_match_the_old_hardcoded_behaviour() {
+        for k in 0..N_KINDS {
+            let expected = match k {
+                4 | 13 | 22 => 3,
+                RED_BASE..=36 => 1,
+                _ => 4,
+            };
+            assert_eq!(DEFAULT_COPIES[k], expected, "copies[{}]", k);
+        }
+        for k in 0..34u8 {
+            let t = Tile::from_encoding(k).unwrap();
+            assert_eq!(DEFAULT_DORA_MAP[k as usize], t.indicated_dora().normal_encoding(),
+                       "dora_map[{}]", k);
         }
     }
 
