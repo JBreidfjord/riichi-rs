@@ -154,10 +154,19 @@ pub fn check_reaction(
             if state.core.furiten[reactor_i].any() {
                 return Err(Furiten(state.core.furiten[reactor_i]));
             }
+            // The kokushi carve-out is a *ruleset* option, and this is the gate that
+            // decides whether it is on offer. `Ruleset::kokushi_chankan_allow_ankan`
+            // used to be read in exactly one place --- `next_normal`'s Furiten loop ---
+            // so an Ankan could be robbed by a Thirteen Orphans wait under every
+            // ruleset, including the default that says it cannot, and including
+            // Tenhou's (「他家が暗槓した牌では国士無双はあがれない」). Unreachable while
+            // no wrapper opened a reaction window on an Ankan; a rules divergence the
+            // moment one did.
             if matches!(action, Action::Ankan(_)) &&
-                !matches!(cache.wait[reactor_i].irregular,
+                (!begin.ruleset.kokushi_chankan_allow_ankan ||
+                 !matches!(cache.wait[reactor_i].irregular,
                      Some(IrregularWait::ThirteenOrphans(_)) |
-                     Some(IrregularWait::ThirteenOrphansAll)) {
+                     Some(IrregularWait::ThirteenOrphansAll))) {
                 return Err(CannotRonAgariOverAnkan);
             }
             let agari_input = AgariInput::new(
