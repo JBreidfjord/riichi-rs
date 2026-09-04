@@ -37,7 +37,47 @@ use serde::{Deserialize, Serialize};
 use serde_big_array::BigArray;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+
+const PROFILE_BUILD_ID: &str = "v2-stage0";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CacheMode {
+    None,
+    Score,
+    All,
+}
+
+impl CacheMode {
+    fn from_env() -> Self {
+        match std::env::var("RUSTCHI_SOLVER_CACHE_MODE").as_deref() {
+            Ok("none") => Self::None,
+            Ok("score") => Self::Score,
+            _ => Self::All,
+        }
+    }
+
+    fn score(self) -> bool {
+        self != Self::None
+    }
+
+    fn structure(self) -> bool {
+        self == Self::All
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::None => "none",
+            Self::Score => "score",
+            Self::All => "all",
+        }
+    }
+}
+
+fn cache_mode() -> CacheMode {
+    static MODE: OnceLock<CacheMode> = OnceLock::new();
+    *MODE.get_or_init(CacheMode::from_env)
+}
 
 /// Opt-in phase timers (env `RUSTCHI_ENCODE_PROFILE`), process-global.
 pub mod profile {
@@ -92,12 +132,14 @@ pub mod profile {
         let full = g(&FULL).max(1) as f64;
         let ms = |c: &AtomicU64| g(c) as f64 / 1e6;
         Some(format!(
-            "solver profile: analyses full={} simple={} unavailable={}; per FULL analysis: \
+            "solver profile: build_id={} cache_mode={}; analyses full={} simple={} unavailable={}; per FULL analysis: \
              build {:.0} us (of which score_win {:.0} us over {:.1} calls), dp {:.0} us, \
              stats {:.0} us; gate {:.0} us/analysis; simple path {:.0} us/analysis; \
              nodes per full: 13-tile {:.0}, 14-tile {:.0}; totals build {:.0} ms dp {:.0} ms \
              score_win {:.0} ms gate {:.0} ms simple {:.0} ms; score cache hits={} misses={}; \
              structure cache hits={} misses={}",
+            super::PROFILE_BUILD_ID,
+            super::cache_mode().label(),
             g(&FULL),
             g(&SIMPLE),
             g(&UNAVAILABLE),
@@ -549,6 +591,11 @@ struct Build<'a> {
     /// a tenpai root's graph contains no other 13-node with the same hand.)
     root13_key: Option<u128>,
     score_context_id: u64,
+    cache_mode: CacheMode,
+    score_cache_hits: u64,
+    score_cache_misses: u64,
+    structure_cache_hits: u64,
+    structure_cache_misses: u64,
 }
 
 impl<'a> Build<'a> {
@@ -587,8 +634,12 @@ impl<'a> Build<'a> {
         meld34[22] += meld37[36];
 
         let n_tiles: u32 = fold34(root_hand).0.iter().map(|&c| c as u32).sum();
-        let score_context_id =
-            SCORE_CACHE.with(|cache| cache.borrow_mut().intern_context(ScoringContext::new(cfg)));
+        let cache_mode = cache_mode();
+        let score_context_id = if cache_mode.score() {
+            SCORE_CACHE.with(|cache| cache.borrow_mut().intern_context(ScoringContext::new(cfg)))
+        } else {
+            0
+        };
         Build {
             cfg,
             ind34,
@@ -603,6 +654,11 @@ impl<'a> Build<'a> {
             memo14: HashMap::default(),
             root13_key: (n_tiles % 3 == 1).then(|| key(root_hand)),
             score_context_id,
+            cache_mode,
+            score_cache_hits: 0,
+            score_cache_misses: 0,
+            structure_cache_hits: 0,
+            structure_cache_misses: 0,
         }
     }
 
@@ -641,6 +697,10 @@ impl Solver {
         };
 
         profile::add(&profile::NS_BUILD, t_build);
+        profile::bump(&profile::SCORE_CACHE_HITS, b.score_cache_hits);
+        profile::bump(&profile::SCORE_CACHE_MISSES, b.score_cache_misses);
+        profile::bump(&profile::STRUCTURE_CACHE_HITS, b.structure_cache_hits);
+        profile::bump(&profile::STRUCTURE_CACHE_MISSES, b.structure_cache_misses);
         profile::bump(&profile::NODES13, b.n13.len() as u64);
         profile::bump(&profile::NODES14, b.n14.len() as u64);
         let t_dp = profile::start();
@@ -693,13 +753,19 @@ impl Solver {
         b.cfg.copies[k].saturating_sub(hand[k]).saturating_sub(ind).saturating_sub(b.meld37[k])
     }
 
-    fn structure13(&mut self, hand: &[u8; N_KINDS]) -> Arc<Structure13> {
+    fn structure13(
+        &mut self,
+        hand: &[u8; N_KINDS],
+        use_cache: bool,
+    ) -> (Arc<Structure13>, bool) {
         let hand_key = key(hand);
-        if let Some(value) = STRUCTURE_CACHE.with(|cache| cache.borrow_mut().get13(hand_key)) {
-            profile::bump(&profile::STRUCTURE_CACHE_HITS, 1);
-            return value;
+        if use_cache {
+            if let Some(value) =
+                STRUCTURE_CACHE.with(|cache| cache.borrow_mut().get13(hand_key))
+            {
+                return (value, true);
+            }
         }
-        profile::bump(&profile::STRUCTURE_CACHE_MISSES, 1);
         let folded = fold34(hand);
         let (shanten, advancing) = self.lut.analyze_13(&folded);
         let tenpai = shanten == 0;
@@ -712,17 +778,26 @@ impl Solver {
                 .collect(),
             wait_set: tenpai.then(|| WaitSet::from_tile_set(&mut self.decomposer, &folded)),
         });
-        STRUCTURE_CACHE.with(|cache| cache.borrow_mut().insert13(hand_key, Arc::clone(&value)));
-        value
+        if use_cache {
+            STRUCTURE_CACHE
+                .with(|cache| cache.borrow_mut().insert13(hand_key, Arc::clone(&value)));
+        }
+        (value, false)
     }
 
-    fn structure14(&mut self, hand: &[u8; N_KINDS]) -> Arc<Structure14> {
+    fn structure14(
+        &mut self,
+        hand: &[u8; N_KINDS],
+        use_cache: bool,
+    ) -> (Arc<Structure14>, bool) {
         let hand_key = key(hand);
-        if let Some(value) = STRUCTURE_CACHE.with(|cache| cache.borrow_mut().get14(hand_key)) {
-            profile::bump(&profile::STRUCTURE_CACHE_HITS, 1);
-            return value;
+        if use_cache {
+            if let Some(value) =
+                STRUCTURE_CACHE.with(|cache| cache.borrow_mut().get14(hand_key))
+            {
+                return (value, true);
+            }
         }
-        profile::bump(&profile::STRUCTURE_CACHE_MISSES, 1);
         let (shanten, keep) = self.lut.analyze_14(&fold34(hand));
         let discards = if shanten == -1 {
             Vec::new()
@@ -741,8 +816,11 @@ impl Solver {
             tenpai: shanten <= 0,
             discards,
         });
-        STRUCTURE_CACHE.with(|cache| cache.borrow_mut().insert14(hand_key, Arc::clone(&value)));
-        value
+        if use_cache {
+            STRUCTURE_CACHE
+                .with(|cache| cache.borrow_mut().insert14(hand_key, Arc::clone(&value)));
+        }
+        (value, false)
     }
 
     fn build13(&mut self, b: &mut Build, hand: [u8; N_KINDS]) -> usize {
@@ -754,7 +832,12 @@ impl Solver {
         b.n13.push(Node13 { hand, shanten: 0, tenpai: false, draws: Vec::new() });
         b.memo13.insert(hk, id);
 
-        let structure = self.structure13(&hand);
+        let (structure, cache_hit) = self.structure13(&hand, b.cache_mode.structure());
+        if cache_hit {
+            b.structure_cache_hits += 1;
+        } else {
+            b.structure_cache_misses += 1;
+        }
 
         let mut draws = Vec::new();
         for &kind in &structure.draw_kinds {
@@ -792,7 +875,12 @@ impl Solver {
         b.n14.push(Node14 { win: false, tenpai: false, discards: Vec::new(), undo: Vec::new() });
         b.memo14.insert(hk, id);
 
-        let structure = self.structure14(&hand);
+        let (structure, cache_hit) = self.structure14(&hand, b.cache_mode.structure());
+        if cache_hit {
+            b.structure_cache_hits += 1;
+        } else {
+            b.structure_cache_misses += 1;
+        }
         // Win nodes are terminal: the hand is closed and tenpai, so riichi is
         // locked — continuing can never beat taking the win (same waits, same
         // score, fewer draws left). Expanding their discards would also let
@@ -832,7 +920,7 @@ impl Solver {
     /// including exact uradora EV when riichi.
     fn score_win(
         &mut self,
-        b: &Build,
+        b: &mut Build,
         hand13: &[u8; N_KINDS],
         wait_set: &WaitSet,
         draw_kind: usize,
@@ -840,15 +928,19 @@ impl Solver {
     ) -> f64 {
         let t = profile::start();
         let cache_key = (b.score_context_id, key(hand13), draw_kind as u8, riichi);
-        if let Some(value) = SCORE_CACHE.with(|cache| cache.borrow_mut().get(cache_key)) {
-            profile::bump(&profile::SCORE_CACHE_HITS, 1);
-            profile::add(&profile::NS_SCORE_WIN, t);
-            profile::bump(&profile::N_SCORE_WIN, 1);
-            return value;
+        if b.cache_mode.score() {
+            if let Some(value) = SCORE_CACHE.with(|cache| cache.borrow_mut().get(cache_key)) {
+                b.score_cache_hits += 1;
+                profile::add(&profile::NS_SCORE_WIN, t);
+                profile::bump(&profile::N_SCORE_WIN, 1);
+                return value;
+            }
         }
-        profile::bump(&profile::SCORE_CACHE_MISSES, 1);
+        b.score_cache_misses += 1;
         let r = self.score_win_inner(b, hand13, wait_set, draw_kind, riichi);
-        SCORE_CACHE.with(|cache| cache.borrow_mut().insert(cache_key, r));
+        if b.cache_mode.score() {
+            SCORE_CACHE.with(|cache| cache.borrow_mut().insert(cache_key, r));
+        }
         profile::add(&profile::NS_SCORE_WIN, t);
         profile::bump(&profile::N_SCORE_WIN, 1);
         r
