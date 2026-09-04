@@ -39,14 +39,13 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::sync::{Arc, OnceLock};
 
-const PROFILE_BUILD_ID: &str = "v2-arena1";
+const PROFILE_BUILD_ID: &str = "v2-stage0";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum CacheMode {
     None,
     Score,
-    Leaf,
-    Arena,
+    All,
 }
 
 impl CacheMode {
@@ -54,31 +53,23 @@ impl CacheMode {
         match std::env::var("RUSTCHI_SOLVER_CACHE_MODE").as_deref() {
             Ok("none") => Self::None,
             Ok("score") => Self::Score,
-            Ok("all") | Ok("leaf") => Self::Leaf,
-            Ok("arena") => Self::Arena,
-            _ => Self::None,
+            _ => Self::All,
         }
     }
 
     fn score(self) -> bool {
-        matches!(self, Self::Score | Self::Leaf)
+        self != Self::None
     }
 
     fn structure(self) -> bool {
-        self == Self::Leaf
-
-    }
-
-    fn arena(self) -> bool {
-        self == Self::Arena
+        self == Self::All
     }
 
     fn label(self) -> &'static str {
         match self {
             Self::None => "none",
             Self::Score => "score",
-            Self::Leaf => "leaf",
-            Self::Arena => "arena",
+            Self::All => "all",
         }
     }
 }
@@ -100,9 +91,6 @@ pub mod profile {
     pub static UNAVAILABLE: AtomicU64 = AtomicU64::new(0);
     pub static NS_GATE: AtomicU64 = AtomicU64::new(0);
     pub static NS_BUILD: AtomicU64 = AtomicU64::new(0);
-    pub static NS_BUILD_INIT: AtomicU64 = AtomicU64::new(0);
-    pub static NS_TOPOLOGY: AtomicU64 = AtomicU64::new(0);
-    pub static NS_MATERIALIZE: AtomicU64 = AtomicU64::new(0);
     pub static NS_DP: AtomicU64 = AtomicU64::new(0);
     pub static NS_STATS: AtomicU64 = AtomicU64::new(0);
     pub static NS_SIMPLE: AtomicU64 = AtomicU64::new(0);
@@ -114,9 +102,6 @@ pub mod profile {
     pub static STRUCTURE_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
     pub static NODES13: AtomicU64 = AtomicU64::new(0);
     pub static NODES14: AtomicU64 = AtomicU64::new(0);
-    pub static TOPOLOGY_PEAK_NODES: AtomicU64 = AtomicU64::new(0);
-    pub static TOPOLOGY_PEAK_BYTES: AtomicU64 = AtomicU64::new(0);
-    pub static TOPOLOGY_CLEARS: AtomicU64 = AtomicU64::new(0);
 
     pub fn enabled() -> bool {
         *ENABLED.get_or_init(|| std::env::var_os("RUSTCHI_ENCODE_PROFILE").is_some())
@@ -138,12 +123,6 @@ pub mod profile {
         }
     }
 
-    pub fn peak(counter: &AtomicU64, value: u64) {
-        if enabled() {
-            counter.fetch_max(value, Ordering::Relaxed);
-        }
-    }
-
     /// One-line human summary of everything since process start.
     pub fn report() -> Option<String> {
         if !enabled() {
@@ -154,20 +133,17 @@ pub mod profile {
         let ms = |c: &AtomicU64| g(c) as f64 / 1e6;
         Some(format!(
             "solver profile: build_id={} cache_mode={}; analyses full={} simple={} unavailable={}; per FULL analysis: \
-             build {:.0} us (init {:.0}, topology {:.0}, materialize {:.0}, score_win {:.0} us over {:.1} calls), dp {:.0} us, \
+             build {:.0} us (of which score_win {:.0} us over {:.1} calls), dp {:.0} us, \
              stats {:.0} us; gate {:.0} us/analysis; simple path {:.0} us/analysis; \
              nodes per full: 13-tile {:.0}, 14-tile {:.0}; totals build {:.0} ms dp {:.0} ms \
              score_win {:.0} ms gate {:.0} ms simple {:.0} ms; score cache hits={} misses={}; \
-             structure cache hits={} misses={}; topology peak={} nodes/~{} MiB clears={}",
+             structure cache hits={} misses={}",
             super::PROFILE_BUILD_ID,
             super::cache_mode().label(),
             g(&FULL),
             g(&SIMPLE),
             g(&UNAVAILABLE),
             g(&NS_BUILD) as f64 / full / 1e3,
-            g(&NS_BUILD_INIT) as f64 / full / 1e3,
-            g(&NS_TOPOLOGY) as f64 / full / 1e3,
-            g(&NS_MATERIALIZE) as f64 / full / 1e3,
             g(&NS_SCORE_WIN) as f64 / full / 1e3,
             g(&N_SCORE_WIN) as f64 / full,
             g(&NS_DP) as f64 / full / 1e3,
@@ -185,9 +161,6 @@ pub mod profile {
             g(&SCORE_CACHE_MISSES),
             g(&STRUCTURE_CACHE_HITS),
             g(&STRUCTURE_CACHE_MISSES),
-            g(&TOPOLOGY_PEAK_NODES),
-            g(&TOPOLOGY_PEAK_BYTES) / (1024 * 1024),
-            g(&TOPOLOGY_CLEARS),
         ))
     }
 }
@@ -434,56 +407,6 @@ impl StructureCache {
     }
 }
 
-const TOPOLOGY_ARENA_CAPACITY: usize = 131072;
-type TopologyKey = (u64, u128);
-
-struct Topology13 {
-    hand: [u8; N_KINDS],
-    shanten: i8,
-    tenpai: bool,
-    draws: Vec<(u8, usize)>,
-    wait_set: Option<Arc<WaitSet>>,
-    visit_generation: u64,
-    local_id: usize,
-}
-
-struct Topology14 {
-    win: bool,
-    tenpai: bool,
-    discards: Vec<(u8, usize)>,
-    visit_generation: u64,
-    local_id: usize,
-}
-
-#[derive(Default)]
-struct TopologyArena {
-    n13: Vec<Topology13>,
-    n14: Vec<Topology14>,
-    memo13: HashMap<TopologyKey, usize>,
-    memo14: HashMap<TopologyKey, usize>,
-    generation: u64,
-    estimated_bytes: usize,
-}
-
-impl TopologyArena {
-    fn clear_if_full(&mut self) -> bool {
-        if self.n13.len() + self.n14.len() < TOPOLOGY_ARENA_CAPACITY {
-            return false;
-        }
-        self.n13.clear();
-        self.n14.clear();
-        self.memo13.clear();
-        self.memo14.clear();
-        self.estimated_bytes = 0;
-        true
-    }
-
-    fn next_generation(&mut self) -> u64 {
-        self.generation = self.generation.wrapping_add(1).max(1);
-        self.generation
-    }
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SolverConfig {
     pub t_max: usize,
@@ -643,14 +566,6 @@ pub struct Solver {
     decomposer: Decomposer<'static>,
     ruleset: Ruleset,
     lut: &'static ShantenLut,
-    topology: TopologyArena,
-    cache_mode: CacheMode,
-    scratch_n13: Vec<Node13>,
-    scratch_n14: Vec<Node14>,
-    scratch_memo13: HashMap<u128, usize>,
-    scratch_memo14: HashMap<u128, usize>,
-    scratch_v13: Vec<[f64; 3]>,
-    scratch_v14: Vec<[f64; 3]>,
 }
 
 struct Build<'a> {
@@ -684,11 +599,7 @@ struct Build<'a> {
 }
 
 impl<'a> Build<'a> {
-    fn new(
-        cfg: &'a SolverConfig,
-        root_hand: &[u8; N_KINDS],
-        cache_mode: CacheMode,
-    ) -> Build<'a> {
+    fn new(cfg: &'a SolverConfig, root_hand: &[u8; N_KINDS]) -> Build<'a> {
         let mut ind34 = [0u8; 34];
         for t in &cfg.dora_indicators {
             ind34[t.normal_encoding() as usize] += 1;
@@ -723,6 +634,7 @@ impl<'a> Build<'a> {
         meld34[22] += meld37[36];
 
         let n_tiles: u32 = fold34(root_hand).0.iter().map(|&c| c as u32).sum();
+        let cache_mode = cache_mode();
         let score_context_id = if cache_mode.score() {
             SCORE_CACHE.with(|cache| cache.borrow_mut().intern_context(ScoringContext::new(cfg)))
         } else {
@@ -758,14 +670,6 @@ impl Solver {
             decomposer: Decomposer::new(),
             ruleset: Ruleset::default(),
             lut: ShantenLut::get(),
-            topology: TopologyArena::default(),
-            cache_mode: cache_mode(),
-            scratch_n13: Vec::new(),
-            scratch_n14: Vec::new(),
-            scratch_memo13: HashMap::default(),
-            scratch_memo14: HashMap::default(),
-            scratch_v13: Vec::new(),
-            scratch_v14: Vec::new(),
         }
     }
 
@@ -775,55 +679,15 @@ impl Solver {
         let root_hand = hand.0;
         let n_tiles: u32 = fold34(&root_hand).0.iter().map(|&c| c as u32).sum();
         let t_build = profile::start();
-        let t_build_init = profile::start();
-        let mut b = Build::new(cfg, &root_hand, self.cache_mode);
-        b.n13 = std::mem::take(&mut self.scratch_n13);
-        b.n14 = std::mem::take(&mut self.scratch_n14);
-        b.memo13 = std::mem::take(&mut self.scratch_memo13);
-        b.memo14 = std::mem::take(&mut self.scratch_memo14);
-        b.n13.clear();
-        b.n14.clear();
-        b.memo13.clear();
-        b.memo14.clear();
-        profile::add(&profile::NS_BUILD_INIT, t_build_init);
+        let mut b = Build::new(cfg, &root_hand);
 
-        let t_topology = profile::start();
-        let arena_root = if b.cache_mode.arena() {
-            if self.topology.clear_if_full() {
-                profile::bump(&profile::TOPOLOGY_CLEARS, 1);
-            }
-            let positive_mask = cfg
-                .copies
-                .iter()
-                .enumerate()
-                .fold(0u64, |mask, (kind, &copies)| mask | ((copies > 0) as u64) << kind);
-            Some(if n_tiles % 3 == 1 {
-                (true, self.ensure_topology13(&mut b, root_hand, positive_mask))
-            } else {
-                (false, self.ensure_topology14(&mut b, root_hand, positive_mask))
-            })
-        } else {
-            None
-        };
-        profile::add(&profile::NS_TOPOLOGY, t_topology);
-        let generation = arena_root.map(|_| self.topology.next_generation());
-
-        let t_materialize = profile::start();
         let root_stats: Vec<(Option<u8>, usize)> = if n_tiles % 3 == 1 {
-            let id = if let Some((true, topology_id)) = arena_root {
-                self.build13_from_topology(&mut b, topology_id, generation.unwrap())
-            } else {
-                self.build13(&mut b, root_hand)
-            };
+            let id = self.build13(&mut b, root_hand);
             vec![(None, id)]
         } else {
             // 14 tiles: the root is itself a graph node; its min-shanten
             // discards are the candidates.
-            let root_id = if let Some((false, topology_id)) = arena_root {
-                self.build14_from_topology(&mut b, topology_id, generation.unwrap())
-            } else {
-                self.build14(&mut b, root_hand)
-            };
+            let root_id = self.build14(&mut b, root_hand);
             b.n14[root_id]
                 .discards
                 .clone()
@@ -831,7 +695,6 @@ impl Solver {
                 .map(|(k, id)| (Some(k), id))
                 .collect()
         };
-        profile::add(&profile::NS_MATERIALIZE, t_materialize);
 
         profile::add(&profile::NS_BUILD, t_build);
         profile::bump(&profile::SCORE_CACHE_HITS, b.score_cache_hits);
@@ -840,13 +703,8 @@ impl Solver {
         profile::bump(&profile::STRUCTURE_CACHE_MISSES, b.structure_cache_misses);
         profile::bump(&profile::NODES13, b.n13.len() as u64);
         profile::bump(&profile::NODES14, b.n14.len() as u64);
-        profile::peak(
-            &profile::TOPOLOGY_PEAK_NODES,
-            (self.topology.n13.len() + self.topology.n14.len()) as u64,
-        );
-        profile::peak(&profile::TOPOLOGY_PEAK_BYTES, self.topology.estimated_bytes as u64);
         let t_dp = profile::start();
-        let (v13, v14) = self.run_dp(&b);
+        let (v13, _v14) = self.run_dp(&b);
         profile::add(&profile::NS_DP, t_dp);
         let t_stats = profile::start();
 
@@ -886,195 +744,13 @@ impl Solver {
             .collect();
         profile::add(&profile::NS_STATS, t_stats);
 
-        let searched = b.n13.len() + b.n14.len();
-        self.scratch_n13 = b.n13;
-        self.scratch_n14 = b.n14;
-        self.scratch_memo13 = b.memo13;
-        self.scratch_memo14 = b.memo14;
-        self.scratch_v13 = v13;
-        self.scratch_v14 = v14;
-        (stats, searched)
+        (stats, b.n13.len() + b.n14.len())
     }
 
     /// Wall copies of kind `k` unseen from `hand`'s perspective.
     fn wall_count(b: &Build, hand: &[u8; N_KINDS], k: usize) -> u8 {
         let ind = if k < 34 { b.ind34[k] } else { 0 };
         b.cfg.copies[k].saturating_sub(hand[k]).saturating_sub(ind).saturating_sub(b.meld37[k])
-    }
-
-    fn ensure_topology13(
-        &mut self,
-        b: &mut Build,
-        hand: [u8; N_KINDS],
-        positive_mask: u64,
-    ) -> usize {
-        let topology_key = (positive_mask, key(&hand));
-        if let Some(&id) = self.topology.memo13.get(&topology_key) {
-            b.structure_cache_hits += 1;
-            return id;
-        }
-        b.structure_cache_misses += 1;
-        let id = self.topology.n13.len();
-        self.topology.memo13.insert(topology_key, id);
-        self.topology.n13.push(Topology13 {
-            hand,
-            shanten: 0,
-            tenpai: false,
-            draws: Vec::new(),
-            wait_set: None,
-            visit_generation: 0,
-            local_id: 0,
-        });
-
-        let folded = fold34(&hand);
-        let (shanten, advancing) = self.lut.analyze_13(&folded);
-        let tenpai = shanten == 0;
-        let wait_set =
-            tenpai.then(|| Arc::new(WaitSet::from_tile_set(&mut self.decomposer, &folded)));
-        let mut draws = Vec::new();
-        for kind in 0..N_KINDS {
-            if positive_mask & (1 << kind) == 0
-                || advancing & (1 << fold_kind(kind)) == 0
-            {
-                continue;
-            }
-            let mut child = hand;
-            child[kind] += 1;
-            let child_id = self.ensure_topology14(b, child, positive_mask);
-            draws.push((kind as u8, child_id));
-        }
-        self.topology.estimated_bytes += std::mem::size_of::<Topology13>()
-            + draws.capacity() * std::mem::size_of::<(u8, usize)>()
-            + wait_set.as_ref().map_or(0, |_| std::mem::size_of::<WaitSet>());
-        let node = &mut self.topology.n13[id];
-        node.shanten = shanten;
-        node.tenpai = tenpai;
-        node.draws = draws;
-        node.wait_set = wait_set;
-        id
-    }
-
-    fn ensure_topology14(
-        &mut self,
-        b: &mut Build,
-        hand: [u8; N_KINDS],
-        positive_mask: u64,
-    ) -> usize {
-        let topology_key = (positive_mask, key(&hand));
-        if let Some(&id) = self.topology.memo14.get(&topology_key) {
-            b.structure_cache_hits += 1;
-            return id;
-        }
-        b.structure_cache_misses += 1;
-        let id = self.topology.n14.len();
-        self.topology.memo14.insert(topology_key, id);
-        self.topology.n14.push(Topology14 {
-            win: false,
-            tenpai: false,
-            discards: Vec::new(),
-            visit_generation: 0,
-            local_id: 0,
-        });
-
-        let (shanten, keep) = self.lut.analyze_14(&fold34(&hand));
-        let mut discards = Vec::new();
-        if shanten != -1 {
-            for kind in 0..N_KINDS {
-                if hand[kind] == 0 || keep & (1 << fold_kind(kind)) == 0 {
-                    continue;
-                }
-                let mut child = hand;
-                child[kind] -= 1;
-                let child_id = self.ensure_topology13(b, child, positive_mask);
-                discards.push((kind as u8, child_id));
-            }
-        }
-        self.topology.estimated_bytes += std::mem::size_of::<Topology14>()
-            + discards.capacity() * std::mem::size_of::<(u8, usize)>();
-        let node = &mut self.topology.n14[id];
-        node.win = shanten == -1;
-        node.tenpai = shanten <= 0;
-        node.discards = discards;
-        id
-    }
-
-    fn build13_from_topology(
-        &mut self,
-        b: &mut Build,
-        topology_id: usize,
-        generation: u64,
-    ) -> usize {
-        let topology = &mut self.topology.n13[topology_id];
-        if topology.visit_generation == generation {
-            return topology.local_id;
-        }
-        let id = b.n13.len();
-        topology.visit_generation = generation;
-        topology.local_id = id;
-        let hand = topology.hand;
-        let shanten = topology.shanten;
-        let tenpai = topology.tenpai;
-        let draw_topology = topology.draws.clone();
-        let wait_set = topology.wait_set.clone();
-        b.n13.push(Node13 { hand, shanten, tenpai, draws: Vec::new() });
-
-        let hk = key(&hand);
-        let mut draws = Vec::new();
-        for (kind, child_topology) in draw_topology {
-            let k = kind as usize;
-            let w = Self::wall_count(b, &hand, k);
-            if w == 0 {
-                continue;
-            }
-            let score = if tenpai {
-                let riichi = b.menzen && b.root13_key != Some(hk);
-                self.score_win(b, &hand, wait_set.as_ref().unwrap(), k, riichi)
-            } else {
-                0.0
-            };
-            let to = self.build14_from_topology(b, child_topology, generation);
-            b.n14[to].undo.push(id);
-            draws.push(DrawEdge { kind, w, to, score, synthetic: false });
-        }
-        b.n13[id].draws = draws;
-        id
-    }
-
-    fn build14_from_topology(
-        &mut self,
-        b: &mut Build,
-        topology_id: usize,
-        generation: u64,
-    ) -> usize {
-        let topology = &mut self.topology.n14[topology_id];
-        if topology.visit_generation == generation {
-            return topology.local_id;
-        }
-        let id = b.n14.len();
-        topology.visit_generation = generation;
-        topology.local_id = id;
-        let win = topology.win;
-        let tenpai = topology.tenpai;
-        let discard_topology = topology.discards.clone();
-        b.n14.push(Node14 { win, tenpai, discards: Vec::new(), undo: Vec::new() });
-
-        let mut discards = Vec::new();
-        for (kind, child_topology) in discard_topology {
-            let child = self.build13_from_topology(b, child_topology, generation);
-            let w = Self::wall_count(b, &b.n13[child].hand, kind as usize);
-            if w > 0 {
-                b.n13[child].draws.push(DrawEdge {
-                    kind,
-                    w,
-                    to: id,
-                    score: 0.0,
-                    synthetic: true,
-                });
-            }
-            discards.push((kind, child));
-        }
-        b.n14[id].discards = discards;
-        id
     }
 
     fn structure13(
@@ -1410,15 +1086,11 @@ impl Solver {
     }
 
     /// Backward DP over turns. Values per node: [tenpai_prob, win_prob, exp_score].
-    fn run_dp(&mut self, b: &Build) -> (Vec<[f64; 3]>, Vec<[f64; 3]>) {
+    fn run_dp(&self, b: &Build) -> (Vec<[f64; 3]>, Vec<[f64; 3]>) {
         let t_max = b.cfg.t_max;
         let stride = t_max + 1;
-        let mut v13 = std::mem::take(&mut self.scratch_v13);
-        let mut v14 = std::mem::take(&mut self.scratch_v14);
-        v13.resize(b.n13.len() * stride, [0.0; 3]);
-        v14.resize(b.n14.len() * stride, [0.0; 3]);
-        v13.fill([0.0; 3]);
-        v14.fill([0.0; 3]);
+        let mut v13 = vec![[0.0f64; 3]; b.n13.len() * stride];
+        let mut v14 = vec![[0.0f64; 3]; b.n14.len() * stride];
 
         // Boundary t = t_max for 13-tile nodes.
         for (i, n) in b.n13.iter().enumerate() {
@@ -1553,7 +1225,7 @@ impl Solver {
 
         profile::bump(&profile::SIMPLE, 1);
         let t_simple = profile::start();
-        let b = Build::new(cfg, &hand.0, self.cache_mode);
+        let b = Build::new(cfg, &hand.0);
         let stats = if n_tiles % 3 == 2 {
             let mut v = Vec::new();
             for k in 0..N_KINDS {
@@ -1631,7 +1303,7 @@ impl Solver {
             return 0.0; // yakuless
         }
 
-        let b = Build::new(cfg, &hand13, self.cache_mode);
+        let b = Build::new(cfg, &hand13);
         let all34 = fold34(&hand.0);
         let dora: u8 = cfg
             .dora_indicators
@@ -1686,7 +1358,7 @@ impl Solver {
     pub fn graph_json(&mut self, hand: &TileSet37, cfg: &SolverConfig) -> String {
         let root_hand = hand.0;
         let n_tiles: u32 = fold34(&root_hand).0.iter().map(|&c| c as u32).sum();
-        let mut b = Build::new(cfg, &root_hand, self.cache_mode);
+        let mut b = Build::new(cfg, &root_hand);
         let root = if n_tiles % 3 == 1 {
             let id = self.build13(&mut b, root_hand);
             format!("{{\"type\":13,\"id\":{id}}}")
@@ -2012,7 +1684,6 @@ mod tests {
         let hand = hand_from_mpsz("123456789m11p56s");
         let cfg = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
         let mut solver = Solver::new();
-        solver.cache_mode = CacheMode::Score;
 
         let first = solver.analyze(&hand, &cfg);
         let cached_entries = SCORE_CACHE.with(|cache| cache.borrow().values.len());
@@ -2040,7 +1711,6 @@ mod tests {
 
         clear_solver_caches();
         let mut solver = Solver::new();
-        solver.cache_mode = CacheMode::Leaf;
         let _ = solver.analyze(&hand, &base);
         let cached_nodes = STRUCTURE_CACHE.with(|cache| {
             let cache = cache.borrow();
@@ -2057,29 +1727,5 @@ mod tests {
             cached_nodes,
             "same root should reuse all cached node structure"
         );
-    }
-
-    #[test]
-    fn topology_arena_is_exact_and_reused() {
-        let hand = hand_from_mpsz("123456789m11p56s");
-        let base = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
-        let mut changed = base.clone();
-        changed.t_max = 9;
-        changed.copies[21] = 0;
-
-        let mut uncached = Solver::new();
-        uncached.cache_mode = CacheMode::None;
-        let expected = uncached.analyze(&hand, &changed);
-
-        let mut arena = Solver::new();
-        arena.cache_mode = CacheMode::Arena;
-        let first = arena.analyze(&hand, &base);
-        let actual = arena.analyze(&hand, &changed);
-        let nodes = arena.topology.n13.len() + arena.topology.n14.len();
-        let repeated = arena.analyze(&hand, &base);
-
-        assert_eq!(actual, expected);
-        assert_eq!(repeated, first);
-        assert_eq!(arena.topology.n13.len() + arena.topology.n14.len(), nodes);
     }
 }
