@@ -33,6 +33,95 @@ use riichi::rules::Ruleset;
 use riichi_decomp::{Decomposer, ShantenLut, WaitSet};
 use riichi_elements::prelude::*;
 use rustc_hash::FxHashMap as HashMap;
+use serde::{Deserialize, Serialize};
+use serde_big_array::BigArray;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::sync::Arc;
+
+/// Opt-in phase timers (env `RUSTCHI_ENCODE_PROFILE`), process-global.
+pub mod profile {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::OnceLock;
+    use std::time::Instant;
+
+    static ENABLED: OnceLock<bool> = OnceLock::new();
+    pub static FULL: AtomicU64 = AtomicU64::new(0);
+    pub static SIMPLE: AtomicU64 = AtomicU64::new(0);
+    pub static UNAVAILABLE: AtomicU64 = AtomicU64::new(0);
+    pub static NS_GATE: AtomicU64 = AtomicU64::new(0);
+    pub static NS_BUILD: AtomicU64 = AtomicU64::new(0);
+    pub static NS_DP: AtomicU64 = AtomicU64::new(0);
+    pub static NS_STATS: AtomicU64 = AtomicU64::new(0);
+    pub static NS_SIMPLE: AtomicU64 = AtomicU64::new(0);
+    pub static NS_SCORE_WIN: AtomicU64 = AtomicU64::new(0);
+    pub static N_SCORE_WIN: AtomicU64 = AtomicU64::new(0);
+    pub static SCORE_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+    pub static SCORE_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
+    pub static STRUCTURE_CACHE_HITS: AtomicU64 = AtomicU64::new(0);
+    pub static STRUCTURE_CACHE_MISSES: AtomicU64 = AtomicU64::new(0);
+    pub static NODES13: AtomicU64 = AtomicU64::new(0);
+    pub static NODES14: AtomicU64 = AtomicU64::new(0);
+
+    pub fn enabled() -> bool {
+        *ENABLED.get_or_init(|| std::env::var_os("RUSTCHI_ENCODE_PROFILE").is_some())
+    }
+
+    pub fn start() -> Option<Instant> {
+        enabled().then(Instant::now)
+    }
+
+    pub fn add(counter: &AtomicU64, start: Option<Instant>) {
+        if let Some(t) = start {
+            counter.fetch_add(t.elapsed().as_nanos() as u64, Ordering::Relaxed);
+        }
+    }
+
+    pub fn bump(counter: &AtomicU64, by: u64) {
+        if enabled() {
+            counter.fetch_add(by, Ordering::Relaxed);
+        }
+    }
+
+    /// One-line human summary of everything since process start.
+    pub fn report() -> Option<String> {
+        if !enabled() {
+            return None;
+        }
+        let g = |c: &AtomicU64| c.load(Ordering::Relaxed);
+        let full = g(&FULL).max(1) as f64;
+        let ms = |c: &AtomicU64| g(c) as f64 / 1e6;
+        Some(format!(
+            "solver profile: analyses full={} simple={} unavailable={}; per FULL analysis: \
+             build {:.0} us (of which score_win {:.0} us over {:.1} calls), dp {:.0} us, \
+             stats {:.0} us; gate {:.0} us/analysis; simple path {:.0} us/analysis; \
+             nodes per full: 13-tile {:.0}, 14-tile {:.0}; totals build {:.0} ms dp {:.0} ms \
+             score_win {:.0} ms gate {:.0} ms simple {:.0} ms; score cache hits={} misses={}; \
+             structure cache hits={} misses={}",
+            g(&FULL),
+            g(&SIMPLE),
+            g(&UNAVAILABLE),
+            g(&NS_BUILD) as f64 / full / 1e3,
+            g(&NS_SCORE_WIN) as f64 / full / 1e3,
+            g(&N_SCORE_WIN) as f64 / full,
+            g(&NS_DP) as f64 / full / 1e3,
+            g(&NS_STATS) as f64 / full / 1e3,
+            g(&NS_GATE) as f64 / (g(&FULL) + g(&SIMPLE) + g(&UNAVAILABLE)).max(1) as f64 / 1e3,
+            g(&NS_SIMPLE) as f64 / g(&SIMPLE).max(1) as f64 / 1e3,
+            g(&NODES13) as f64 / full,
+            g(&NODES14) as f64 / full,
+            ms(&NS_BUILD),
+            ms(&NS_DP),
+            ms(&NS_SCORE_WIN),
+            ms(&NS_GATE),
+            ms(&NS_SIMPLE),
+            g(&SCORE_CACHE_HITS),
+            g(&SCORE_CACHE_MISSES),
+            g(&STRUCTURE_CACHE_HITS),
+            g(&STRUCTURE_CACHE_MISSES),
+        ))
+    }
+}
 
 pub const T_MAX: usize = 18;
 /// Obs-path horizon convention: actual tsumos left, capped at 17. Callers
@@ -116,6 +205,167 @@ fn key(hand: &[u8; N_KINDS]) -> u128 {
     k
 }
 
+const SCORE_CACHE_CAPACITY: usize = 16384;
+const SCORE_CONTEXT_CAPACITY: usize = 256;
+
+#[derive(Eq, PartialEq)]
+struct ScoringContext {
+    dora_indicators: Vec<u8>,
+    round_kyoku: u8,
+    round_honba: u8,
+    seat: u8,
+    bonus_han: u8,
+    enable_uradora: bool,
+    melds: Vec<u8>,
+    dora_map: [u8; 34],
+    copies: [u8; N_KINDS],
+}
+
+impl ScoringContext {
+    fn new(cfg: &SolverConfig) -> Self {
+        let mut melds = Vec::new();
+        for meld in &cfg.melds {
+            let tag = match meld {
+                Meld::Chii(_) => 0,
+                Meld::Pon(_) => 1,
+                Meld::Kakan(_) => 2,
+                Meld::Daiminkan(_) => 3,
+                Meld::Ankan(_) => 4,
+                Meld::Kita(_) => 5,
+            };
+            let tiles = meld.to_tiles();
+            melds.extend([tag, tiles.len() as u8]);
+            melds.extend(tiles.into_iter().map(|tile| tile.encoding()));
+            melds.push(meld.called().map_or(u8::MAX, |tile| tile.encoding()));
+            melds.push(meld.dir().map_or(u8::MAX, |dir| dir.to_usize() as u8));
+        }
+        Self {
+            dora_indicators: cfg.dora_indicators.iter().map(|tile| tile.encoding()).collect(),
+            round_kyoku: cfg.round_id.kyoku,
+            round_honba: cfg.round_id.honba,
+            seat: cfg.seat.to_usize() as u8,
+            bonus_han: cfg.bonus_han,
+            enable_uradora: cfg.enable_uradora,
+            melds,
+            dora_map: cfg.dora_map,
+            copies: cfg.copies,
+        }
+    }
+}
+
+type ScoreKey = (u64, u128, u8, bool);
+
+struct ScoreCache {
+    contexts: VecDeque<(ScoringContext, u64)>,
+    next_context_id: u64,
+    clock: u64,
+    values: HashMap<ScoreKey, (f64, u64)>,
+    recency: VecDeque<(ScoreKey, u64)>,
+}
+
+impl Default for ScoreCache {
+    fn default() -> Self {
+        Self {
+            contexts: VecDeque::new(),
+            next_context_id: 0,
+            clock: 0,
+            values: HashMap::default(),
+            recency: VecDeque::new(),
+        }
+    }
+}
+
+impl ScoreCache {
+    fn intern_context(&mut self, context: ScoringContext) -> u64 {
+        if let Some((_, id)) = self.contexts.iter().find(|(known, _)| known == &context) {
+            return *id;
+        }
+        let id = self.next_context_id;
+        self.next_context_id = self.next_context_id.wrapping_add(1);
+        if self.contexts.len() == SCORE_CONTEXT_CAPACITY {
+            self.contexts.pop_front();
+        }
+        self.contexts.push_back((context, id));
+        id
+    }
+
+    fn get(&mut self, key: ScoreKey) -> Option<f64> {
+        let (value, generation) = self.values.get_mut(&key)?;
+        self.clock = self.clock.wrapping_add(1);
+        *generation = self.clock;
+        self.recency.push_back((key, self.clock));
+        Some(*value)
+    }
+
+    fn insert(&mut self, key: ScoreKey, value: f64) {
+        self.clock = self.clock.wrapping_add(1);
+        self.values.insert(key, (value, self.clock));
+        self.recency.push_back((key, self.clock));
+        while self.values.len() > SCORE_CACHE_CAPACITY {
+            let Some((old_key, old_generation)) = self.recency.pop_front() else {
+                break;
+            };
+            if self.values.get(&old_key).map(|(_, generation)| *generation) == Some(old_generation)
+            {
+                self.values.remove(&old_key);
+            }
+        }
+    }
+}
+
+thread_local! {
+    static SCORE_CACHE: RefCell<ScoreCache> = RefCell::new(ScoreCache::default());
+    static STRUCTURE_CACHE: RefCell<StructureCache> = RefCell::new(StructureCache::default());
+}
+
+const STRUCTURE_CACHE_CAPACITY: usize = 65536;
+
+#[derive(Clone)]
+struct Structure13 {
+    shanten: i8,
+    tenpai: bool,
+    draw_kinds: Vec<u8>,
+    wait_set: Option<WaitSet>,
+}
+
+#[derive(Clone)]
+struct Structure14 {
+    win: bool,
+    tenpai: bool,
+    discards: Vec<(u8, [u8; N_KINDS])>,
+}
+
+#[derive(Default)]
+struct StructureCache {
+    n13: HashMap<u128, Arc<Structure13>>,
+    n14: HashMap<u128, Arc<Structure14>>,
+}
+
+impl StructureCache {
+    fn get13(&mut self, hand_key: u128) -> Option<Arc<Structure13>> {
+        self.n13.get(&hand_key).map(Arc::clone)
+    }
+
+    fn insert13(&mut self, hand_key: u128, value: Arc<Structure13>) {
+        if self.n13.len() >= STRUCTURE_CACHE_CAPACITY {
+            self.n13.clear();
+        }
+        self.n13.insert(hand_key, value);
+    }
+
+    fn get14(&mut self, hand_key: u128) -> Option<Arc<Structure14>> {
+        self.n14.get(&hand_key).map(Arc::clone)
+    }
+
+    fn insert14(&mut self, hand_key: u128, value: Arc<Structure14>) {
+        if self.n14.len() >= STRUCTURE_CACHE_CAPACITY {
+            self.n14.clear();
+        }
+        self.n14.insert(hand_key, value);
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct SolverConfig {
     pub t_max: usize,
     /// Total wall tiles (unseen from the root hand's perspective).
@@ -135,6 +385,7 @@ pub struct SolverConfig {
     /// Callers should derive this in exactly one place --- `riichi_elements::Variant` has
     /// `num_copies_34` for the tile-kind half; the red-five split is the caller's, since the
     /// number of reds is implied by the wall array rather than by the variant.
+    #[serde(with = "BigArray")]
     pub copies: [u8; N_KINDS],
 
     /// Indicator -> dora map over the 34 normal kinds.
@@ -142,6 +393,7 @@ pub struct SolverConfig {
     /// Also data. Sanma's manzu chain is 1m <-> 9m rather than `n % 9 + 1`, because 2m--8m are
     /// not in the set --- a solver told the wrong chain misvalues every hand holding a terminal
     /// manzu whenever a manzu indicator is up.
+    #[serde(with = "BigArray")]
     pub dora_map: [u8; 34],
 
     /// Flat han added to every winning hand, before dora.
@@ -167,8 +419,13 @@ impl SolverConfig {
     /// Reference-parity defaults for a given root hand size (closed tiles), over the standard
     /// 136-tile set.
     pub fn new(root_tiles: u32, dora_indicators: Vec<Tile>) -> Self {
-        Self::new_in(DEFAULT_WALL_SIZE, DEFAULT_COPIES, DEFAULT_DORA_MAP, root_tiles,
-                     dora_indicators)
+        Self::new_in(
+            DEFAULT_WALL_SIZE,
+            DEFAULT_COPIES,
+            DEFAULT_DORA_MAP,
+            root_tiles,
+            dora_indicators,
+        )
     }
 
     /// As [`Self::new`], but over an explicitly described tile set.
@@ -183,8 +440,10 @@ impl SolverConfig {
         dora_indicators: Vec<Tile>,
     ) -> Self {
         debug_assert_eq!(
-            copies.iter().map(|&c| c as u32).sum::<u32>(), wall_size,
-            "copies table does not add up to the stated wall size");
+            copies.iter().map(|&c| c as u32).sum::<u32>(),
+            wall_size,
+            "copies table does not add up to the stated wall size"
+        );
         let sum = wall_size - root_tiles - dora_indicators.len() as u32;
         SolverConfig {
             t_max: T_MAX,
@@ -217,6 +476,7 @@ impl SolverConfig {
 }
 
 /// Result for one root discard candidate (or the whole hand for a 13-tile root).
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Stat {
     /// Discarded tile kind (37-encoding), or None for a 13-tile root.
     pub tile: Option<u8>,
@@ -288,6 +548,7 @@ struct Build<'a> {
     /// reached via a discard and scores as riichi. (No collision is possible:
     /// a tenpai root's graph contains no other 13-node with the same hand.)
     root13_key: Option<u128>,
+    score_context_id: u64,
 }
 
 impl<'a> Build<'a> {
@@ -326,6 +587,8 @@ impl<'a> Build<'a> {
         meld34[22] += meld37[36];
 
         let n_tiles: u32 = fold34(root_hand).0.iter().map(|&c| c as u32).sum();
+        let score_context_id =
+            SCORE_CACHE.with(|cache| cache.borrow_mut().intern_context(ScoringContext::new(cfg)));
         Build {
             cfg,
             ind34,
@@ -339,8 +602,10 @@ impl<'a> Build<'a> {
             memo13: HashMap::default(),
             memo14: HashMap::default(),
             root13_key: (n_tiles % 3 == 1).then(|| key(root_hand)),
+            score_context_id,
         }
     }
+
 }
 
 impl Solver {
@@ -357,6 +622,7 @@ impl Solver {
     pub fn solve(&mut self, hand: &TileSet37, cfg: &SolverConfig) -> (Vec<Stat>, usize) {
         let root_hand = hand.0;
         let n_tiles: u32 = fold34(&root_hand).0.iter().map(|&c| c as u32).sum();
+        let t_build = profile::start();
         let mut b = Build::new(cfg, &root_hand);
 
         let root_stats: Vec<(Option<u8>, usize)> = if n_tiles % 3 == 1 {
@@ -374,7 +640,13 @@ impl Solver {
                 .collect()
         };
 
+        profile::add(&profile::NS_BUILD, t_build);
+        profile::bump(&profile::NODES13, b.n13.len() as u64);
+        profile::bump(&profile::NODES14, b.n14.len() as u64);
+        let t_dp = profile::start();
         let (v13, _v14) = self.run_dp(&b);
+        profile::add(&profile::NS_DP, t_dp);
+        let t_stats = profile::start();
 
         let stats = root_stats
             .into_iter()
@@ -407,16 +679,10 @@ impl Solver {
                     win_prob[t] = v[1];
                     exp_score[t] = v[2];
                 }
-                Stat {
-                    tile,
-                    shanten: node.shanten,
-                    tenpai_prob,
-                    win_prob,
-                    exp_score,
-                    necessary,
-                }
+                Stat { tile, shanten: node.shanten, tenpai_prob, win_prob, exp_score, necessary }
             })
             .collect();
+        profile::add(&profile::NS_STATS, t_stats);
 
         (stats, b.n13.len() + b.n14.len())
     }
@@ -424,10 +690,59 @@ impl Solver {
     /// Wall copies of kind `k` unseen from `hand`'s perspective.
     fn wall_count(b: &Build, hand: &[u8; N_KINDS], k: usize) -> u8 {
         let ind = if k < 34 { b.ind34[k] } else { 0 };
-        b.cfg.copies[k]
-            .saturating_sub(hand[k])
-            .saturating_sub(ind)
-            .saturating_sub(b.meld37[k])
+        b.cfg.copies[k].saturating_sub(hand[k]).saturating_sub(ind).saturating_sub(b.meld37[k])
+    }
+
+    fn structure13(&mut self, hand: &[u8; N_KINDS]) -> Arc<Structure13> {
+        let hand_key = key(hand);
+        if let Some(value) = STRUCTURE_CACHE.with(|cache| cache.borrow_mut().get13(hand_key)) {
+            profile::bump(&profile::STRUCTURE_CACHE_HITS, 1);
+            return value;
+        }
+        profile::bump(&profile::STRUCTURE_CACHE_MISSES, 1);
+        let folded = fold34(hand);
+        let (shanten, advancing) = self.lut.analyze_13(&folded);
+        let tenpai = shanten == 0;
+        let value = Arc::new(Structure13 {
+            shanten,
+            tenpai,
+            draw_kinds: (0..N_KINDS)
+                .filter(|&kind| advancing & (1 << fold_kind(kind)) != 0)
+                .map(|kind| kind as u8)
+                .collect(),
+            wait_set: tenpai.then(|| WaitSet::from_tile_set(&mut self.decomposer, &folded)),
+        });
+        STRUCTURE_CACHE.with(|cache| cache.borrow_mut().insert13(hand_key, Arc::clone(&value)));
+        value
+    }
+
+    fn structure14(&mut self, hand: &[u8; N_KINDS]) -> Arc<Structure14> {
+        let hand_key = key(hand);
+        if let Some(value) = STRUCTURE_CACHE.with(|cache| cache.borrow_mut().get14(hand_key)) {
+            profile::bump(&profile::STRUCTURE_CACHE_HITS, 1);
+            return value;
+        }
+        profile::bump(&profile::STRUCTURE_CACHE_MISSES, 1);
+        let (shanten, keep) = self.lut.analyze_14(&fold34(hand));
+        let discards = if shanten == -1 {
+            Vec::new()
+        } else {
+            (0..N_KINDS)
+                .filter(|&kind| hand[kind] > 0 && keep & (1 << fold_kind(kind)) != 0)
+                .map(|kind| {
+                    let mut child = *hand;
+                    child[kind] -= 1;
+                    (kind as u8, child)
+                })
+                .collect()
+        };
+        let value = Arc::new(Structure14 {
+            win: shanten == -1,
+            tenpai: shanten <= 0,
+            discards,
+        });
+        STRUCTURE_CACHE.with(|cache| cache.borrow_mut().insert14(hand_key, Arc::clone(&value)));
+        value
     }
 
     fn build13(&mut self, b: &mut Build, hand: [u8; N_KINDS]) -> usize {
@@ -436,54 +751,34 @@ impl Solver {
             return id;
         }
         let id = b.n13.len();
-        b.n13.push(Node13 {
-            hand,
-            shanten: 0,
-            tenpai: false,
-            draws: Vec::new(),
-        });
+        b.n13.push(Node13 { hand, shanten: 0, tenpai: false, draws: Vec::new() });
         b.memo13.insert(hk, id);
 
-        let (s13, advancing) = self.lut.analyze_13(&fold34(&hand));
-        let tenpai = s13 == 0;
-        // Wait set of the 13-tile hand, needed to score winning draws.
-        let wait_set = if tenpai {
-            Some(WaitSet::from_tile_set(&mut self.decomposer, &fold34(&hand)))
-        } else {
-            None
-        };
+        let structure = self.structure13(&hand);
 
         let mut draws = Vec::new();
-        for k in 0..N_KINDS {
-            if advancing & (1 << fold_kind(k)) == 0 {
-                continue;
-            }
+        for &kind in &structure.draw_kinds {
+            let k = kind as usize;
             let w = Self::wall_count(b, &hand, k);
             if w == 0 {
                 continue;
             }
             let mut h2 = hand;
             h2[k] += 1;
-            let score = if tenpai {
+            let score = if structure.tenpai {
                 // Riichi requires menzen; the 13-tile root additionally has
                 // not declared yet (declaration happens on a discard).
                 let riichi = b.menzen && b.root13_key != Some(hk);
-                self.score_win(b, &hand, wait_set.as_ref().unwrap(), k, riichi)
+                self.score_win(b, &hand, structure.wait_set.as_ref().unwrap(), k, riichi)
             } else {
                 0.0
             };
             let to = self.build14(b, h2);
             b.n14[to].undo.push(id);
-            draws.push(DrawEdge {
-                kind: k as u8,
-                w,
-                to,
-                score,
-                synthetic: false,
-            });
+            draws.push(DrawEdge { kind: k as u8, w, to, score, synthetic: false });
         }
-        b.n13[id].shanten = s13;
-        b.n13[id].tenpai = tenpai;
+        b.n13[id].shanten = structure.shanten;
+        b.n13[id].tenpai = structure.tenpai;
         b.n13[id].draws = draws;
         id
     }
@@ -494,42 +789,23 @@ impl Solver {
             return id;
         }
         let id = b.n14.len();
-        b.n14.push(Node14 {
-            win: false,
-            tenpai: false,
-            discards: Vec::new(),
-            undo: Vec::new(),
-        });
+        b.n14.push(Node14 { win: false, tenpai: false, discards: Vec::new(), undo: Vec::new() });
         b.memo14.insert(hk, id);
 
-        let (s14, keep) = self.lut.analyze_14(&fold34(&hand));
+        let structure = self.structure14(&hand);
         // Win nodes are terminal: the hand is closed and tenpai, so riichi is
         // locked — continuing can never beat taking the win (same waits, same
         // score, fewer draws left). Expanding their discards would also let
         // the graph wander between tenpai hands unboundedly.
-        let discards: Vec<(u8, usize)> = if s14 == -1 {
-            Vec::new()
-        } else {
-            // Min-shanten discards only (shanten-back off): a 14-tile hand's
-            // shanten equals its best discard's, so these are exactly the
-            // keep-shanten discards.
-            let mut cand: Vec<(u8, [u8; N_KINDS])> = Vec::new();
-            for k in 0..N_KINDS {
-                if hand[k] == 0 || keep & (1 << fold_kind(k)) == 0 {
-                    continue;
-                }
-                let mut h2 = hand;
-                h2[k] -= 1;
-                cand.push((k as u8, h2));
-            }
+        let discards: Vec<(u8, usize)> = {
             // Each discard edge also gets a reverse draw edge (redrawing the
             // discarded tile back into this 14-tile hand), letting the DP
             // revisit the discard choice later. This adds edges between
             // existing vertices only, and never duplicates an advancing
             // draw: a min-shanten discard means parent and child shanten are
             // equal, so the redraw is shanten-neutral.
-            cand.into_iter()
-                .map(|(k, h)| {
+            structure.discards.iter()
+                .map(|&(k, h)| {
                     let child = self.build13(b, h);
                     let w = Self::wall_count(b, &b.n13[child].hand.clone(), k as usize);
                     if w > 0 {
@@ -546,8 +822,8 @@ impl Solver {
                 .collect()
         };
         let n = &mut b.n14[id];
-        n.win = s14 == -1;
-        n.tenpai = s14 <= 0;
+        n.win = structure.win;
+        n.tenpai = structure.tenpai;
         n.discards = discards;
         id
     }
@@ -555,6 +831,30 @@ impl Solver {
     /// Expected winner gain for drawing `draw_kind` into tenpai `hand13`,
     /// including exact uradora EV when riichi.
     fn score_win(
+        &mut self,
+        b: &Build,
+        hand13: &[u8; N_KINDS],
+        wait_set: &WaitSet,
+        draw_kind: usize,
+        riichi: bool,
+    ) -> f64 {
+        let t = profile::start();
+        let cache_key = (b.score_context_id, key(hand13), draw_kind as u8, riichi);
+        if let Some(value) = SCORE_CACHE.with(|cache| cache.borrow_mut().get(cache_key)) {
+            profile::bump(&profile::SCORE_CACHE_HITS, 1);
+            profile::add(&profile::NS_SCORE_WIN, t);
+            profile::bump(&profile::N_SCORE_WIN, 1);
+            return value;
+        }
+        profile::bump(&profile::SCORE_CACHE_MISSES, 1);
+        let r = self.score_win_inner(b, hand13, wait_set, draw_kind, riichi);
+        SCORE_CACHE.with(|cache| cache.borrow_mut().insert(cache_key, r));
+        profile::add(&profile::NS_SCORE_WIN, t);
+        profile::bump(&profile::N_SCORE_WIN, 1);
+        r
+    }
+
+    fn score_win_inner(
         &mut self,
         b: &Build,
         hand13: &[u8; N_KINDS],
@@ -574,10 +874,7 @@ impl Solver {
             round_id: b.cfg.round_id,
             winner: b.cfg.seat,
             closed_hand: &closed,
-            riichi: riichi.then_some(riichi::model::Riichi {
-                is_double: false,
-                is_ippatsu: false,
-            }),
+            riichi: riichi.then_some(riichi::model::Riichi { is_double: false, is_ippatsu: false }),
             melds: std::borrow::Cow::Borrowed(&b.cfg.melds),
             wait_set,
             contributor: b.cfg.seat,
@@ -626,14 +923,8 @@ impl Solver {
                 })
                 .max()
                 .unwrap_or(0);
-            distribute_points(
-                &self.ruleset,
-                b.cfg.round_id,
-                false,
-                b.cfg.seat,
-                b.cfg.seat,
-                basic,
-            )[b.cfg.seat.to_usize()] as f64
+            distribute_points(&self.ruleset, b.cfg.round_id, false, b.cfg.seat, b.cfg.seat, basic)
+                [b.cfg.seat.to_usize()] as f64
         };
 
         if !riichi || !b.cfg.enable_uradora || b.cfg.dora_indicators.is_empty() {
@@ -744,12 +1035,7 @@ impl Solver {
         (v13, v14)
     }
 
-    fn node14_value(
-        n: &Node14,
-        v13: &[[f64; 3]],
-        stride: usize,
-        t: usize,
-    ) -> [f64; 3] {
+    fn node14_value(n: &Node14, v13: &[[f64; 3]], stride: usize, t: usize) -> [f64; 3] {
         let mut best = [0.0f64; 3];
         for &(_, d) in &n.discards {
             let v = v13[d * stride + t];
@@ -780,6 +1066,7 @@ impl Default for Solver {
 }
 
 /// Ukeire-only result beyond the shanten gate.
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct SimpleStat {
     /// Discarded tile kind (37-encoding), or None for a 13-tile root.
     pub tile: Option<u8>,
@@ -794,6 +1081,7 @@ pub struct SimpleStat {
     pub necessary: Vec<(u8, u8)>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub enum Analysis {
     /// Root shanten <= [`SHANTEN_GATE`]: full tenpai/win/EV tables.
     Full { stats: Vec<Stat>, searched: usize },
@@ -804,15 +1092,27 @@ pub enum Analysis {
     Unavailable,
 }
 
+/// One exact solver-boundary capture record, suitable for JSONL replay.
+#[derive(Debug, Deserialize, Serialize)]
+pub struct CaptureRecord {
+    #[serde(with = "BigArray")]
+    pub hand: [u8; N_KINDS],
+    pub cfg: SolverConfig,
+    pub analysis: Analysis,
+}
+
 impl Solver {
     /// Production entry point: preconditions, then the shanten gate decides
     /// full DP vs ukeire-only simple mode. Works for action states (3N+2
     /// closed tiles: per-candidate stats) and reaction states (3N+1: a
     /// single current-hand stat).
     pub fn analyze(&mut self, hand: &TileSet37, cfg: &SolverConfig) -> Analysis {
+        let t_gate = profile::start();
         let folded = fold34(&hand.0);
         let n_tiles: u32 = folded.0.iter().map(|&c| c as u32).sum();
         if cfg.t_max == 0 || (cfg.sum as usize) <= cfg.t_max {
+            profile::add(&profile::NS_GATE, t_gate);
+            profile::bump(&profile::UNAVAILABLE, 1);
             return Analysis::Unavailable;
         }
         let shanten = if n_tiles % 3 == 2 {
@@ -820,14 +1120,19 @@ impl Solver {
         } else {
             self.lut.analyze_13(&folded).0
         };
+        profile::add(&profile::NS_GATE, t_gate);
         if shanten == -1 {
+            profile::bump(&profile::UNAVAILABLE, 1);
             return Analysis::Unavailable;
         }
         if shanten <= SHANTEN_GATE {
+            profile::bump(&profile::FULL, 1);
             let (stats, searched) = self.solve(hand, cfg);
             return Analysis::Full { stats, searched };
         }
 
+        profile::bump(&profile::SIMPLE, 1);
+        let t_simple = profile::start();
         let b = Build::new(cfg, &hand.0);
         let stats = if n_tiles % 3 == 2 {
             let mut v = Vec::new();
@@ -855,6 +1160,7 @@ impl Solver {
                 necessary: necessary_from_mask(&b, &hand.0, adv),
             }]
         };
+        profile::add(&profile::NS_SIMPLE, t_simple);
         Analysis::Simple { shanten, stats }
     }
 
@@ -914,12 +1220,7 @@ impl Solver {
             .sum::<u8>()
             + b.meld_dora;
         let aka: u8 = hand.0[34] + hand.0[35] + hand.0[36] + b.meld_aka;
-        let dh = DoraHits {
-            dora,
-            ura_dora: 0,
-            aka_dora: aka,
-            nuki_dora: cfg.bonus_han,
-        };
+        let dh = DoraHits { dora, ura_dora: 0, aka_dora: aka, nuki_dora: cfg.bonus_han };
         let basic = candidates
             .iter()
             .map(|c| {
@@ -983,12 +1284,7 @@ impl Solver {
             let edges: Vec<String> = n
                 .draws
                 .iter()
-                .map(|e| {
-                    format!(
-                        "[{},{},{},{},{}]",
-                        e.kind, e.w, e.to, e.score, e.synthetic as u8
-                    )
-                })
+                .map(|e| format!("[{},{},{},{},{}]", e.kind, e.w, e.to, e.score, e.synthetic as u8))
                 .collect();
             out.push_str(&format!(
                 "{{\"hand\":[{}],\"tenpai\":{},\"draws\":[{}]}}",
@@ -1002,11 +1298,8 @@ impl Solver {
             if i > 0 {
                 out.push(',');
             }
-            let discards: Vec<String> = n
-                .discards
-                .iter()
-                .map(|(k, d)| format!("[{k},{d}]"))
-                .collect();
+            let discards: Vec<String> =
+                n.discards.iter().map(|(k, d)| format!("[{k},{d}]")).collect();
             out.push_str(&format!(
                 "{{\"win\":{},\"tenpai\":{},\"discards\":[{}]}}",
                 n.win,
@@ -1028,6 +1321,11 @@ pub fn hand_from_mpsz(s: &str) -> TileSet37 {
 mod tests {
     use super::*;
 
+    fn clear_solver_caches() {
+        SCORE_CACHE.with(|cache| *cache.borrow_mut() = ScoreCache::default());
+        STRUCTURE_CACHE.with(|cache| *cache.borrow_mut() = StructureCache::default());
+    }
+
     trait TileExt {
         fn from_str_checked(s: &str) -> Tile;
     }
@@ -1041,8 +1339,10 @@ mod tests {
     /// Build the sanma tile set as an explicit copies table: no 2m--8m, no 5m, no red 5m.
     fn sanma_copies() -> [u8; N_KINDS] {
         let mut c = DEFAULT_COPIES;
-        for k in 1..=7 { c[k] = 0; }   // 2m..8m
-        c[RED_BASE] = 0;              // red 5m (kind 4 is 5m, already zeroed above)
+        for k in 1..=7 {
+            c[k] = 0;
+        } // 2m..8m
+        c[RED_BASE] = 0; // red 5m (kind 4 is 5m, already zeroed above)
         c
     }
 
@@ -1069,8 +1369,7 @@ mod tests {
         let indicators = vec![Tile::from_str_checked("3z")];
 
         let yonma = SolverConfig::new(13, indicators.clone());
-        let sanma = SolverConfig::new_in(
-            108, sanma_copies(), sanma_dora_map(), 13, indicators);
+        let sanma = SolverConfig::new_in(108, sanma_copies(), sanma_dora_map(), 13, indicators);
 
         assert_eq!(yonma.sum, 136 - 13 - 1, "yonma wall size unchanged");
         assert_eq!(sanma.sum, 108 - 13 - 1, "sanma counts a 108-tile set");
@@ -1088,12 +1387,17 @@ mod tests {
         let (nec_s, win_s) = unpack(&solver.analyze(&hand, &sanma));
 
         // No phantom manzu is ever offered as an improving draw under the sanma table.
-        assert!(nec_s.iter().all(|(k, w)| !(1..=7).contains(k) || *w == 0),
-                "sanma offered phantom manzu: {:?}", nec_s);
+        assert!(
+            nec_s.iter().all(|(k, w)| !(1..=7).contains(k) || *w == 0),
+            "sanma offered phantom manzu: {:?}",
+            nec_s
+        );
 
         // The table is actually consulted: a smaller wall changes the draw probabilities.
-        assert!((win_y - win_s).abs() > 1e-9,
-                "copies table / wall size never reached the DP: win_prob identical ({win_y})");
+        assert!(
+            (win_y - win_s).abs() > 1e-9,
+            "copies table / wall size never reached the DP: win_prob identical ({win_y})"
+        );
         // ... and it is not merely `sum` doing the work -- yonma still counts 2m--8m as unseen.
         // ADR 0010's "28 phantom manzu" are 2m--8m x 4. In the 37-kind representation that is
         // 27 normal copies plus the red 5m, which lives at kind 34 rather than at kind 4 --
@@ -1101,8 +1405,11 @@ mod tests {
         let phantom_wall: u32 = (1..=7).map(|k| DEFAULT_COPIES[k] as u32).sum::<u32>()
             + DEFAULT_COPIES[RED_BASE] as u32;
         assert_eq!(phantom_wall, 28, "the 28 phantom manzu ADR 0010 names");
-        assert_eq!((1..=7).map(|k| sanma_copies()[k] as u32).sum::<u32>()
-                       + sanma_copies()[RED_BASE] as u32, 0);
+        assert_eq!(
+            (1..=7).map(|k| sanma_copies()[k] as u32).sum::<u32>()
+                + sanma_copies()[RED_BASE] as u32,
+            0
+        );
         let _ = nec_y;
     }
 
@@ -1129,18 +1436,19 @@ mod tests {
         let hand = hand_from_mpsz("119m123456789p11s");
         let indicators = vec![Tile::from_str_checked("3z")];
 
-        let base = SolverConfig::new_in(
-            108, sanma_copies(), sanma_dora_map(), 13, indicators.clone());
-        let with_kita = SolverConfig::new_in(
-            108, sanma_copies(), sanma_dora_map(), 13, indicators).with_bonus_han(3);
+        let base =
+            SolverConfig::new_in(108, sanma_copies(), sanma_dora_map(), 13, indicators.clone());
+        let with_kita = SolverConfig::new_in(108, sanma_copies(), sanma_dora_map(), 13, indicators)
+            .with_bonus_han(3);
 
         assert_eq!(base.bonus_han, 0);
         assert_eq!(with_kita.bonus_han, 3);
 
         fn ev(solver: &mut Solver, hand: &TileSet37, cfg: &SolverConfig) -> f64 {
             match solver.analyze(hand, cfg) {
-                Analysis::Full { stats, .. } =>
-                    stats[0].exp_score.iter().cloned().fold(0.0, f64::max),
+                Analysis::Full { stats, .. } => {
+                    stats[0].exp_score.iter().cloned().fold(0.0, f64::max)
+                }
                 _ => panic!("expected the full DP"),
             }
         }
@@ -1163,8 +1471,12 @@ mod tests {
         }
         for k in 0..34u8 {
             let t = Tile::from_encoding(k).unwrap();
-            assert_eq!(DEFAULT_DORA_MAP[k as usize], t.indicated_dora().normal_encoding(),
-                       "dora_map[{}]", k);
+            assert_eq!(
+                DEFAULT_DORA_MAP[k as usize],
+                t.indicated_dora().normal_encoding(),
+                "dora_map[{}]",
+                k
+            );
         }
     }
 
@@ -1235,15 +1547,9 @@ mod tests {
         assert_eq!(pts, pts2);
         // Incomplete hand: no agari, no points.
         let junk = hand_from_mpsz("1147m258p369s123z");
-        assert_eq!(
-            solver.min_tsumo_points(&junk, Tile::from_str_checked("1m"), &cfg),
-            0.0
-        );
+        assert_eq!(solver.min_tsumo_points(&junk, Tile::from_str_checked("1m"), &cfg), 0.0);
         // Winning tile absent from the hand.
-        assert_eq!(
-            solver.min_tsumo_points(&hand, Tile::from_str_checked("1z"), &cfg),
-            0.0
-        );
+        assert_eq!(solver.min_tsumo_points(&hand, Tile::from_str_checked("1z"), &cfg), 0.0);
     }
 
     #[test]
@@ -1278,5 +1584,56 @@ mod tests {
         // v17 = 8 / (122 - 17)
         assert!((s.win_prob[17] - 8.0 / 105.0).abs() < 1e-12);
         assert_eq!(s.tenpai_prob[1], 1.0);
+    }
+
+    #[test]
+    fn score_cache_is_bit_exact_and_reused() {
+        clear_solver_caches();
+        let hand = hand_from_mpsz("123456789m11p56s");
+        let cfg = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        let mut solver = Solver::new();
+
+        let first = solver.analyze(&hand, &cfg);
+        let cached_entries = SCORE_CACHE.with(|cache| cache.borrow().values.len());
+        assert!(cached_entries > 0, "tenpai analysis did not populate score cache");
+        let second = solver.analyze(&hand, &cfg);
+
+        assert_eq!(first, second);
+        assert_eq!(
+            SCORE_CACHE.with(|cache| cache.borrow().values.len()),
+            cached_entries,
+            "identical analysis should reuse score entries"
+        );
+    }
+
+    #[test]
+    fn warm_structure_is_exact_when_wall_weights_change() {
+        let hand = hand_from_mpsz("123456789m11p56s");
+        let base = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        let mut changed = SolverConfig::new(13, vec![Tile::from_str_checked("3p")]);
+        changed.t_max = 9;
+        changed.copies[21] = 0; // 4s is a structural wait, but absent from this wall.
+
+        clear_solver_caches();
+        let expected = Solver::new().analyze(&hand, &changed);
+
+        clear_solver_caches();
+        let mut solver = Solver::new();
+        let _ = solver.analyze(&hand, &base);
+        let cached_nodes = STRUCTURE_CACHE.with(|cache| {
+            let cache = cache.borrow();
+            cache.n13.len() + cache.n14.len()
+        });
+        let actual = solver.analyze(&hand, &changed);
+
+        assert_eq!(actual, expected);
+        assert_eq!(
+            STRUCTURE_CACHE.with(|cache| {
+                let cache = cache.borrow();
+                cache.n13.len() + cache.n14.len()
+            }),
+            cached_nodes,
+            "same root should reuse all cached node structure"
+        );
     }
 }

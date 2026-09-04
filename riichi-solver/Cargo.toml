@@ -8,6 +8,8 @@ riichi = { path = "../riichi", version = "0.1.0" }
 riichi-decomp = { path = "../riichi-decomp", version = "0.1.0" }
 riichi-elements = { path = "../riichi-elements", features = ["std"], version = "0.1.0" }
 rustc-hash.workspace = true
+serde.workspace = true
+serde-big-array.workspace = true
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 
 [dev-dependencies]
-serde_json = { workspace = true }
