@@ -51,9 +51,10 @@ enum CacheMode {
 impl CacheMode {
     fn from_env() -> Self {
         match std::env::var("RUSTCHI_SOLVER_CACHE_MODE").as_deref() {
-            Ok("none") => Self::None,
             Ok("score") => Self::Score,
-            _ => Self::All,
+            Ok("all") => Self::All,
+            _ if cfg!(test) => Self::All,
+            _ => Self::None,
         }
     }
 
